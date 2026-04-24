@@ -30,4 +30,18 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | GA Engine (Python FastAPI)
+    |--------------------------------------------------------------------------
+    | url      : base URL Python FastAPI, default localhost:8001
+    | timeout  : detik tunggu sebelum timeout (GA bisa lama)
+    | use_mock : true = pakai mock (testing), false = hubungi Python langsung
+    */
+    'ga_engine' => [
+        'url'      => env('GA_ENGINE_URL', 'http://127.0.0.1:8001'),
+        'timeout'  => env('GA_ENGINE_TIMEOUT', 120),
+        'use_mock' => env('GA_ENGINE_USE_MOCK', true),
+    ],
+
 ];

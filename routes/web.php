@@ -11,7 +11,7 @@ use App\Http\Controllers\DashboardController;
 */
 
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [LoginController::class, 'login'])->name('login.post');
+Route::post('/login', [LoginController::class, 'login'])->name('login.post')->middleware('throttle:5,1');
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 /*
@@ -24,18 +24,38 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Notifications
+    Route::prefix('notifications')->name('notifications.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\NotificationController::class, 'index'])->name('index');
+        Route::post('{id}/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('read');
+        Route::post('read-all', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('read-all');
+    });
+
     /*
     |------------------------------------------------------------------
     | Master Data
     |------------------------------------------------------------------
     */
     Route::prefix('master')->name('master.')->group(function () {
+        Route::get('categories/datatable', [\App\Http\Controllers\Master\ItemCategoryController::class, 'datatable'])->name('categories.datatable');
         Route::resource('categories', \App\Http\Controllers\Master\ItemCategoryController::class);
+
+        Route::get('units/datatable', [\App\Http\Controllers\Master\UnitController::class, 'datatable'])->name('units.datatable');
         Route::resource('units', \App\Http\Controllers\Master\UnitController::class);
+
+        Route::get('suppliers/datatable', [\App\Http\Controllers\Master\SupplierController::class, 'datatable'])->name('suppliers.datatable');
         Route::resource('suppliers', \App\Http\Controllers\Master\SupplierController::class);
+
+        Route::get('affinities/datatable', [\App\Http\Controllers\Master\ItemAffinityController::class, 'datatable'])->name('affinities.datatable');
+        Route::get('affinities',           [\App\Http\Controllers\Master\ItemAffinityController::class, 'index'])->name('affinities.index');
+
+        Route::get('items/datatable', [\App\Http\Controllers\Master\ItemController::class, 'datatable'])->name('items.datatable');
+        Route::get('items/template',  [\App\Http\Controllers\Master\ItemController::class, 'downloadTemplate'])->name('items.template');
+        Route::post('items/import',   [\App\Http\Controllers\Master\ItemController::class, 'import'])->name('items.import');
+        Route::get('items/scan',      [\App\Http\Controllers\Master\ItemController::class, 'scanPage'])->name('items.scan');
+        Route::get('items/lookup',    [\App\Http\Controllers\Master\ItemController::class, 'lookup'])->name('items.lookup');
         Route::resource('items', \App\Http\Controllers\Master\ItemController::class);
-        Route::get('items/{item}/barcode', [\App\Http\Controllers\Master\ItemController::class, 'barcode'])
-            ->name('items.barcode');
+        Route::get('items/{item}/barcode', [\App\Http\Controllers\Master\ItemController::class, 'barcode'])->name('items.barcode');
     });
 
     /*
@@ -44,12 +64,21 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('location')->name('location.')->group(function () {
+        Route::get('warehouses/datatable', [\App\Http\Controllers\Location\WarehouseController::class, 'datatable'])->name('warehouses.datatable');
         Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class);
+
+        Route::get('zones/datatable', [\App\Http\Controllers\Location\ZoneController::class, 'datatable'])->name('zones.datatable');
         Route::resource('zones', \App\Http\Controllers\Location\ZoneController::class);
+
+        Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
         Route::resource('racks', \App\Http\Controllers\Location\RackController::class);
+
+        Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');
+        Route::get('cells/scan',      [\App\Http\Controllers\Location\CellController::class, 'scanPage'])->name('cells.scan');
+        Route::get('cells/lookup',    [\App\Http\Controllers\Location\CellController::class, 'lookup'])->name('cells.lookup');
         Route::resource('cells', \App\Http\Controllers\Location\CellController::class);
-        Route::get('cells/{cell}/stock', [\App\Http\Controllers\Location\CellController::class, 'stockDetail'])
-            ->name('cells.stock');
+        Route::get('cells/{cell}/stock',    [\App\Http\Controllers\Location\CellController::class, 'stockDetail'])->name('cells.stock');
+        Route::get('cells/{cell}/qr-label', [\App\Http\Controllers\Location\CellController::class, 'qrLabel'])->name('cells.qr-label');
     });
 
     /*
@@ -58,25 +87,44 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('inbound')->name('inbound.')->group(function () {
+        Route::get('orders/datatable', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'datatable'])->name('orders.datatable');
         Route::resource('orders', \App\Http\Controllers\Inbound\InboundOrderController::class);
         Route::post('orders/{order}/sync-erp', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'syncFromErp'])
             ->name('orders.sync-erp');
+        // STEP 1: Operator konfirmasi qty fisik di dock
+        Route::post('orders/{order}/confirm-qty', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'confirmQty'])
+            ->name('orders.confirm-qty');
+        // STEP 2: Supervisor trigger GA
         Route::post('orders/{order}/process-ga', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'processGA'])
-            ->name('orders.process-ga');
+            ->name('orders.process-ga')->middleware('role:admin,supervisor');
+        // STEP 3: Supervisor accept / reject rekomendasi GA
+        Route::post('orders/{order}/ga/{recommendation}/accept', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'acceptGa'])
+            ->name('orders.ga.accept')->middleware('role:admin,supervisor');
+        Route::post('orders/{order}/ga/{recommendation}/reject', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'rejectGa'])
+            ->name('orders.ga.reject')->middleware('role:admin,supervisor');
     });
 
     /*
     |------------------------------------------------------------------
-    | Put-Away (Penempatan Barang + Konfirmasi Barcode)
+    | Put-Away — Penempatan Barang via QR Scan (STEP 4)
     |------------------------------------------------------------------
     */
     Route::prefix('putaway')->name('putaway.')->group(function () {
+        // Daftar order yang sudah accepted dan siap di-put-away
         Route::get('/', [\App\Http\Controllers\PutAway\PutAwayController::class, 'index'])->name('index');
+        // Detail order + rekomendasi GA per item
         Route::get('{order}', [\App\Http\Controllers\PutAway\PutAwayController::class, 'show'])->name('show');
-        Route::post('{recommendation}/confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'confirm'])->name('confirm');
-        Route::post('{recommendation}/override', [\App\Http\Controllers\PutAway\PutAwayController::class, 'override'])
+        // AJAX: resolve cell dari QR code scan
+        Route::post('scan-qr', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanQr'])->name('scan-qr');
+        // AJAX: rekomendasi cell alternatif ketika cell GA penuh
+        Route::get('{order}/alternative-cells', [\App\Http\Controllers\PutAway\PutAwayController::class, 'alternativeCells'])
+            ->name('alternative-cells');
+        // AJAX: operator konfirmasi penempatan per item
+        Route::post('{order}/items/{detail}/confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'confirm'])
+            ->name('confirm');
+        // AJAX: supervisor override lokasi
+        Route::post('{order}/items/{detail}/override', [\App\Http\Controllers\PutAway\PutAwayController::class, 'override'])
             ->name('override')->middleware('role:admin,supervisor');
-        Route::post('scan-barcode', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanBarcode'])->name('scan-barcode');
     });
 
     /*
@@ -123,11 +171,42 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     /*
     |------------------------------------------------------------------
+    | Stock Opname — Hitung Stok Fisik dengan Scan Barcode
+    |------------------------------------------------------------------
+    */
+    Route::prefix('opname')->name('opname.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'index'])->name('index');
+        Route::get('create', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'store'])->name('store');
+        // AJAX — harus di atas route wildcard {opname}
+        Route::get('lookup-item', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'lookupItem'])->name('lookup-item');
+        // Wildcard routes
+        Route::get('{opname}', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'show'])->name('show');
+        Route::get('{opname}/scan', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'scan'])->name('scan');
+        Route::post('{opname}/complete', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'complete'])->name('complete')->middleware('role:admin,supervisor');
+        Route::post('{opname}/items', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'saveItem'])->name('save-item');
+        Route::delete('{opname}/items/{item}', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'destroyItem'])->name('destroy-item');
+    });
+
+    /*
+    |------------------------------------------------------------------
     | User & Role Management (Admin only)
     |------------------------------------------------------------------
     */
     Route::middleware('role:admin')->group(function () {
+        // API Token Management
+        Route::get('api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'index'])->name('api-tokens.index');
+        Route::post('api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'store'])->name('api-tokens.store');
+        Route::delete('api-tokens/{id}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
+
+        Route::get('users/datatable', [\App\Http\Controllers\UserManagement\UserController::class, 'datatable'])->name('users.datatable');
         Route::resource('users', \App\Http\Controllers\UserManagement\UserController::class);
+
+        Route::get('roles/datatable', [\App\Http\Controllers\UserManagement\RoleController::class, 'datatable'])->name('roles.datatable');
         Route::resource('roles', \App\Http\Controllers\UserManagement\RoleController::class);
+
+        // Audit Log (admin + supervisor dapat melihat)
+        Route::get('audit', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('audit.index');
+        Route::get('audit/datatable', [\App\Http\Controllers\AuditLogController::class, 'datatable'])->name('audit.datatable');
     });
 });

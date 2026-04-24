@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<title>AD UC6+UC7 – Proses Inbound & Generate Rekomendasi GA</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,sans-serif;background:#fff;padding:24px;}
+  h1{font-size:17px;font-weight:700;color:#000;margin-bottom:4px;}
+  h2{font-size:12px;font-weight:400;color:#333;margin-bottom:16px;}
+  .wrap{border:1px solid #ccc;padding:16px;overflow:auto;max-height:92vh;}
+  .note{background:#f5f5f5;border:1px solid #888;border-radius:6px;padding:10px 14px;
+    font-size:11.5px;color:#000;margin-top:12px;line-height:1.6;}
+  svg{display:block;}
+</style>
+</head>
+<body>
+<h1>Activity Diagram – UC6: Proses Inbound &amp; UC7: Generate Rekomendasi GA</h1>
+<h2>WMS Avian: Optimasi Penempatan Barang Menggunakan Genetic Algorithm | Darren Christopher (C14220119)</h2>
+<div class="wrap">
+<svg width="975" height="1240" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ah" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+    <polygon points="0 0,9 3.5,0 7" fill="#000"/>
+  </marker>
+</defs>
+
+<!-- ── backgrounds ── -->
+<rect x="0"   y="0" width="975" height="1240" fill="#fff"/>
+<rect x="0"   y="58" width="195" height="1182" fill="#F2F2F2"/>
+<rect x="195" y="58" width="195" height="1182" fill="#F2F2F2"/>
+<rect x="390" y="58" width="195" height="1182" fill="#E8E8E8"/>
+<rect x="585" y="58" width="390" height="1182" fill="#F0F0F0"/>
+
+<!-- ── headers ── -->
+<rect x="0"   y="0" width="195" height="58" fill="#000"/>
+<rect x="195" y="0" width="195" height="58" fill="#000"/>
+<rect x="390" y="0" width="195" height="58" fill="#000"/>
+<rect x="585" y="0" width="390" height="58" fill="#000"/>
+
+<!-- ── lane dividers ── -->
+<line x1="195" y1="0" x2="195" y2="1240" stroke="#AAA" stroke-width="1"/>
+<line x1="390" y1="0" x2="390" y2="1240" stroke="#AAA" stroke-width="1"/>
+<line x1="585" y1="0" x2="585" y2="1240" stroke="#AAA" stroke-width="1"/>
+<line x1="780" y1="58" x2="780" y2="1240" stroke="#CCC" stroke-width="0.7" stroke-dasharray="5,4"/>
+
+<!-- ── header texts ── -->
+<text x="97"  y="29" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">ERP System</text>
+<text x="292" y="29" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Admin / Supervisor</text>
+<text x="487" y="29" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">WMS System</text>
+<text x="780" y="21" text-anchor="middle" font-size="11" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">GA Module</text>
+<text x="780" y="40" text-anchor="middle" font-size="9.5" fill="#ddd" font-family="Arial,sans-serif">(Algoritma Genetika)</text>
+
+<!-- ── outer border ── -->
+<rect x="0" y="0" width="975" height="1240" fill="none" stroke="#000" stroke-width="2"/>
+
+<!-- START -->
+<circle cx="487" cy="78" r="11" fill="#000"/>
+
+<!-- 1. ERP: Membuat Surat Jalan -->
+<path d="M487 89 L487 109 L97 109 L97 132" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<rect x="14" y="132" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="97" y="147" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Membuat Surat Jalan /</text>
+<text x="97" y="161" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Dokumen Inbound</text>
+
+<!-- 2. Admin: Memilih & Import -->
+<path d="M97 172 L97 192 L292 192 L292 210" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<rect x="209" y="210" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="292" y="225" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Memilih &amp; Import</text>
+<text x="292" y="239" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Data Inbound</text>
+
+<!-- 3. WMS: Fetch data via API -->
+<path d="M292 250 L292 270 L487 270 L487 286" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<rect x="404" y="286" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="487" y="301" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Fetch data inbound</text>
+<text x="487" y="315" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">via API ERP</text>
+
+<!-- 4. Decision: Data valid? -->
+<line x1="487" y1="326" x2="487" y2="358" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<polygon points="487,360 553,388 487,416 421,388" fill="#000" stroke="#000" stroke-width="1.5"/>
+<text x="487" y="383" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Data valid?</text>
+<text x="487" y="396" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Item di master?</text>
+
+<!-- Tidak → error -->
+<path d="M421 388 L292 388 L292 440" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<text x="348" y="380" text-anchor="middle" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Tidak</text>
+<rect x="209" y="440" width="166" height="40" rx="8" fill="#D8D8D8" stroke="#000" stroke-width="1.5"/>
+<text x="292" y="455" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Tampilkan notifikasi</text>
+<text x="292" y="469" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">error ke Admin</text>
+<line x1="292" y1="480" x2="292" y2="496" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<!-- Error End -->
+<circle cx="292" cy="508" r="9" fill="none" stroke="#000" stroke-width="2"/>
+<line x1="287" y1="503" x2="297" y2="513" stroke="#000" stroke-width="2"/>
+<line x1="297" y1="503" x2="287" y2="513" stroke="#000" stroke-width="2"/>
+
+<!-- Ya → Buat inbound_transaction -->
+<line x1="487" y1="416" x2="487" y2="440" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="500" y="431" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Ya</text>
+<rect x="404" y="440" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="487" y="455" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Buat inbound_transaction</text>
+<text x="487" y="469" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">&amp; inbound_details</text>
+
+<!-- 5. Admin: Review data inbound -->
+<path d="M487 480 L487 500 L292 500 L292 518" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<rect x="209" y="518" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="292" y="543" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Review data inbound</text>
+
+<!-- 6. Admin: Jalankan Optimasi GA -->
+<line x1="292" y1="558" x2="292" y2="596" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="209" y="596" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="292" y="621" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Jalankan Optimasi GA</text>
+
+<!-- 7. GA: Inisialisasi populasi -->
+<path d="M292 636 L292 656 L682 656 L682 674" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<rect x="599" y="674" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="682" y="689" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Inisialisasi populasi</text>
+<text x="682" y="703" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">(kromosom acak: X=[c₁,c₂,...,cₙ])</text>
+
+<!-- Loop merge diamond (small black) -->
+<line x1="682" y1="714" x2="682" y2="762" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<polygon points="682,764 696,776 682,788 668,776" fill="#000" stroke="#000" stroke-width="1.5"/>
+
+<!-- 8. GA: Evaluasi fitness -->
+<line x1="682" y1="788" x2="682" y2="800" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="599" y="800" width="166" height="44" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="682" y="816" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Evaluasi fitness kromosom</text>
+<text x="682" y="830" text-anchor="middle" font-size="9.5" fill="#000" font-family="Arial,sans-serif">FC_CAP+FC_CAT+FC_AFF+FC_SPLIT</text>
+
+<!-- 9. Decision: Terminasi terpenuhi? -->
+<line x1="682" y1="844" x2="682" y2="870" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<polygon points="682,872 748,900 682,928 616,900" fill="#000" stroke="#000" stroke-width="1.5"/>
+<text x="682" y="895" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Terminasi</text>
+<text x="682" y="908" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">terpenuhi?</text>
+
+<!-- Tidak → GA iterasi loop (right side of wide GA lane) -->
+<path d="M748 900 L877 900 L877 932" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<text x="810" y="892" text-anchor="middle" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Tidak</text>
+<text x="877" y="922" text-anchor="middle" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Iterasi Generasi (GA Loop)</text>
+<rect x="801" y="930" width="152" height="130" rx="8" fill="#f5f5f5" stroke="#000" stroke-width="1" stroke-dasharray="5,3"/>
+<rect x="807" y="936" width="140" height="34" rx="6" fill="#e8e8e8" stroke="#000" stroke-width="1.5"/>
+<text x="877" y="948" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">Seleksi</text>
+<text x="877" y="961" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">(Tournament)</text>
+<line x1="877" y1="970" x2="877" y2="980" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="807" y="980" width="140" height="34" rx="6" fill="#e8e8e8" stroke="#000" stroke-width="1.5"/>
+<text x="877" y="992" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">Crossover</text>
+<text x="877" y="1005" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">(One-Point)</text>
+<line x1="877" y1="1014" x2="877" y2="1024" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="807" y="1024" width="140" height="34" rx="6" fill="#e8e8e8" stroke="#000" stroke-width="1.5"/>
+<text x="877" y="1036" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">Mutasi</text>
+<text x="877" y="1049" text-anchor="middle" font-size="10" fill="#000" font-family="Arial,sans-serif">(Random Swap)</text>
+<!-- Loop back: Mutasi → merge diamond -->
+<path d="M877 1058 L877 1076 L786 1076 L786 776 L696 776" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+
+<!-- Ya → Ambil kromosom terbaik -->
+<line x1="682" y1="928" x2="682" y2="956" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="694" y="940" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Ya</text>
+<rect x="599" y="956" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="682" y="971" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Ambil kromosom terbaik</text>
+<text x="682" y="985" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">(solusi optimal)</text>
+
+<!-- 10. WMS: Simpan GA recommendation -->
+<path d="M682 996 L682 1016 L487 1016 L487 1032" stroke="#000" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+<rect x="404" y="1032" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="487" y="1047" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Simpan GA recommendation</text>
+<text x="487" y="1061" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">(ga_recommendations)</text>
+
+<!-- 11. WMS: Tampilkan rekomendasi di visualisasi 3D -->
+<line x1="487" y1="1072" x2="487" y2="1110" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="404" y="1110" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="487" y="1125" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Tampilkan rekomendasi</text>
+<text x="487" y="1139" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">di visualisasi 3D</text>
+
+<!-- END -->
+<line x1="487" y1="1150" x2="487" y2="1186" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<circle cx="487" cy="1204" r="14" fill="none" stroke="#000" stroke-width="2.5"/>
+<circle cx="487" cy="1204" r="9"  fill="#000"/>
+
+</svg>
+</div>
+
+<div class="note">
+  <b>Catatan:</b> Diagram ini mencakup <b>UC6 – Proses Inbound</b> dan <b>UC7 – Generate Rekomendasi GA</b>. UC7 adalah relasi &lt;&lt;include&gt;&gt; dari UC6 (dijalankan otomatis saat Admin mengonfirmasi data inbound). Hasil rekomendasi GA menjadi input untuk <b>AD1b (UC8): Konfirmasi Put-Away &amp; Scan Barcode</b>.<br/>
+  Fitness: FC_CAP (kapasitas cell) + FC_CAT (kesesuaian kategori zona) + FC_AFF (afinitas produk) + FC_SPLIT (penalti split location).
+</div>
+</body>
+</html>

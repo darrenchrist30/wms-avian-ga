@@ -2,15 +2,21 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Item extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Auditable;
+
+    public function getAuditLabel(): string
+    {
+        return $this->sku . ' – ' . $this->name;
+    }
 
     protected $fillable = [
-        'category_id', 'unit_id', 'sku', 'erp_item_code', 'name', 'barcode',
+        'category_id', 'unit_id', 'sku', 'erp_item_code', 'name', 'item_size', 'barcode',
         'description', 'min_stock', 'max_stock', 'reorder_point', 'movement_type',
         'weight_kg', 'volume_m3', 'image', 'is_active', 'deadstock_threshold_days',
     ];
@@ -42,9 +48,14 @@ class Item extends Model
         return $this->hasMany(StockMovement::class);
     }
 
-    public function putAwayRecommendations()
+    public function affinities()
     {
-        return $this->hasMany(PutAwayRecommendation::class);
+        return $this->hasMany(ItemAffinity::class);
+    }
+
+    public function deadstockNotifications()
+    {
+        return $this->hasMany(DeadstockNotification::class);
     }
 
     public function getTotalStockAttribute(): int

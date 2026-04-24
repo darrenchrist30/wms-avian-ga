@@ -1,0 +1,87 @@
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "fontFamily": "Arial",
+    "primaryColor": "#101010",
+    "primaryTextColor": "#ffffff",
+    "primaryBorderColor": "#d9d9d9",
+    "lineColor": "#d9d9d9",
+    "tertiaryColor": "#1a1a1a",
+    "clusterBkg": "#0e0e0e",
+    "clusterBorder": "#d9d9d9"
+  }
+}}%%
+
+flowchart LR
+  subgraph OP["Operator"]
+    direction TB
+    OP1["Review halaman inbound"]
+    OP2["Klik jalankan GA"]
+    OP3["Review hasil rekomendasi"]
+    OP4{"Setujui rekomendasi?"}
+  end
+
+  subgraph WMS["WMS"]
+    direction TB
+    W0((Start))
+    W1["Menampilkan halaman inbound"]
+    W2{"Qty diterima > 0?"}
+    W3["Set status order = processing"]
+    W4["Simpan ga_recommendations\n+ga_recommendation_details"]
+    W5["Update status order = recommended"]
+    W6["Tampilkan rekomendasi ke operator"]
+    W7["Set status rekomendasi = accepted"]
+    W8["Arahkan ke proses put-away"]
+    W9["Set status rekomendasi = rejected"]
+    W10["Reset status order = draft"]
+    WErr["Tampilkan notifikasi error"]
+    WEnd((Selesai proses GA))
+  end
+
+  subgraph GA["GA"]
+    direction TB
+    G1["Bangun payload item-cell-affinity"]
+    G2{"Data item dan cell valid?"}
+    G3["Inisialisasi populasi kromosom"]
+    G4["Hitung fitness tiap kromosom"]
+    G5{"Kriteria terminasi terpenuhi?"}
+    G6["Seleksi parent (tournament)"]
+    G7["Crossover one-point"]
+    G8["Mutasi random swap"]
+    G9["Ambil kromosom terbaik"]
+  end
+
+  W0 --> W1
+  W1 --> OP1
+  OP1 --> OP2
+  OP2 --> W2
+
+  W2 -- Tidak --> WErr
+  WErr --> WEnd
+
+  W2 -- Ya --> W3
+  W3 --> G1
+  G1 --> G2
+  G2 -- Tidak --> WErr
+  G2 -- Ya --> G3
+  G3 --> G4
+  G4 --> G5
+  G5 -- Tidak --> G6
+  G6 --> G7
+  G7 --> G8
+  G8 --> G4
+  G5 -- Ya --> G9
+
+  G9 --> W4
+  W4 --> W5
+  W5 --> W6
+  W6 --> OP3
+  OP3 --> OP4
+
+  OP4 -- Setuju --> W7
+  W7 --> W8
+  W8 --> WEnd
+
+  OP4 -- Tolak --> W9
+  W9 --> W10
+  W10 --> OP2

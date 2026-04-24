@@ -7,6 +7,39 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## WMS GA Engine Quick Start (Windows)
+
+Project ini memakai Python FastAPI sebagai GA Engine di `http://127.0.0.1:8001`.
+
+### Start otomatis (disarankan)
+
+Jalankan dari root project:
+
+```bat
+start-ga-engine.bat
+```
+
+Script akan:
+
+- mengecek apakah GA Engine sudah berjalan,
+- menyalakan `uvicorn` jika belum,
+- melakukan health check endpoint `/`.
+
+### Stop service
+
+```bat
+stop-ga-engine.bat
+```
+
+### Manual fallback
+
+Jika ingin melihat log langsung di terminal:
+
+```powershell
+cd C:\laragon\www\wms-avian-ga\ga-engine
+C:\laragon\www\wms-avian-ga\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

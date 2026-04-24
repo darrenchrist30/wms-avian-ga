@@ -1,5 +1,4 @@
 @extends('layouts.adminlte')
-
 @section('title', 'Zona Penyimpanan')
 
 @section('content')
@@ -9,195 +8,177 @@
                 <h3 class="mt-2">Zona Penyimpanan</h3>
             </div>
         </div>
-
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="font-weight-bold">
-                                <i class="fas fa-th-large mr-1"></i> Zona Penyimpanan
+                                <i class="fas fa-vector-square mr-1"></i> Daftar Zona
                             </div>
                             <div class="btn-group">
-                                <button type="button" class="btn btn-sm btn-outline-dark" data-toggle="collapse"
-                                    data-target="#filterBox">
-                                    <i class="fas fa-filter mr-1"></i>Filter
+                                <button class="btn btn-sm btn-outline-dark btnFilter" data-toggle="collapse"
+                                    data-target=".filter">
+                                    <i class="fas fa-filter mr-2"></i>Filter
                                 </button>
-                                <a href="{{ route('location.zones.index') }}" class="btn btn-sm btn-outline-dark">
-                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
-                                </a>
+                                <button class="btn btn-sm btn-outline-dark btnRefresh">
+                                    <i class="fas fa-redo mr-2"></i>Refresh
+                                </button>
                                 <a href="{{ route('location.zones.create') }}" class="btn btn-sm btn-outline-dark">
-                                    <i class="fas fa-plus mr-1"></i>Add
+                                    <i class="fas fa-plus mr-2"></i>Add
                                 </a>
                             </div>
                         </div>
                     </div>
-
-                    {{-- Filter --}}
-                    <div class="collapse" id="filterBox">
-                        <div class="card-body border-bottom bg-light">
-                            <div class="form-row align-items-end">
-                                <div class="form-group col-md-4 mb-0">
-                                    <label class="small font-weight-bold">Warehouse</label>
-                                    <select id="filterWarehouse" class="form-control form-control-sm">
-                                        <option value="">Semua Warehouse</option>
-                                    </select>
-                                </div>
-                                <div class="form-group col-md-3 mb-0">
-                                    <label class="small font-weight-bold">Status</label>
-                                    <select id="filterStatus" class="form-control form-control-sm">
-                                        <option value="">Semua Status</option>
-                                        <option value="Aktif">Aktif</option>
-                                        <option value="Nonaktif">Nonaktif</option>
-                                    </select>
-                                </div>
-                                <div class="form-group col-md-2 mb-0">
-                                    <button type="button" id="btnResetFilter" class="btn btn-sm btn-secondary">
-                                        <i class="fas fa-times mr-1"></i>Reset
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="card-body">
-                        @if (session('success'))
-                            <div class="alert alert-success alert-dismissible fade show">
-                                <i class="fas fa-check-circle mr-1"></i>{{ session('success') }}
-                                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                        <form id="filter-container">
+                            <div class="row m-2 filter collapse mb-3">
+                                <div class="col-sm-12 col-md-4">
+                                    <div class="form-group row">
+                                        <label class="col-sm-4 col-form-label small font-weight-bold">Warehouse</label>
+                                        <div class="col-sm-8">
+                                            <select class="form-control form-control-sm" id="filter-warehouse">
+                                                <option value="">Semua Warehouse</option>
+                                                @foreach ($warehouses as $wh)
+                                                    <option value="{{ $wh->id }}">{{ $wh->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-sm-12 col-md-4">
+                                    <div class="form-group row">
+                                        <label class="col-sm-4 col-form-label small font-weight-bold">Status</label>
+                                        <div class="col-sm-8">
+                                            <select class="form-control form-control-sm" id="filter-status">
+                                                <option value="">Semua</option>
+                                                <option value="1">Aktif</option>
+                                                <option value="0">Nonaktif</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        @endif
-                        @if (session('error'))
-                            <div class="alert alert-danger alert-dismissible fade show">
-                                <i class="fas fa-exclamation-circle mr-1"></i>{{ session('error') }}
-                                <button type="button" class="close" data-dismiss="alert">&times;</button>
-                            </div>
-                        @endif
-
-                        <div class="table-responsive">
-                            <table id="tbl-zones" class="table table-bordered table-sm table-striped table-hover w-100">
-                                <thead>
-                                    <tr>
-                                        <th width="40">#</th>
-                                        <th>Kode</th>
-                                        <th>Nama Zona</th>
-                                        <th>Warehouse</th>
-                                        <th>Deskripsi</th>
-                                        <th width="70" class="text-center">Rak</th>
-                                        <th width="90" class="text-center">Status</th>
-                                        <th width="90" class="text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($zones as $i => $zone)
-                                        <tr>
-                                            <td>{{ $i + 1 }}</td>
-                                            <td>
-                                                <span class="badge badge-secondary">{{ $zone->code }}</span>
-                                            </td>
-                                            <td class="font-weight-bold">{{ $zone->name }}</td>
-                                            <td>{{ $zone->warehouse->name ?? '-' }}</td>
-                                            <td class="text-muted">{{ $zone->description ?? '-' }}</td>
-                                            <td class="text-center">
-                                                <span class="badge badge-info">{{ $zone->racks_count }}</span>
-                                            </td>
-                                            <td class="text-center">
-                                                @if ($zone->is_active)
-                                                    <span class="badge badge-success">Aktif</span>
-                                                @else
-                                                    <span class="badge badge-secondary">Nonaktif</span>
-                                                @endif
-                                            </td>
-                                            <td class="text-center">
-                                                <a href="{{ route('location.zones.edit', $zone->id) }}"
-                                                    class="btn btn-xs btn-warning" title="Edit">
-                                                    <i class="fas fa-edit"></i>
-                                                </a>
-                                                <button type="button" class="btn btn-xs btn-danger btn-delete"
-                                                    data-id="{{ $zone->id }}" data-name="{{ $zone->name }}"
-                                                    title="Hapus">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                        </form>
+                        <table id="datatable"
+                            class="table table-bordered table-sm table-striped table-hover w-100">
+                            <thead>
+                                <tr>
+                                    <th width="60" class="text-center">Actions</th>
+                                    <th width="50" class="text-center">#</th>
+                                    <th width="80">Kode</th>
+                                    <th>Nama Zona</th>
+                                    <th width="180">Warehouse</th>
+                                    <th>Deskripsi</th>
+                                    <th width="70" class="text-center">Rak</th>
+                                    <th width="80" class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-    {{-- Hidden delete form --}}
-    <form id="delete-form" method="POST" style="display:none;">
-        @csrf
-        @method('DELETE')
-    </form>
 @endsection
 
 @push('scripts')
     <script>
-        $(function() {
-            var table = $('#tbl-zones').DataTable({
-                language: {
-                    url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/id.json'
-                },
-                pageLength: 10,
+        $(document).ready(function() {
+            var baseURL = "{{ route('location.zones.datatable') }}";
+            var routeDestroy = "{{ route('location.zones.destroy', ':id') }}";
+
+            var table = $('#datatable').DataTable({
+                processing: true,
+                serverSide: true,
+                responsive: true,
                 order: [
-                    [1, 'asc']
+                    [2, 'asc']
                 ],
-                columnDefs: [{
-                    orderable: false,
-                    targets: [7]
-                }]
+                ajax: {
+                    url: baseURL,
+                    data: function(d) {
+                        d.warehouse_id = $('#filter-warehouse').val();
+                        d.status       = $('#filter-status').val();
+                    },
+                    type: 'GET'
+                },
+                columns: [{
+                        data: 'action',
+                        name: 'action',
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'DT_RowIndex',
+                        name: 'DT_RowIndex',
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center'
+                    },
+                    { data: 'code', name: 'code' },
+                    { data: 'name', name: 'name' },
+                    { data: 'warehouse_name', name: 'warehouse.name', orderable: false },
+                    {
+                        data: 'description',
+                        name: 'description',
+                        render: function(data) { return data || '<span class="text-muted">-</span>'; }
+                    },
+                    {
+                        data: 'racks_count',
+                        name: 'racks_count',
+                        className: 'text-center',
+                        orderable: false
+                    },
+                    {
+                        data: 'status_badge',
+                        name: 'is_active',
+                        orderable: false,
+                        searchable: false,
+                        className: 'text-center'
+                    },
+                ]
             });
 
-            // Populate warehouse filter dropdown from rendered data
-            var warehouseSet = {};
-            $('#tbl-zones tbody tr').each(function() {
-                var wh = $(this).find('td').eq(3).text().trim();
-                if (wh && wh !== '-' && !warehouseSet[wh]) {
-                    warehouseSet[wh] = true;
-                    $('#filterWarehouse').append('<option value="' + wh + '">' + wh + '</option>');
-                }
+            $('.btnRefresh').on('click', function() {
+                $('#filter-warehouse, #filter-status').val('');
+                table.ajax.reload();
             });
 
-            $('#filterWarehouse').on('change', function() {
-                table.column(3).search($(this).val()).draw();
+            $('#filter-warehouse, #filter-status').on('change', function() {
+                table.ajax.reload();
             });
 
-            $('#filterStatus').on('change', function() {
-                table.column(6).search($(this).val()).draw();
-            });
-
-            $('#btnResetFilter').on('click', function() {
-                $('#filterWarehouse').val('');
-                $('#filterStatus').val('');
-                table.columns().search('').draw();
-            });
-
-            // Delete confirmation
-            $(document).on('click', '.btn-delete', function() {
-                var id = $(this).data('id');
-                var name = $(this).data('name');
-
+            $(document).on('click', '.btnDel', function(e) {
+                e.preventDefault();
+                let id = $(this).data('id');
+                let name = $(this).data('name');
+                let ajaxurl = routeDestroy.replace(':id', id);
                 Swal.fire({
                     title: 'Hapus Zona?',
-                    html: 'Zona <strong>' + name +
-                        '</strong> akan dihapus.<br>Pastikan tidak ada rak di zona ini.',
+                    html: 'Zona <strong>' + name + '</strong> akan dihapus permanen.',
                     icon: 'warning',
                     showCancelButton: true,
                     confirmButtonColor: '#dc3545',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: 'Ya, Hapus!',
                     cancelButtonText: 'Batal'
-                }).then(function(result) {
+                }).then((result) => {
                     if (result.isConfirmed) {
-                        var form = $('#delete-form');
-                        form.attr('action', '/location/zones/' + id);
-                        form.submit();
+                        $.ajax({
+                            url: ajaxurl,
+                            type: 'DELETE',
+                            data: { _token: $('meta[name="csrf-token"]').attr('content') },
+                            success: function(response) {
+                                Swal.fire(response.status === 'success' ? 'Berhasil!' : 'Gagal!', response.message, response.status === 'success' ? 'success' : 'error');
+                                table.ajax.reload(null, false);
+                            },
+                            error: function(xhr) {
+                                Swal.fire('Gagal!', xhr?.responseJSON?.message || 'Terjadi kesalahan.', 'error');
+                                table.ajax.reload(null, false);
+                            }
+                        });
                     }
                 });
             });

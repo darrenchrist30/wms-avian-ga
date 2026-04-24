@@ -10,8 +10,8 @@ class CreatePutAwayRecommendationsTable extends Migration
     {
         Schema::create('put_away_recommendations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('inbound_order_id')->constrained()->onDelete('cascade');
-            $table->foreignId('inbound_order_item_id')->constrained()->onDelete('cascade');
+            $table->foreignId('inbound_order_id')->constrained('inbound_transactions')->onDelete('cascade');
+            $table->foreignId('inbound_order_item_id')->constrained('inbound_details')->onDelete('cascade');
             $table->foreignId('item_id')->constrained()->onDelete('restrict');
             $table->foreignId('cell_id')->constrained()->onDelete('restrict');
             $table->foreignId('confirmed_by')->nullable()

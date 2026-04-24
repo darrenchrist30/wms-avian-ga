@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<title>AD UC8 – Konfirmasi Put-Away & Scan Barcode</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,sans-serif;background:#fff;padding:24px;}
+  h1{font-size:17px;font-weight:700;color:#000;margin-bottom:4px;}
+  h2{font-size:12px;font-weight:400;color:#333;margin-bottom:16px;}
+  .wrap{border:1px solid #ccc;padding:16px;overflow:auto;max-height:92vh;}
+  .note{background:#f5f5f5;border:1px solid #888;border-radius:6px;padding:10px 14px;
+    font-size:11.5px;color:#000;margin-top:12px;line-height:1.6;}
+  svg{display:block;}
+</style>
+</head>
+<body>
+<h1>Activity Diagram – UC8: Konfirmasi Put-Away &amp; Scan Barcode</h1>
+<h2>WMS Avian: Optimasi Penempatan Barang Menggunakan Genetic Algorithm | Darren Christopher (C14220119)</h2>
+<div class="wrap">
+<svg width="780" height="870" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="ah" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto">
+    <polygon points="0 0,9 3.5,0 7" fill="#000"/>
+  </marker>
+</defs>
+
+<!-- ── backgrounds ── -->
+<rect x="0"   y="0" width="780" height="870" fill="#fff"/>
+<rect x="0"   y="58" width="390" height="812" fill="#E8E8E8"/>
+<rect x="390" y="58" width="390" height="812" fill="#F2F2F2"/>
+
+<!-- ── headers ── -->
+<rect x="0"   y="0" width="390" height="58" fill="#000"/>
+<rect x="390" y="0" width="390" height="58" fill="#000"/>
+
+<!-- ── lane divider ── -->
+<line x1="390" y1="0" x2="390" y2="870" stroke="#AAA" stroke-width="1"/>
+
+<!-- ── outer border ── -->
+<rect x="0" y="0" width="780" height="870" fill="none" stroke="#000" stroke-width="2"/>
+
+<!-- ── header texts ── -->
+<text x="195" y="29" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">WMS System</text>
+<text x="585" y="29" text-anchor="middle" font-size="12" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Operator (Petugas Gudang)</text>
+
+<!-- START (WMS: sistem menginisiasi tampilan rekomendasi) -->
+<circle cx="195" cy="78" r="11" fill="#000"/>
+
+<!-- 1. WMS: Tampilkan rekomendasi put-away di tablet -->
+<line x1="195" y1="89" x2="195" y2="106" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="112" y="106" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="195" y="121" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Tampilkan rekomendasi</text>
+<text x="195" y="135" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">put-away (denah 3D)</text>
+
+<!-- → Operator -->
+<line x1="278" y1="126" x2="500" y2="126" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+
+<!-- 2. Operator: Lihat rekomendasi di tablet -->
+<rect x="500" y="106" width="242" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="621" y="121" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Lihat rekomendasi di tablet</text>
+<text x="621" y="135" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">(lokasi cell tujuan)</text>
+
+<!-- 3. Operator: Pindahkan barang ke cell rekomendasi -->
+<line x1="621" y1="146" x2="621" y2="184" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="500" y="184" width="242" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="621" y="199" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Pindahkan barang ke</text>
+<text x="621" y="213" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">cell rekomendasi GA</text>
+
+<!-- 4. Operator: Scan QR Code cell tujuan -->
+<line x1="621" y1="224" x2="621" y2="262" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="500" y="262" width="242" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="621" y="277" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Scan QR Code</text>
+<text x="621" y="291" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">cell tujuan</text>
+
+<!-- ← kirim ke WMS untuk validasi -->
+<line x1="500" y1="282" x2="278" y2="282" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+
+<!-- 5. Decision: Cell = rekomendasi GA? -->
+<line x1="195" y1="302" x2="195" y2="330" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<polygon points="195,332 261,362 195,392 129,362" fill="#000" stroke="#000" stroke-width="1.5"/>
+<text x="195" y="357" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Cell =</text>
+<text x="195" y="370" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Rekomendasi?</text>
+
+<!-- Tidak → Operator: Pilih cell lain -->
+<line x1="261" y1="362" x2="500" y2="362" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="380" y="354" text-anchor="middle" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Tidak</text>
+<rect x="500" y="342" width="242" height="40" rx="8" fill="#D8D8D8" stroke="#000" stroke-width="1.5"/>
+<text x="621" y="357" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Pilih / konfirmasi</text>
+<text x="621" y="371" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">cell lain (override GA)</text>
+<!-- Loop: Pilih cell → back to Scan QR (right loop) -->
+<line x1="742" y1="362" x2="760" y2="362" stroke="#000" stroke-width="1.5"/>
+<line x1="760" y1="362" x2="760" y2="282" stroke="#000" stroke-width="1.5"/>
+<line x1="760" y1="282" x2="742" y2="282" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+
+<!-- Ya → WMS: Catat put-away confirmation -->
+<line x1="195" y1="392" x2="195" y2="430" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="207" y="414" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Ya</text>
+<rect x="112" y="430" width="166" height="44" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="195" y="447" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Catat put-away confirmation</text>
+<text x="195" y="461" text-anchor="middle" font-size="9.5" fill="#000" font-family="Arial,sans-serif">(follow_recommendation: T/F)</text>
+
+<!-- 6. WMS: Update stock_records & stock_movements -->
+<line x1="195" y1="474" x2="195" y2="512" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<rect x="112" y="512" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="195" y="527" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Update stock_records</text>
+<text x="195" y="541" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">&amp; stock_movements</text>
+
+<!-- 7. Decision: Semua SKU selesai? -->
+<line x1="195" y1="552" x2="195" y2="580" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<polygon points="195,582 261,612 195,642 129,612" fill="#000" stroke="#000" stroke-width="1.5"/>
+<text x="195" y="607" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">Semua SKU</text>
+<text x="195" y="620" text-anchor="middle" font-size="10" font-weight="bold" fill="#fff" font-family="Arial,sans-serif">selesai?</text>
+
+<!-- Tidak → loop back ke Operator Lihat rekomendasi -->
+<line x1="129" y1="612" x2="20"  y2="612" stroke="#000" stroke-width="1.5"/>
+<line x1="20"  y1="612" x2="20"  y2="126" stroke="#000" stroke-width="1.5"/>
+<line x1="20"  y1="126" x2="500" y2="126" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="74" y="606" text-anchor="middle" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Tidak</text>
+
+<!-- Ya → WMS: Update status inbound = Selesai -->
+<line x1="195" y1="642" x2="195" y2="680" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="207" y="664" font-size="9" font-weight="bold" fill="#000" font-family="Arial,sans-serif">Ya</text>
+<rect x="112" y="680" width="166" height="40" rx="8" fill="#fff" stroke="#000" stroke-width="1.5"/>
+<text x="195" y="695" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">Update status inbound</text>
+<text x="195" y="709" text-anchor="middle" font-size="10.5" fill="#000" font-family="Arial,sans-serif">= Selesai / Completed</text>
+
+<!-- END -->
+<line x1="195" y1="720" x2="195" y2="754" stroke="#000" stroke-width="1.5" marker-end="url(#ah)"/>
+<circle cx="195" cy="772" r="14" fill="none" stroke="#000" stroke-width="2.5"/>
+<circle cx="195" cy="772" r="9"  fill="#000"/>
+
+</svg>
+</div>
+
+<div class="note">
+  <b>Catatan:</b> Diagram ini mencakup <b>UC8 – Konfirmasi Put-Away &amp; Scan Barcode</b>. Proses ini dilanjutkan dari <b>AD1a (UC6+UC7)</b> setelah rekomendasi GA tersimpan. Operator memindahkan barang ke cell yang direkomendasikan, lalu scan QR Code untuk konfirmasi. Field <code>follow_recommendation</code> direkam sebagai data analisis efektivitas sistem GA.
+</div>
+</body>
+</html>

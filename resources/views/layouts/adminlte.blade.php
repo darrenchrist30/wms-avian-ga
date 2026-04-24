@@ -1,12 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
-`
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'WMS Avian')</title>
 
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+        rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="{{ asset('adminlte/plugins/fontawesome-free/css/all.min.css') }}">
     <!-- AdminLTE CSS -->
@@ -15,192 +21,512 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap4.min.css">
 
     <style>
-        /* Local Fonts */
-        @font-face {
-            font-family: 'Roboto';
-            src: url("{{ asset('fonts/Roboto/Roboto-Light.ttf') }}") format('truetype');
-            font-weight: 300;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Roboto';
-            src: url("{{ asset('fonts/Roboto/Roboto-Regular.ttf') }}") format('truetype');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Roboto';
-            src: url("{{ asset('fonts/Roboto/Roboto-Medium.ttf') }}") format('truetype');
-            font-weight: 500;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Roboto';
-            src: url("{{ asset('fonts/Roboto/Roboto-Bold.ttf') }}") format('truetype');
-            font-weight: 700;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Poppins';
-            src: url("{{ asset('fonts/Poppins/Poppins-Light.ttf') }}") format('truetype');
-            font-weight: 300;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Poppins';
-            src: url("{{ asset('fonts/Poppins/Poppins-Regular.ttf') }}") format('truetype');
-            font-weight: 400;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Poppins';
-            src: url("{{ asset('fonts/Poppins/Poppins-Medium.ttf') }}") format('truetype');
-            font-weight: 500;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Poppins';
-            src: url("{{ asset('fonts/Poppins/Poppins-SemiBold.ttf') }}") format('truetype');
-            font-weight: 600;
-            font-style: normal;
-            font-display: swap;
-        }
-
-        @font-face {
-            font-family: 'Poppins';
-            src: url("{{ asset('fonts/Poppins/Poppins-Bold.ttf') }}") format('truetype');
-            font-weight: 700;
-            font-style: normal;
-            font-display: swap;
-        }
-
         :root {
+            /* ── Avian Brand Palette ── */
             --avian-primary: #004230;
             --avian-secondary: #0d8564;
+            --avian-green: #38c172;
+            --avian-green-600: #43a047;
+            --avian-green-800: #2E7D32;
+            --avian-teal-800: #00695C;
+            --avian-bluegrey: #455a64;
+            --avian-orange: #f6993f;
+            --avian-red: #e3342f;
+            --avian-yellow: #ffed4a;
+            --avian-cyan: #6cb2eb;
+            --avian-indigo: #6574cd;
+            --sidebar-bg: #1a2332;
+            --body-bg: #f8fafc;
+            --navbar-height: 3.5rem;
+            --shadow-sm: 0 1px 4px rgba(0, 0, 0, .08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, .12);
+            --radius: 8px;
         }
 
         body {
-            font-family: 'Roboto', sans-serif !important;
-            margin-top: 0 !important;
-            padding-top: 0 !important;
+            font-family: 'Plus Jakarta Sans', sans-serif !important;
+            background: var(--body-bg) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 14px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            letter-spacing: -0.01em;
         }
 
-        /* Navbar hijau sesuai Avian HRMS */
+        /* ─── OVERRIDE Bootstrap success → Avian Green (#38c172) ─── */
+        .btn-success {
+            background-color: var(--avian-green) !important;
+            border-color: var(--avian-green) !important;
+            color: #fff !important;
+        }
+
+        .btn-success:hover,
+        .btn-success:focus,
+        .btn-success:active {
+            background-color: var(--avian-green-600) !important;
+            border-color: var(--avian-green-600) !important;
+        }
+
+        .btn-outline-success {
+            color: var(--avian-green) !important;
+            border-color: var(--avian-green) !important;
+        }
+
+        .btn-outline-success:hover,
+        .btn-outline-success.active {
+            background-color: var(--avian-green) !important;
+            border-color: var(--avian-green) !important;
+            color: #fff !important;
+        }
+
+        .badge-success {
+            background-color: var(--avian-green) !important;
+        }
+
+        .bg-success {
+            background-color: var(--avian-green) !important;
+        }
+
+        .text-success {
+            color: var(--avian-green) !important;
+        }
+
+        .border-success {
+            border-color: var(--avian-green) !important;
+        }
+
+        .alert-success {
+            background-color: #f0fdf4 !important;
+            border-color: var(--avian-green) !important;
+            color: var(--avian-green-800) !important;
+        }
+
+        /* Progress bar success */
+        .progress-bar.bg-success {
+            background-color: var(--avian-green) !important;
+        }
+
+        /* ─── OVERRIDE Bootstrap danger → Avian Red ─── */
+        .btn-danger {
+            background-color: var(--avian-red) !important;
+            border-color: var(--avian-red) !important;
+        }
+
+        .btn-danger:hover {
+            background-color: #c0392b !important;
+            border-color: #c0392b !important;
+        }
+
+        .badge-danger {
+            background-color: var(--avian-red) !important;
+        }
+
+        .text-danger {
+            color: var(--avian-red) !important;
+        }
+
+        /* ─── OVERRIDE Bootstrap warning → Avian Orange ─── */
+        .btn-warning {
+            background-color: var(--avian-orange) !important;
+            border-color: var(--avian-orange) !important;
+            color: #fff !important;
+        }
+
+        .btn-warning:hover {
+            background-color: #e08530 !important;
+            border-color: #e08530 !important;
+        }
+
+        .badge-warning {
+            background-color: var(--avian-orange) !important;
+            color: #fff !important;
+        }
+
+        .text-warning {
+            color: var(--avian-orange) !important;
+        }
+
+        /* ─── SWEETALERT2: hapus border hitam di tombol confirm/cancel ─── */
+        .swal2-confirm,
+        .swal2-deny,
+        .swal2-cancel {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .swal2-confirm:focus,
+        .swal2-deny:focus,
+        .swal2-cancel:focus {
+            box-shadow: none !important;
+        }
+
+        /* ─── TRANSITIONS (smooth like avian-hr) ─── */
+        .main-sidebar,
+        .main-sidebar .brand-link {
+            transition: width 0.3s ease-in-out !important;
+        }
+
+        .main-header.navbar,
+        .content-wrapper,
+        .main-footer {
+            transition: margin-left 0.3s ease-in-out, left 0.3s ease-in-out !important;
+        }
+
+        /* ─── NAVBAR (top bar) ─── */
         .main-header.navbar {
-            background: #0d8564 !important;
+            background: var(--avian-secondary) !important;
             border-bottom: none;
-            right: 0 !important;
-            margin-top: 0 !important;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
+            position: fixed !important;
             top: 0 !important;
+            left: 250px !important;
+            right: 0 !important;
+            z-index: 1034;
             min-height: 3.5rem;
-            padding-top: 0;
-            padding-bottom: 0;
+            padding: 0 8px;
             width: auto !important;
+            margin: 0 !important;
+        }
+
+        .sidebar-collapse .main-header.navbar {
+            left: 57px !important;
         }
 
         .main-header .navbar-nav .nav-link {
-            color: white !important;
-        }
-
-        .main-header .navbar-nav .nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Sidebar abu-abu gelap sesuai Avian HRMS */
-        .main-sidebar {
-            background: #343a40 !important;
-        }
-
-        .sidebar-dark-primary .nav-sidebar>.nav-item>.nav-link {
-            background-color: transparent;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .sidebar-dark-primary .nav-sidebar>.nav-item>.nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.05);
-            color: #fff;
-            margin-left: 0 !important;
-        }
-
-        .sidebar-dark-primary .nav-sidebar>.nav-item>.nav-link.active {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        /* Level 1 submenu */
-        .sidebar-dark-primary .nav-treeview>.nav-item>.nav-link {
-            color: rgba(255, 255, 255, 0.7);
-            padding-left: 2rem;
-        }
-
-        /* Level 2 submenu (nested treeview) */
-        .sidebar-dark-primary .nav-treeview .nav-treeview>.nav-item>.nav-link {
-            color: rgba(255, 255, 255, 0.6);
-            padding-left: 3.2rem;
-            font-size: 0.82rem;
-        }
-
-        .sidebar-dark-primary .nav-treeview>.nav-item>.nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.03);
-            color: #fff;
-            margin-left: 0 !important;
-        }
-
-        .sidebar-dark-primary .nav-treeview .nav-treeview>.nav-item>.nav-link:hover {
-            background-color: rgba(255, 255, 255, 0.03);
-            color: #fff;
-        }
-
-        .sidebar-dark-primary .nav-treeview>.nav-item>.nav-link.active {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        .sidebar-dark-primary .nav-treeview .nav-treeview>.nav-item>.nav-link.active {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: #fff;
-        }
-
-        /* Brand link hijau */
-        .brand-link {
-            background: #0d8564 !important;
-            border-bottom: none;
-            padding: 0 15px;
+            color: rgba(255, 255, 255, .9) !important;
+            padding: 0 10px;
             height: 3.5rem;
             display: flex;
             align-items: center;
-            justify-content: flex-start;
+            transition: background .15s;
         }
 
-        .brand-link i {
+        .main-header .navbar-nav .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+            border-radius: 6px;
+        }
+
+        /* Breadcrumb di navbar */
+        .navbar-breadcrumb {
+            display: flex;
+            align-items: center;
+            margin-left: 4px;
+        }
+
+        .navbar-breadcrumb .breadcrumb {
+            background: transparent;
+            margin: 0;
+            padding: 0;
+            font-size: 12.5px;
+        }
+
+        .navbar-breadcrumb .breadcrumb-item a {
+            color: rgba(255, 255, 255, .7) !important;
+            text-decoration: none;
+        }
+
+        .navbar-breadcrumb .breadcrumb-item a:hover {
+            color: #fff !important;
+        }
+
+        .navbar-breadcrumb .breadcrumb-item.active {
+            color: rgba(255, 255, 255, .95) !important;
+            font-weight: 500;
+        }
+
+        .navbar-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
+            color: rgba(255, 255, 255, .35);
+            content: "›";
+            font-size: 14px;
+        }
+
+        /* Notification bell */
+        .navbar-badge {
+            position: absolute;
+            top: 8px;
+            right: 6px;
+            font-size: 9px !important;
+            padding: 1px 4px !important;
+            border-radius: 10px;
+        }
+
+        /* Divider vertikal di navbar */
+        .navbar-divider {
+            width: 1px;
+            height: 22px;
+            background: rgba(255, 255, 255, .2);
+            margin: 0 4px;
+        }
+
+        /* User avatar inisial */
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .2);
+            border: 1.5px solid rgba(255, 255, 255, .4);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .3px;
+            flex-shrink: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .user-avatar.lg {
+            width: 46px;
+            height: 46px;
+            font-size: 16px;
+            background: var(--avian-secondary);
+            border: 2px solid rgba(255, 255, 255, .3);
+        }
+
+        /* User dropdown */
+        .dropdown-user-menu {
+            min-width: 250px !important;
+            border: none !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .14) !important;
+            border-radius: 10px !important;
+            padding: 0 !important;
+            overflow: hidden;
+            margin-top: 8px !important;
+        }
+
+        .dropdown-user-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .dropdown-user-header .user-info .user-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #111827;
+            line-height: 1.3;
+        }
+
+        .dropdown-user-header .user-info .user-email {
+            font-size: 11.5px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .badge-role {
+            display: inline-block;
+            background: var(--avian-secondary);
+            color: #fff;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-weight: 500;
+            margin-top: 4px;
+        }
+
+        .dropdown-user-menu .dropdown-item {
+            font-size: 13px;
+            color: #374151;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dropdown-user-menu .dropdown-item i {
+            width: 16px;
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .dropdown-user-menu .dropdown-item:hover {
+            background: #f9fafb;
+        }
+
+        .dropdown-user-menu .dropdown-item.text-danger i {
+            color: #ef4444;
+        }
+
+        /* ─── BRAND LINK / LOGO SIDEBAR ─── */
+        .brand-link,
+        .navbar-avian {
+            background: linear-gradient(135deg, #0d8564 0%, #004e39 100%) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, .08) !important;
+            padding: 0 16px !important;
+            height: 3.5rem;
+            display: flex !important;
+            align-items: center;
+            justify-content: flex-start;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .2);
+        }
+
+        .brand-link img.brand-image,
+        .brand-link .img-white {
+            filter: brightness(0) invert(1);
+            width: 28px;
+            height: 28px;
             margin-right: 10px;
-            font-size: 24px;
+            object-fit: contain;
+            flex-shrink: 0;
+        }
+
+        .brand-text-wrapper {
+            display: flex;
+            flex-direction: column;
+            line-height: 1;
+            overflow: hidden;
         }
 
         .brand-link .brand-text {
             color: white !important;
-            font-weight: 500 !important;
-            font-size: 18px;
-            display: inline-block;
-            margin: 0;
+            font-weight: 700 !important;
+            font-size: 14.5px;
+            letter-spacing: .2px;
+            white-space: nowrap;
+            font-family: 'Poppins', sans-serif;
         }
 
-        .content-wrapper {
-            background: #ecf0f5;
+        .brand-version {
+            font-size: 9px;
+            color: rgba(255, 255, 255, .45);
+            letter-spacing: .8px;
+            font-weight: 400;
+            margin-top: 3px;
+            text-transform: uppercase;
+        }
+
+        /* ─── SIDEBAR ─── */
+        .main-sidebar {
+            background: var(--sidebar-bg) !important;
+            border-right: none !important;
+        }
+
+        /* sidebar-dark-avian */
+        .sidebar-dark-avian .nav-sidebar>.nav-item>.nav-link {
+            background-color: transparent;
+            color: rgba(255, 255, 255, 0.75);
+            display: flex !important;
+            align-items: center;
+            border-radius: 6px;
+            margin: 2px 8px;
+            padding: 8px 12px;
+            font-size: 13.5px;
+            transition: background .15s, color .15s;
+        }
+
+        .sidebar-dark-avian .nav-sidebar>.nav-item>.nav-link .nav-icon {
+            width: 20px;
+            text-align: center;
+            margin-right: 10px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, .45);
+            transition: color .15s;
+        }
+
+        .sidebar-dark-avian .nav-sidebar>.nav-item>.nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.07) !important;
+            color: #fff;
+        }
+
+        .sidebar-dark-avian .nav-sidebar>.nav-item>.nav-link:hover .nav-icon {
+            color: rgba(255, 255, 255, .75);
+        }
+
+        .sidebar-dark-avian .nav-sidebar>.nav-item>.nav-link.active {
+            background: linear-gradient(90deg, rgba(13, 133, 100, .35) 0%, rgba(13, 133, 100, .15) 100%) !important;
+            color: #fff !important;
+            border-left: 3px solid var(--avian-secondary);
+            margin-left: 5px;
+            padding-left: 9px;
+        }
+
+        .sidebar-dark-avian .nav-sidebar>.nav-item>.nav-link.active .nav-icon {
+            color: var(--avian-accent);
+        }
+
+        /* Submenu level 1 */
+        .sidebar-dark-avian .nav-treeview>.nav-item>.nav-link {
+            color: rgba(255, 255, 255, 0.55);
+            padding: 6px 12px 6px 1.8rem;
+            display: flex !important;
+            align-items: center;
+            border-radius: 5px;
+            margin: 1px 8px;
+            font-size: 12.5px;
+            transition: background .15s, color .15s;
+        }
+
+        .sidebar-dark-avian .nav-treeview>.nav-item>.nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            color: rgba(255, 255, 255, .9);
+        }
+
+        .sidebar-dark-avian .nav-treeview>.nav-item>.nav-link.active {
+            background-color: rgba(13, 133, 100, .2) !important;
+            color: #fff !important;
+        }
+
+        /* Submenu level 2 */
+        .sidebar-dark-avian .nav-treeview .nav-treeview>.nav-item>.nav-link {
+            color: rgba(255, 255, 255, 0.45);
+            padding-left: 2.8rem;
+            font-size: 12px;
+        }
+
+        /* nav-header section labels */
+        .nav-header {
+            color: rgba(255, 255, 255, 0.28) !important;
+            font-size: 9.5px !important;
+            letter-spacing: 1.8px;
+            text-transform: uppercase;
+            padding: 16px 20px 5px !important;
+            font-weight: 700;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* Sidebar scrollbar - thin & subtle */
+        .sidebar {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, .08) transparent;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, .08);
+            border-radius: 4px;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, .18);
+        }
+
+        /* ─── CONTENT ─── */
+        .content-wrapper,
+        .main-footer {
+            background: #f0f2f5;
+            overflow-x: hidden;
+            margin-top: 56px !important;
+            margin-left: 250px !important;
+        }
+
+        .sidebar-collapse .content-wrapper,
+        .sidebar-collapse .main-footer {
+            margin-left: 57px !important;
         }
 
         /* Welcome Card */
@@ -240,13 +566,6 @@
             border-left: 3px solid var(--avian-secondary);
         }
 
-        .info-card h5 {
-            color: #2c3e50;
-            font-size: 16px;
-            font-weight: 500;
-            margin-bottom: 15px;
-        }
-
         .small-box {
             border-radius: 6px;
         }
@@ -254,6 +573,10 @@
         .small-box .inner h3 {
             font-size: 32px;
             font-weight: 700;
+        }
+
+        .main-footer {
+            background: #fff;
         }
 
         .main-footer a {
@@ -265,119 +588,468 @@
             color: #004230;
         }
 
-        /* Hide scrollbar */
-        .sidebar {
-            overflow-y: auto;
-            scrollbar-width: none;
-            /* Firefox */
-            -ms-overflow-style: none;
-            /* IE and Edge */
+        /* ─── SIDEBAR COLLAPSED STATE ─── */
+        .sidebar-collapse .brand-link {
+            justify-content: center;
+            padding: 0 !important;
         }
 
-        .sidebar::-webkit-scrollbar {
-            display: none;
-            /* Chrome, Safari, Opera */
-        }
-
-        /* Hide horizontal scrollbar di content wrapper */
-        .content-wrapper {
-            overflow-x: hidden;
-        }
-
-        /* Center icons when sidebar collapsed */
-        .sidebar-collapse .nav-sidebar .nav-link {
-            text-align: center;
-        }
-
-        .sidebar-collapse .nav-sidebar .nav-link p {
+        .sidebar-collapse .brand-link .brand-text-wrapper {
             display: none;
         }
 
-        .sidebar-collapse .nav-sidebar .nav-icon {
+        .sidebar-collapse .brand-link img.brand-image {
             margin-right: 0;
         }
 
-        /* Center submenu icons when sidebar collapsed */
-        .sidebar-collapse .nav-treeview .nav-link {
-            text-align: center;
-            padding-left: 0.5rem !important;
-        }
-
-        .sidebar-collapse .nav-treeview .nav-icon {
-            margin-right: 0;
-        }
-
-        /* Hide angle icon when collapsed */
+        .sidebar-collapse .nav-sidebar .nav-link p,
         .sidebar-collapse .nav-link .right {
             display: none;
         }
 
-        /* Prevent hover state from changing position */
-        .sidebar-collapse .nav-sidebar .nav-link:hover {
-            margin-left: 0 !important;
+        .sidebar-collapse .nav-sidebar .nav-link,
+        .sidebar-collapse .nav-treeview .nav-link {
+            justify-content: center;
             padding-left: 0.5rem !important;
         }
 
-        .sidebar-collapse .nav-treeview .nav-link:hover {
-            margin-left: 0 !important;
-            padding-left: 0.5rem !important;
+        .sidebar-collapse .nav-sidebar .nav-icon,
+        .sidebar-collapse .nav-treeview .nav-icon {
+            margin-right: 0;
         }
 
-        .sidebar-collapse .brand-link {
+        /* ─── OVERRIDE BLUE → AVIAN GREEN ─── */
+        /* Buttons */
+        .btn-primary {
+            background-color: #0d8564 !important;
+            border-color: #0d8564 !important;
+            color: #fff !important;
+        }
+
+        .btn-primary:hover,
+        .btn-primary:focus,
+        .btn-primary:active {
+            background-color: #004230 !important;
+            border-color: #004230 !important;
+        }
+
+        .btn-outline-primary {
+            color: #0d8564 !important;
+            border-color: #0d8564 !important;
+        }
+
+        .btn-outline-primary:hover {
+            background-color: #0d8564 !important;
+            color: #fff !important;
+        }
+
+        /* Avian brand button */
+        .btn-avian-secondary {
+            background-color: var(--avian-secondary) !important;
+            border-color: var(--avian-secondary) !important;
+            color: #fff !important;
+        }
+
+        .btn-avian-secondary:hover,
+        .btn-avian-secondary:focus,
+        .btn-avian-secondary:active {
+            background-color: var(--avian-primary) !important;
+            border-color: var(--avian-primary) !important;
+            color: #fff !important;
+        }
+
+        /* Card primary outline top border */
+        .card-primary.card-outline {
+            border-top: 3px solid #0d8564 !important;
+        }
+
+        .card-primary>.card-header {
+            background-color: #0d8564 !important;
+        }
+
+        /* Form focus states */
+        .form-control:focus {
+            border-color: #0d8564 !important;
+            box-shadow: 0 0 0 0.2rem rgba(13, 133, 100, 0.25) !important;
+        }
+
+        /* Custom switch checked */
+        .custom-control-input:checked~.custom-control-label::before {
+            background-color: #0d8564 !important;
+            border-color: #0d8564 !important;
+        }
+
+        /* DataTable pagination active */
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+        .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+            background: #0d8564 !important;
+            border-color: #0d8564 !important;
+            color: #fff !important;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background: #004230 !important;
+            border-color: #004230 !important;
+            color: #fff !important;
+        }
+
+        /* Badge primary */
+        .badge-primary {
+            background-color: #0d8564 !important;
+        }
+
+        /* Alert / Link primary */
+        a.text-primary,
+        .text-primary {
+            color: #0d8564 !important;
+        }
+
+        a {
+            color: #0d8564;
+        }
+
+        a:hover {
+            color: #004230;
+        }
+
+        /* ─── CARD GLOBAL IMPROVEMENTS ─── */
+        .card {
+            border: none !important;
+            border-radius: 10px !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .06), 0 0 0 1px rgba(0, 0, 0, .04) !important;
+        }
+
+        .card-header {
+            background: #fff !important;
+            border-bottom: 1px solid #f1f3f5 !important;
+            border-radius: 10px 10px 0 0 !important;
+            padding: 14px 20px !important;
+        }
+
+        .card-header .card-title {
+            font-size: 15px !important;
+            font-weight: 600 !important;
+            color: #111827 !important;
+            margin: 0 !important;
+        }
+
+        .card-body {
+            padding: 20px !important;
+        }
+
+        .card-primary.card-outline {
+            border-top: 3px solid #0d8564 !important;
+        }
+
+        .card-primary>.card-header {
+            background-color: #0d8564 !important;
+        }
+
+        .card-primary>.card-header .card-title {
+            color: #fff !important;
+        }
+
+        /* ─── FOOTER ─── */
+        .main-footer {
+            background: #fff !important;
+            border-top: 1px solid #e9ecef !important;
+            padding: 12px 20px !important;
+            font-size: 12.5px !important;
+            color: #6b7280 !important;
+        }
+
+        .main-footer a {
+            color: #0d8564;
+            font-weight: 500;
+        }
+
+        .main-footer a:hover {
+            color: #004230;
+        }
+
+        /* ─── PAGE CONTENT SPACING ─── */
+        .content-wrapper>.content {
+            padding-bottom: 24px;
+        }
+
+        /* ─── PAGE LOADING SPINNER ─── */
+        #page-loader {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(255, 255, 255, .72);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s ease;
+        }
+
+        #page-loader.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .loader-ring {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            border: 4px solid #e5e7eb;
+            border-top-color: var(--avian-secondary);
+            animation: spin .75s linear infinite;
+        }
+
+        .loader-logo {
+            width: 28px;
+            height: 28px;
+            position: absolute;
+            border-radius: 50%;
+            background: var(--avian-secondary);
+            display: flex;
+            align-items: center;
             justify-content: center;
         }
 
-        .sidebar-collapse .brand-link .brand-text {
-            display: none;
+        .loader-logo i {
+            color: #fff;
+            font-size: 13px;
         }
 
-        .sidebar-collapse .brand-link i {
-            margin-right: 0;
+        .loader-text {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--avian-secondary);
+            letter-spacing: .3px;
+        }
+
+        .loader-dots::after {
+            content: '';
+            animation: dots 1.2s steps(4, end) infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes dots {
+            0%   { content: ''; }
+            25%  { content: '.'; }
+            50%  { content: '..'; }
+            75%  { content: '...'; }
+            100% { content: ''; }
+        }
+
+        /* thin progress bar at top */
+        #loader-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            width: 0%;
+            background: linear-gradient(90deg, var(--avian-secondary), var(--avian-green));
+            z-index: 100000;
+            border-radius: 0 2px 2px 0;
+            transition: width .3s ease;
+            box-shadow: 0 0 8px rgba(13,133,100,.5);
+        }
+
+        /* ─── DATATABLE PROCESSING INDICATOR — branded ── */
+        /* Muncul saat search / sort / ganti halaman (bukan saat initial load,
+           karena page loader sudah menutupi seluruh halaman selama init AJAX) */
+        .dataTables_wrapper { position: relative; }
+        div.dataTables_processing {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            width: auto !important;
+            min-width: 150px;
+            margin: 0 !important;
+            padding: 7px 20px !important;
+            transform: translate(-50%, -50%) !important;
+            background: rgba(26, 35, 50, 0.91) !important;
+            color: #fff !important;
+            border: none !important;
+            border-radius: 30px !important;
+            font-size: 12px !important;
+            font-weight: 600;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, .32) !important;
+            z-index: 100;
+            text-align: center;
+            letter-spacing: .2px;
+        }
+
+        /* ─── TABLE IMPROVEMENTS ─── */
+        .table thead th {
+            background: #f8f9fa;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: .5px;
+            text-transform: uppercase;
+            color: #6b7280;
+            border-bottom: 2px solid #e9ecef !important;
+            border-top: none !important;
+        }
+
+        .table td {
+            font-size: 13.5px;
+            vertical-align: middle !important;
+            border-color: #f3f4f6 !important;
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: #f8fff9 !important;
         }
     </style>
     @stack('styles')
 </head>
 
 <body class="hold-transition sidebar-mini layout-fixed">
+
+    {{-- ── Page Loading Spinner ── --}}
+    <div id="loader-bar"></div>
+    <div id="page-loader">
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+            <div class="loader-ring"></div>
+            <div class="loader-logo">
+                <i class="fas fa-warehouse"></i>
+            </div>
+        </div>
+        <div class="loader-text">Memuat<span class="loader-dots"></span></div>
+    </div>
+
     <div class="wrapper">
 
         <!-- Navbar -->
+        @php
+            $navUser = auth()->user();
+            $nameParts = explode(' ', trim($navUser->name ?? 'User'));
+            $initials =
+                strtoupper(substr($nameParts[0], 0, 1)) .
+                (isset($nameParts[1]) ? strtoupper(substr($nameParts[1], 0, 1)) : '');
+        @endphp
         <nav class="main-header navbar navbar-expand">
-            <ul class="navbar-nav">
+
+            {{-- Left: hamburger + breadcrumb --}}
+            <ul class="navbar-nav align-items-center">
                 <li class="nav-item">
-                    <a class="nav-link" data-widget="pushmenu" href="#" role="button"><i
-                            class="fas fa-bars"></i></a>
+                    <a class="nav-link" data-widget="pushmenu" href="#" role="button" title="Toggle Sidebar">
+                        <i class="fas fa-bars"></i>
+                    </a>
+                </li>
+                <li class="nav-item navbar-breadcrumb d-none d-sm-flex">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="{{ route('dashboard') }}"><i class="fas fa-home"></i></a>
+                        </li>
+                        @hasSection('breadcrumb')
+                            @yield('breadcrumb')
+                        @else
+                            @if (Request::is('dashboard'))
+                                {{-- no extra crumb on dashboard --}}
+                            @else
+                                <li class="breadcrumb-item active">@yield('page_title', '—')</li>
+                            @endif
+                        @endif
+                    </ol>
                 </li>
             </ul>
 
-            <ul class="navbar-nav ml-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="#">
-                        <i class="fas fa-home"></i>
+            {{-- Right: bell + divider + user --}}
+            <ul class="navbar-nav ml-auto align-items-center">
+
+                {{-- ── Notification Bell Dropdown ── --}}
+                <li class="nav-item dropdown" id="notifDropdownItem">
+                    <a class="nav-link position-relative" href="#"
+                       data-toggle="dropdown" title="Notifikasi" id="notifBellBtn"
+                       style="min-width:40px;justify-content:center;">
+                        <i class="fas fa-bell" style="font-size:15px;"></i>
+                        <span class="badge badge-danger navbar-badge" id="notifBadge"
+                              style="display:none;font-size:9px;padding:2px 5px;border-radius:10px;
+                                     top:6px;right:4px;">0</span>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right p-0"
+                         id="notifDropdown"
+                         style="width:360px;max-height:480px;border:none;
+                                box-shadow:0 10px 30px rgba(0,0,0,.15);border-radius:10px;overflow:hidden;">
+
+                        {{-- Header --}}
+                        <div class="d-flex justify-content-between align-items-center px-3 py-2"
+                             style="background:#f8f9fa;border-bottom:1px solid #e9ecef;">
+                            <span class="font-weight-bold" style="font-size:13px">
+                                <i class="fas fa-bell mr-1 text-warning"></i>
+                                Notifikasi
+                                <span class="badge badge-danger ml-1" id="notifBadgeHeader"
+                                      style="display:none;font-size:9px">0</span>
+                            </span>
+                            <button class="btn btn-xs btn-link text-muted p-0"
+                                    id="btnMarkAllRead" style="font-size:11px;text-decoration:none;">
+                                <i class="fas fa-check-double mr-1"></i>Tandai Semua Dibaca
+                            </button>
+                        </div>
+
+                        {{-- Notification List --}}
+                        <div id="notifList"
+                             style="overflow-y:auto;max-height:380px;">
+                            <div class="text-center py-4 text-muted" id="notifEmpty">
+                                <i class="fas fa-bell-slash fa-2x mb-2 d-block"></i>
+                                <small>Belum ada notifikasi</small>
+                            </div>
+                            <div id="notifItems"></div>
+                        </div>
+                    </div>
+                </li>
+
+                {{-- Full-screen toggle --}}
+                <li class="nav-item d-none d-md-flex">
+                    <a class="nav-link" data-widget="fullscreen" href="#" title="Layar Penuh">
+                        <i class="fas fa-expand-arrows-alt" style="font-size:14px;"></i>
                     </a>
                 </li>
+
+                {{-- Divider --}}
+                <li class="nav-item d-flex align-items-center">
+                    <div class="navbar-divider"></div>
+                </li>
+
+                {{-- User Dropdown --}}
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" data-toggle="dropdown" href="#"
-                        style="text-transform: uppercase;">
-                        <i class="fas fa-user-circle"></i>
-                        {{ auth()->user()->name ?? 'Guest' }}
-                        <small style="font-size:10px;opacity:.75;">
-                            ({{ auth()->user()->role->name ?? '-' }})
-                        </small>
-                    </a>
-                    <div class="dropdown-menu dropdown-menu-right">
-                        <div class="dropdown-item-text" style="font-size:12px;color:#6b7280;">
-                            {{ auth()->user()->email ?? '' }}
+                    <a class="nav-link dropdown-toggle d-flex align-items-center" data-toggle="dropdown" href="#"
+                        style="gap:8px; padding-right:12px;">
+                        <div class="user-avatar">{{ $initials }}</div>
+                        <div class="d-none d-md-block" style="line-height:1.25;">
+                            <div style="font-size:12.5px;font-weight:600;color:#fff;">
+                                {{ $navUser->name ?? 'Guest' }}
+                            </div>
+                            <div style="font-size:10px;color:rgba(255,255,255,.65);">
+                                {{ $navUser->role->name ?? '-' }}
+                            </div>
                         </div>
-                        <div class="dropdown-divider"></div>
+                        <i class="fas fa-chevron-down d-none d-md-inline"
+                            style="font-size:9px;color:rgba(255,255,255,.55);"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right dropdown-user-menu">
+                        <div class="dropdown-user-header">
+                            <div class="user-avatar lg">{{ $initials }}</div>
+                            <div class="user-info">
+                                <div class="user-name">{{ $navUser->name ?? 'Guest' }}</div>
+                                <div class="user-email">{{ $navUser->email ?? '' }}</div>
+                                <span class="badge-role">{{ $navUser->role->name ?? '-' }}</span>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider m-0"></div>
                         <a href="#" class="dropdown-item">
-                            <i class="fas fa-user mr-2"></i> Profile
+                            <i class="fas fa-user-cog"></i> Pengaturan Profil
                         </a>
-                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-divider m-0"></div>
                         <form action="{{ route('logout') }}" method="POST" class="m-0">
                             @csrf
                             <button type="submit" class="dropdown-item text-danger">
-                                <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                                <i class="fas fa-sign-out-alt"></i> Keluar
                             </button>
                         </form>
                     </div>
@@ -387,10 +1059,13 @@
 
         <!-- Sidebar -->
         <aside class="main-sidebar elevation-4 sidebar-dark-avian">
-            <a href="/" class="brand-link navbar-avian">
+            <a href="{{ route('dashboard') }}" class="brand-link navbar-avian">
                 <img src="{{ asset('images/avian-logo-icon.png') }}" alt="Avian Brands Logo"
                     class="brand-image img-white">
-                <span class="brand-text font-weight-light">{{ config('app.name', 'Laravel') }}</span>
+                <div class="brand-text-wrapper">
+                    <span class="brand-text">{{ config('app.name', 'WMS') }}</span>
+                    <span class="brand-version">Warehouse Management</span>
+                </div>
             </a>
 
             <div class="sidebar">
@@ -398,9 +1073,7 @@
                     <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu"
                         data-accordion="true">
 
-                        {{-- ═══════════════════════════════
-                             DASHBOARD
-                        ═══════════════════════════════ --}}
+                        {{-- DASHBOARD --}}
                         <li class="nav-item">
                             <a href="{{ route('dashboard') }}"
                                 class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
@@ -409,200 +1082,75 @@
                             </a>
                         </li>
 
-                        {{-- ═══════════════════════════════
-                             1. MASTER DATA
-                             Semua data referensi/induk
-                        ═══════════════════════════════ --}}
-                        <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">DATA MASTER</li>
+                        {{-- ═══ 1. DATA MASTER ═══ --}}
+                        <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">DATA MASTER
+                        </li>
 
-                        {{-- 1a. Lokasi Gudang --}}
+                        {{-- Lokasi Gudang --}}
                         <li class="nav-item {{ request()->is('location*') ? 'menu-open' : '' }}">
                             <a href="#" class="nav-link {{ request()->is('location*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-map-marked-alt"></i>
                                 <p>Lokasi Gudang <i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
-
-                                {{-- Zona --}}
-                                <li class="nav-item {{ request()->is('location/zones*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('location/zones*') ? 'active' : '' }}">
+                                <li class="nav-item">
+                                    <a href="{{ route('location.warehouses.index') }}"
+                                        class="nav-link {{ request()->routeIs('location.warehouses*') ? 'active' : '' }}">
+                                        <i class="fas fa-warehouse nav-icon" style="font-size:12px;"></i>
+                                        <p>Warehouse</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('location.zones.index') }}"
+                                        class="nav-link {{ request()->routeIs('location.zones*') ? 'active' : '' }}">
                                         <i class="fas fa-vector-square nav-icon" style="font-size:12px;"></i>
-                                        <p>Zona Penyimpanan <i class="right fas fa-angle-left"></i></p>
+                                        <p>Zona Penyimpanan</p>
                                     </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="{{ route('location.zones.index') }}"
-                                                class="nav-link {{ request()->routeIs('location.zones.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar Zona</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.zones.map') ? 'active' : '' }}">
-                                                <i class="fas fa-map nav-icon" style="font-size:11px;"></i>
-                                                <p>Peta Denah Zona</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.zones.capacity') ? 'active' : '' }}">
-                                                <i class="fas fa-chart-bar nav-icon" style="font-size:11px;"></i>
-                                                <p>Kapasitas per Zona</p>
-                                            </a>
-                                        </li>
-                                    </ul>
                                 </li>
-
-                                {{-- Rak --}}
-                                <li class="nav-item {{ request()->is('location/racks*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('location/racks*') ? 'active' : '' }}">
+                                <li class="nav-item">
+                                    <a href="{{ route('location.racks.index') }}"
+                                        class="nav-link {{ request()->routeIs('location.racks*') ? 'active' : '' }}">
                                         <i class="fas fa-th-large nav-icon" style="font-size:12px;"></i>
-                                        <p>Rak (Rack) <i class="right fas fa-angle-left"></i></p>
+                                        <p>Rak (Rack)</p>
                                     </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.racks.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar Semua Rak</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.racks.by-zone') ? 'active' : '' }}">
-                                                <i class="fas fa-filter nav-icon" style="font-size:11px;"></i>
-                                                <p>Rak per Zona</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.racks.positions') ? 'active' : '' }}">
-                                                <i class="fas fa-drafting-compass nav-icon"
-                                                    style="font-size:11px;"></i>
-                                                <p>Posisi Koordinat Rak</p>
-                                            </a>
-                                        </li>
-                                    </ul>
                                 </li>
-
-                                {{-- Cell / Slot --}}
-                                <li class="nav-item {{ request()->is('location/cells*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('location/cells*') ? 'active' : '' }}">
+                                <li class="nav-item">
+                                    <a href="{{ route('location.cells.index') }}"
+                                        class="nav-link {{ request()->routeIs('location.cells.index') || request()->routeIs('location.cells.create') || request()->routeIs('location.cells.edit') || request()->routeIs('location.cells.stock') || request()->routeIs('location.cells.qr-label') ? 'active' : '' }}">
                                         <i class="fas fa-border-all nav-icon" style="font-size:12px;"></i>
-                                        <p>Sel (Cell / Slot) <i class="right fas fa-angle-left"></i></p>
+                                        <p>Sel (Cell / Slot)</p>
                                     </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.cells.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar Semua Cell</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.cells.available') ? 'active' : '' }}">
-                                                <i class="fas fa-check-circle nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Cell Tersedia</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.cells.full') ? 'active' : '' }}">
-                                                <i class="fas fa-times-circle nav-icon"
-                                                    style="font-size:11px;color:#ef4444;"></i>
-                                                <p>Cell Penuh</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.cells.quarantine') ? 'active' : '' }}">
-                                                <i class="fas fa-exclamation-triangle nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>Cell Karantina / Hold</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('location.cells.grid') ? 'active' : '' }}">
-                                                <i class="fas fa-table nav-icon" style="font-size:11px;"></i>
-                                                <p>Grid Cell per Rak</p>
-                                            </a>
-                                        </li>
-                                    </ul>
                                 </li>
-
+                                <li class="nav-item">
+                                    <a href="{{ route('location.cells.scan') }}"
+                                        class="nav-link {{ request()->routeIs('location.cells.scan') ? 'active' : '' }}">
+                                        <i class="fas fa-qrcode nav-icon" style="font-size:12px;color:#0ab87a;"></i>
+                                        <p>Scan QR Cell <span class="badge badge-success badge-sm ml-1"
+                                                style="font-size:9px;">Tablet</span></p>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
 
-                        {{-- 1b. Master Sparepart --}}
+                        {{-- Master Sparepart --}}
                         <li class="nav-item {{ request()->is('master*') ? 'menu-open' : '' }}">
                             <a href="#" class="nav-link {{ request()->is('master*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-database"></i>
                                 <p>Master Sparepart <i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
-
-                                {{-- Sparepart --}}
-                                <li class="nav-item {{ request()->is('master/items*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('master/items*') ? 'active' : '' }}">
+                                <li class="nav-item">
+                                    <a href="{{ route('master.items.index') }}"
+                                        class="nav-link {{ request()->routeIs('master.items*') ? 'active' : '' }}">
                                         <i class="fas fa-cogs nav-icon" style="font-size:12px;"></i>
-                                        <p>Sparepart <i class="right fas fa-angle-left"></i></p>
+                                        <p>Data Sparepart</p>
                                     </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="{{ route('master.items.index') }}"
-                                                class="nav-link {{ request()->routeIs('master.items.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar Semua</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('master.items.fast-moving') ? 'active' : '' }}">
-                                                <i class="fas fa-bolt nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>Fast Moving</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('master.items.slow-moving') ? 'active' : '' }}">
-                                                <i class="fas fa-walking nav-icon"
-                                                    style="font-size:11px;color:#6366f1;"></i>
-                                                <p>Slow Moving</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('master.items.non-moving') ? 'active' : '' }}">
-                                                <i class="fas fa-ban nav-icon"
-                                                    style="font-size:11px;color:#ef4444;"></i>
-                                                <p>Non Moving</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('master.items.low-stock') ? 'active' : '' }}">
-                                                <i class="fas fa-exclamation-circle nav-icon"
-                                                    style="font-size:11px;color:#f97316;"></i>
-                                                <p>Stok di Bawah Minimum</p>
-                                            </a>
-                                        </li>
-                                    </ul>
                                 </li>
-
                                 <li class="nav-item">
                                     <a href="{{ route('master.categories.index') }}"
                                         class="nav-link {{ request()->routeIs('master.categories*') ? 'active' : '' }}">
                                         <i class="fas fa-tags nav-icon" style="font-size:12px;"></i>
-                                        <p>Kategori Sparepart</p>
+                                        <p>Kategori</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">
@@ -613,18 +1161,16 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="{{ route('master.suppliers.index') }}"
-                                        class="nav-link {{ request()->routeIs('master.suppliers*') ? 'active' : '' }}">
-                                        <i class="fas fa-industry nav-icon" style="font-size:12px;"></i>
-                                        <p>Supplier / Vendor</p>
+                                    <a href="{{ route('master.affinities.index') }}"
+                                        class="nav-link {{ request()->routeIs('master.affinities*') ? 'active' : '' }}">
+                                        <i class="fas fa-project-diagram nav-icon" style="font-size:12px;"></i>
+                                        <p>Co-Occurrence</p>
                                     </a>
                                 </li>
                             </ul>
                         </li>
 
-                        {{-- ═══════════════════════════════
-                             2. PENERIMAAN BARANG (INBOUND)
-                        ═══════════════════════════════ --}}
+                        {{-- ═══ 2. PENERIMAAN ═══ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">PENERIMAAN
                         </li>
 
@@ -636,559 +1182,135 @@
                             <ul class="nav nav-treeview">
 
                                 {{-- Surat Jalan --}}
-                                <li class="nav-item {{ request()->is('inbound/orders*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inbound/orders*') ? 'active' : '' }}">
+                                <li class="nav-item">
+                                    <a href="{{ route('inbound.orders.index') }}"
+                                        class="nav-link {{ request()->routeIs('inbound.orders.index') ? 'active' : '' }}">
                                         <i class="fas fa-file-import nav-icon" style="font-size:12px;"></i>
-                                        <p>Surat Jalan (DO) <i class="right fas fa-angle-left"></i></p>
+                                        <p>Semua Surat Jalan (DO)
+                                            <span class="badge badge-danger ml-1 sidebar-badge"
+                                                  id="badge-inbound-draft"
+                                                  style="display:none;font-size:9px">0</span>
+                                        </p>
                                     </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.orders.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Semua DO</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.orders.pending') ? 'active' : '' }}">
-                                                <i class="fas fa-clock nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>DO Menunggu Proses</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.orders.done') ? 'active' : '' }}">
-                                                <i class="fas fa-check-double nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>DO Selesai</p>
-                                            </a>
-                                        </li>
-                                    </ul>
                                 </li>
-
-                                {{-- Proses Terima --}}
-                                <li class="nav-item {{ request()->is('inbound/receive*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inbound/receive*') ? 'active' : '' }}">
-                                        <i class="fas fa-clipboard-check nav-icon" style="font-size:12px;"></i>
-                                        <p>Proses Terima Barang <i class="right fas fa-angle-left"></i></p>
+                                <li class="nav-item">
+                                    <a href="{{ route('inbound.orders.create') }}"
+                                        class="nav-link {{ request()->routeIs('inbound.orders.create') ? 'active' : '' }}">
+                                        <i class="fas fa-plus-circle nav-icon"
+                                            style="font-size:12px;color:#10b981;"></i>
+                                        <p>Tambah DO Manual</p>
                                     </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.receive.scan') ? 'active' : '' }}">
-                                                <i class="fas fa-qrcode nav-icon" style="font-size:11px;"></i>
-                                                <p>Scan / Input Barang</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.receive.verify') ? 'active' : '' }}">
-                                                <i class="fas fa-search nav-icon" style="font-size:11px;"></i>
-                                                <p>Verifikasi Kesesuaian</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.receive.history') ? 'active' : '' }}">
-                                                <i class="fas fa-history nav-icon" style="font-size:11px;"></i>
-                                                <p>Riwayat Penerimaan</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Put Away --}}
-                                <li class="nav-item {{ request()->is('inbound/putaway*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inbound/putaway*') ? 'active' : '' }}">
-                                        <i class="fas fa-map-pin nav-icon" style="font-size:12px;"></i>
-                                        <p>Put Away ke Lokasi <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.putaway.pending') ? 'active' : '' }}">
-                                                <i class="fas fa-tasks nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>Antrian Put Away</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.putaway.execute') ? 'active' : '' }}">
-                                                <i class="fas fa-arrow-right nav-icon" style="font-size:11px;"></i>
-                                                <p>Eksekusi Penempatan</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inbound.putaway.history') ? 'active' : '' }}">
-                                                <i class="fas fa-history nav-icon" style="font-size:11px;"></i>
-                                                <p>Riwayat Put Away</p>
-                                            </a>
-                                        </li>
-                                    </ul>
                                 </li>
 
                             </ul>
                         </li>
 
-                        {{-- ═══════════════════════════════
-                             3. OPTIMASI GA (FITUR UTAMA)
-                        ═══════════════════════════════ --}}
+                        {{-- ═══ 3. OPTIMASI GA ═══ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">OPTIMASI GA
                         </li>
 
-                        <li class="nav-item {{ request()->is('ga*') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ request()->is('ga*') ? 'active' : '' }}">
+                        <li class="nav-item {{ request()->is('putaway*') ? 'menu-open' : '' }}">
+                            <a href="#" class="nav-link {{ request()->is('putaway*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-brain"></i>
-                                <p>Optimasi Penempatan <i class="right fas fa-angle-left"></i></p>
+                                <p>Penempatan Barang <i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
-
-                                {{-- Rekomendasi --}}
-                                <li class="nav-item {{ request()->is('ga/recommend*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('ga/recommend*') ? 'active' : '' }}">
-                                        <i class="fas fa-magic nav-icon" style="font-size:12px;"></i>
-                                        <p>Rekomendasi <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.recommend.latest') ? 'active' : '' }}">
-                                                <i class="fas fa-star nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>Rekomendasi Terbaru</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.recommend.detail') ? 'active' : '' }}">
-                                                <i class="fas fa-search-plus nav-icon" style="font-size:11px;"></i>
-                                                <p>Detail per Sparepart</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.recommend.approve') ? 'active' : '' }}">
-                                                <i class="fas fa-thumbs-up nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Setujui Rekomendasi</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Jalankan GA --}}
-                                <li class="nav-item {{ request()->is('ga/run*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('ga/run*') ? 'active' : '' }}">
-                                        <i class="fas fa-play-circle nav-icon" style="font-size:12px;"></i>
-                                        <p>Jalankan GA <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.run.new') ? 'active' : '' }}">
-                                                <i class="fas fa-rocket nav-icon"
-                                                    style="font-size:11px;color:#6366f1;"></i>
-                                                <p>Optimasi DO Baru</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.run.reoptimize') ? 'active' : '' }}">
-                                                <i class="fas fa-redo nav-icon" style="font-size:11px;"></i>
-                                                <p>Ulang Optimasi</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.run.status') ? 'active' : '' }}">
-                                                <i class="fas fa-spinner nav-icon" style="font-size:11px;"></i>
-                                                <p>Status Proses GA</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Analisis Hasil --}}
-                                <li class="nav-item {{ request()->is('ga/analysis*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('ga/analysis*') ? 'active' : '' }}">
-                                        <i class="fas fa-chart-line nav-icon" style="font-size:12px;"></i>
-                                        <p>Analisis Hasil GA <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.analysis.convergence') ? 'active' : '' }}">
-                                                <i class="fas fa-chart-area nav-icon" style="font-size:11px;"></i>
-                                                <p>Grafik Konvergensi</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.analysis.fitness') ? 'active' : '' }}">
-                                                <i class="fas fa-tachometer-alt nav-icon" style="font-size:11px;"></i>
-                                                <p>Nilai Fitness</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('ga.analysis.compare') ? 'active' : '' }}">
-                                                <i class="fas fa-balance-scale nav-icon" style="font-size:11px;"></i>
-                                                <p>Perbandingan Sebelum/Sesudah</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
                                 <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('ga.parameters*') ? 'active' : '' }}">
-                                        <i class="fas fa-sliders-h nav-icon" style="font-size:12px;"></i>
-                                        <p>Parameter GA</p>
+                                    <a href="{{ route('putaway.index') }}"
+                                        class="nav-link {{ request()->routeIs('putaway.index') ? 'active' : '' }}">
+                                        <i class="fas fa-dolly-flatbed nav-icon" style="font-size:12px;"></i>
+                                        <p>Antrian Put-Away
+                                            <span class="badge badge-warning ml-1 sidebar-badge"
+                                                  id="badge-putaway-pending"
+                                                  style="display:none;font-size:9px">0</span>
+                                        </p>
                                     </a>
                                 </li>
-                                <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('ga.history*') ? 'active' : '' }}">
-                                        <i class="fas fa-history nav-icon" style="font-size:12px;"></i>
-                                        <p>Riwayat Optimasi</p>
-                                    </a>
-                                </li>
-
                             </ul>
                         </li>
 
-                        {{-- ═══════════════════════════════
-                             4. INVENTORI & STOK
-                        ═══════════════════════════════ --}}
+                        {{-- ═══ 4. PENGELUARAN (coming soon) ═══ --}}
+                        <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">PENGELUARAN
+                        </li>
+
+                        <li class="nav-item">
+                            <a href="#" class="nav-link disabled" style="opacity:.45;cursor:not-allowed;"
+                                title="Modul pengeluaran belum tersedia">
+                                <i class="nav-icon fas fa-hand-holding-box"></i>
+                                <p>Permintaan Sparepart <span class="badge badge-secondary ml-1"
+                                        style="font-size:9px;">soon</span></p>
+                            </a>
+                        </li>
+
+                        {{-- ═══ 5. INVENTORI & STOK ═══ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">INVENTORI</li>
 
-                        <li class="nav-item {{ request()->is('inventory*') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ request()->is('inventory*') ? 'active' : '' }}">
+                        <li class="nav-item {{ request()->is('stock*') ? 'menu-open' : '' }}">
+                            <a href="#" class="nav-link {{ request()->is('stock*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-boxes"></i>
                                 <p>Manajemen Stok <i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
-
-                                {{-- Stok Saat Ini --}}
-                                <li class="nav-item {{ request()->is('inventory/stocks*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inventory/stocks*') ? 'active' : '' }}">
-                                        <i class="fas fa-cubes nav-icon" style="font-size:12px;"></i>
-                                        <p>Stok Saat Ini <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.stocks.all') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Semua Stok</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.stocks.by-zone') ? 'active' : '' }}">
-                                                <i class="fas fa-layer-group nav-icon" style="font-size:11px;"></i>
-                                                <p>Stok per Zona</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.stocks.by-category') ? 'active' : '' }}">
-                                                <i class="fas fa-tags nav-icon" style="font-size:11px;"></i>
-                                                <p>Stok per Kategori</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.stocks.location') ? 'active' : '' }}">
-                                                <i class="fas fa-map-marker-alt nav-icon" style="font-size:11px;"></i>
-                                                <p>Posisi Stok per Cell</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Mutasi Stok --}}
-                                <li class="nav-item {{ request()->is('inventory/movements*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inventory/movements*') ? 'active' : '' }}">
-                                        <i class="fas fa-dolly nav-icon" style="font-size:12px;"></i>
-                                        <p>Mutasi Stok <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.movements.all') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Semua Mutasi</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.movements.inbound') ? 'active' : '' }}">
-                                                <i class="fas fa-arrow-down nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Barang Masuk</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.movements.outbound') ? 'active' : '' }}">
-                                                <i class="fas fa-arrow-up nav-icon"
-                                                    style="font-size:11px;color:#ef4444;"></i>
-                                                <p>Barang Keluar</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.movements.transfer') ? 'active' : '' }}">
-                                                <i class="fas fa-exchange-alt nav-icon"
-                                                    style="font-size:11px;color:#6366f1;"></i>
-                                                <p>Transfer Antar Lokasi</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Stock Opname --}}
-                                <li class="nav-item {{ request()->is('inventory/opname*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inventory/opname*') ? 'active' : '' }}">
-                                        <i class="fas fa-clipboard-list nav-icon" style="font-size:12px;"></i>
-                                        <p>Stock Opname <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.opname.create') ? 'active' : '' }}">
-                                                <i class="fas fa-plus-circle nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Buat Opname Baru</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.opname.active') ? 'active' : '' }}">
-                                                <i class="fas fa-pen nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>Opname Berjalan</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.opname.history') ? 'active' : '' }}">
-                                                <i class="fas fa-history nav-icon" style="font-size:11px;"></i>
-                                                <p>Riwayat Opname</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.opname.adjustment') ? 'active' : '' }}">
-                                                <i class="fas fa-balance-scale nav-icon" style="font-size:11px;"></i>
-                                                <p>Penyesuaian Stok</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Deadstock --}}
-                                <li class="nav-item {{ request()->is('inventory/deadstock*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('inventory/deadstock*') ? 'active' : '' }}">
-                                        <i class="fas fa-hourglass-end nav-icon" style="font-size:12px;"></i>
-                                        <p>Deadstock <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.deadstock.list') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar Deadstock</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.deadstock.threshold') ? 'active' : '' }}">
-                                                <i class="fas fa-sliders-h nav-icon" style="font-size:11px;"></i>
-                                                <p>Atur Threshold</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('inventory.deadstock.action') ? 'active' : '' }}">
-                                                <i class="fas fa-tools nav-icon" style="font-size:11px;"></i>
-                                                <p>Tindakan Deadstock</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
                                 <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('inventory.expiry*') ? 'active' : '' }}">
-                                        <i class="fas fa-calendar-times nav-icon" style="font-size:12px;"></i>
+                                    <a href="{{ route('stock.index') }}"
+                                        class="nav-link {{ request()->routeIs('stock.index') ? 'active' : '' }}">
+                                        <i class="fas fa-cubes nav-icon" style="font-size:12px;"></i>
+                                        <p>Stok Saat Ini</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('stock.movements') }}"
+                                        class="nav-link {{ request()->routeIs('stock.movements') ? 'active' : '' }}">
+                                        <i class="fas fa-dolly nav-icon" style="font-size:12px;"></i>
+                                        <p>Mutasi Stok</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('stock.low-stock') }}"
+                                        class="nav-link {{ request()->routeIs('stock.low-stock') ? 'active' : '' }}">
+                                        <i class="fas fa-exclamation-triangle nav-icon"
+                                            style="font-size:12px;color:#f97316;"></i>
+                                        <p>Stok Kritis</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('stock.near-expiry') }}"
+                                        class="nav-link {{ request()->routeIs('stock.near-expiry') ? 'active' : '' }}">
+                                        <i class="fas fa-calendar-times nav-icon"
+                                            style="font-size:12px;color:#ef4444;"></i>
                                         <p>Mendekati Kadaluarsa</p>
                                     </a>
                                 </li>
-
                             </ul>
                         </li>
 
                         {{-- ═══════════════════════════════
-                             5. PERMINTAAN SPAREPART (OUTBOUND)
+                             STOCK OPNAME
                         ═══════════════════════════════ --}}
-                        <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">PENGELUARAN
-                        </li>
-
-                        <li class="nav-item {{ request()->is('outbound*') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ request()->is('outbound*') ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-hand-holding-box"></i>
-                                <p>Permintaan Sparepart <i class="right fas fa-angle-left"></i></p>
+                        <li class="nav-item {{ request()->is('opname*') ? 'menu-open' : '' }}">
+                            <a href="{{ route('opname.index') }}"
+                                class="nav-link {{ request()->routeIs('opname.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-clipboard-check"></i>
+                                <p>Stock Opname</p>
                             </a>
-                            <ul class="nav nav-treeview">
-
-                                {{-- Permintaan --}}
-                                <li class="nav-item {{ request()->is('outbound/requests*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('outbound/requests*') ? 'active' : '' }}">
-                                        <i class="fas fa-file-medical nav-icon" style="font-size:12px;"></i>
-                                        <p>Permintaan <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.requests.create') ? 'active' : '' }}">
-                                                <i class="fas fa-plus-circle nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Buat Permintaan Baru</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.requests.pending') ? 'active' : '' }}">
-                                                <i class="fas fa-clock nav-icon"
-                                                    style="font-size:11px;color:#f59e0b;"></i>
-                                                <p>Menunggu Persetujuan</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.requests.approved') ? 'active' : '' }}">
-                                                <i class="fas fa-check nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Disetujui / Siap Picking</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.requests.all') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Semua Permintaan</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Picking --}}
-                                <li class="nav-item {{ request()->is('outbound/picking*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('outbound/picking*') ? 'active' : '' }}">
-                                        <i class="fas fa-hand-pointer nav-icon" style="font-size:12px;"></i>
-                                        <p>Proses Picking <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.picking.active') ? 'active' : '' }}">
-                                                <i class="fas fa-play nav-icon"
-                                                    style="font-size:11px;color:#6366f1;"></i>
-                                                <p>Picking Aktif</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.picking.confirm') ? 'active' : '' }}">
-                                                <i class="fas fa-qrcode nav-icon" style="font-size:11px;"></i>
-                                                <p>Konfirmasi Pengambilan</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('outbound.picking.done') ? 'active' : '' }}">
-                                                <i class="fas fa-check-circle nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Picking Selesai</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('outbound.history*') ? 'active' : '' }}">
-                                        <i class="fas fa-sign-out-alt nav-icon" style="font-size:12px;"></i>
-                                        <p>Riwayat Pengeluaran</p>
-                                    </a>
-                                </li>
-
-                            </ul>
                         </li>
 
                         {{-- ═══════════════════════════════
-                             6. VISUALISASI 3D
+                             5. VISUALISASI 3D
                         ═══════════════════════════════ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">VISUALISASI
                         </li>
 
-                        <li class="nav-item {{ request()->is('warehouse/3d*') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ request()->is('warehouse/3d*') ? 'active' : '' }}">
+                        <li class="nav-item">
+                            <a href="{{ route('warehouse3d.index') }}"
+                                class="nav-link {{ request()->routeIs('warehouse3d.*') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-cube"></i>
-                                <p>Denah Gudang 3D <i class="right fas fa-angle-left"></i></p>
+                                <p>Denah Gudang 3D</p>
                             </a>
-                            <ul class="nav nav-treeview">
-                                <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('warehouse.3d.full') ? 'active' : '' }}">
-                                        <i class="fas fa-expand nav-icon" style="font-size:12px;"></i>
-                                        <p>View Keseluruhan Gudang</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('warehouse.3d.zone') ? 'active' : '' }}">
-                                        <i class="fas fa-vector-square nav-icon" style="font-size:12px;"></i>
-                                        <p>View per Zona</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('warehouse.3d.placement') ? 'active' : '' }}">
-                                        <i class="fas fa-map-marker-alt nav-icon" style="font-size:12px;"></i>
-                                        <p>Penempatan Sparepart</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('warehouse.3d.heatmap') ? 'active' : '' }}">
-                                        <i class="fas fa-fire nav-icon" style="font-size:12px;color:#ef4444;"></i>
-                                        <p>Heatmap Utilisasi</p>
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
 
                         {{-- ═══════════════════════════════
-                             7. LAPORAN & ANALITIK
+                             6. LAPORAN & ANALITIK
                         ═══════════════════════════════ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">LAPORAN</li>
 
@@ -1198,184 +1320,41 @@
                                 <p>Laporan <i class="right fas fa-angle-left"></i></p>
                             </a>
                             <ul class="nav nav-treeview">
-
-                                {{-- Laporan Stok --}}
-                                <li class="nav-item {{ request()->is('reports/stock*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('reports/stock*') ? 'active' : '' }}">
-                                        <i class="fas fa-file-alt nav-icon" style="font-size:12px;"></i>
-                                        <p>Laporan Stok <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.stock.current') ? 'active' : '' }}">
-                                                <i class="fas fa-cubes nav-icon" style="font-size:11px;"></i>
-                                                <p>Posisi Stok Terkini</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.stock.minimum') ? 'active' : '' }}">
-                                                <i class="fas fa-exclamation nav-icon"
-                                                    style="font-size:11px;color:#f97316;"></i>
-                                                <p>Stok di Bawah Minimum</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.stock.valuation') ? 'active' : '' }}">
-                                                <i class="fas fa-coins nav-icon" style="font-size:11px;"></i>
-                                                <p>Valuasi Stok</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Laporan Penerimaan --}}
-                                <li class="nav-item {{ request()->is('reports/inbound*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('reports/inbound*') ? 'active' : '' }}">
-                                        <i class="fas fa-file-import nav-icon" style="font-size:12px;"></i>
-                                        <p>Laporan Penerimaan <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.inbound.period') ? 'active' : '' }}">
-                                                <i class="fas fa-calendar nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Periode</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.inbound.supplier') ? 'active' : '' }}">
-                                                <i class="fas fa-industry nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Supplier</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.inbound.category') ? 'active' : '' }}">
-                                                <i class="fas fa-tags nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Kategori</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Laporan Pengeluaran --}}
-                                <li class="nav-item {{ request()->is('reports/outbound*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('reports/outbound*') ? 'active' : '' }}">
-                                        <i class="fas fa-file-export nav-icon" style="font-size:12px;"></i>
-                                        <p>Laporan Pengeluaran <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.outbound.period') ? 'active' : '' }}">
-                                                <i class="fas fa-calendar nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Periode</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.outbound.department') ? 'active' : '' }}">
-                                                <i class="fas fa-building nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Divisi / Departemen</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.outbound.category') ? 'active' : '' }}">
-                                                <i class="fas fa-tags nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Kategori Sparepart</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Laporan Kinerja GA (PENTING untuk skripsi) --}}
-                                <li class="nav-item {{ request()->is('reports/ga*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('reports/ga*') ? 'active' : '' }}">
-                                        <i class="fas fa-brain nav-icon" style="font-size:12px;"></i>
-                                        <p>Laporan Kinerja GA <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.ga.fitness') ? 'active' : '' }}">
-                                                <i class="fas fa-chart-line nav-icon"
-                                                    style="font-size:11px;color:#6366f1;"></i>
-                                                <p>Grafik Nilai Fitness</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.ga.comparison') ? 'active' : '' }}">
-                                                <i class="fas fa-balance-scale nav-icon" style="font-size:11px;"></i>
-                                                <p>Sebelum vs Sesudah GA</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.ga.convergence') ? 'active' : '' }}">
-                                                <i class="fas fa-chart-area nav-icon" style="font-size:11px;"></i>
-                                                <p>Konvergensi Algoritma</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.ga.export') ? 'active' : '' }}">
-                                                <i class="fas fa-file-download nav-icon" style="font-size:11px;"></i>
-                                                <p>Export Hasil (PDF/Excel)</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                                {{-- Utilisasi --}}
-                                <li class="nav-item {{ request()->is('reports/utilization*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('reports/utilization*') ? 'active' : '' }}">
-                                        <i class="fas fa-chart-pie nav-icon" style="font-size:12px;"></i>
-                                        <p>Utilisasi Kapasitas <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.utilization.zone') ? 'active' : '' }}">
-                                                <i class="fas fa-vector-square nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Zona</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.utilization.rack') ? 'active' : '' }}">
-                                                <i class="fas fa-th-large nav-icon" style="font-size:11px;"></i>
-                                                <p>Per Rak</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('reports.utilization.trend') ? 'active' : '' }}">
-                                                <i class="fas fa-chart-line nav-icon" style="font-size:11px;"></i>
-                                                <p>Tren Waktu</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
                                 <li class="nav-item">
-                                    <a href="#"
-                                        class="nav-link {{ request()->routeIs('reports.deadstock*') ? 'active' : '' }}">
-                                        <i class="fas fa-file-times nav-icon" style="font-size:12px;"></i>
-                                        <p>Laporan Deadstock</p>
+                                    <a href="{{ route('reports.inventory') }}"
+                                        class="nav-link {{ request()->routeIs('reports.inventory') ? 'active' : '' }}">
+                                        <i class="fas fa-boxes nav-icon" style="font-size:12px;"></i>
+                                        <p>Laporan Stok</p>
                                     </a>
                                 </li>
-
+                                <li class="nav-item">
+                                    <a href="{{ route('reports.inbound') }}"
+                                        class="nav-link {{ request()->routeIs('reports.inbound') ? 'active' : '' }}">
+                                        <i class="fas fa-file-import nav-icon" style="font-size:12px;"></i>
+                                        <p>Laporan Penerimaan</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('reports.putaway') }}"
+                                        class="nav-link {{ request()->routeIs('reports.putaway') ? 'active' : '' }}">
+                                        <i class="fas fa-dolly-flatbed nav-icon" style="font-size:12px;"></i>
+                                        <p>Laporan Put-Away</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('reports.movements') }}"
+                                        class="nav-link {{ request()->routeIs('reports.movements') ? 'active' : '' }}">
+                                        <i class="fas fa-exchange-alt nav-icon" style="font-size:12px;"></i>
+                                        <p>Laporan Mutasi Stok</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('reports.ga-effectiveness') }}"
+                                        class="nav-link {{ request()->routeIs('reports.ga-effectiveness') ? 'active' : '' }}">
+                                        <i class="fas fa-brain nav-icon" style="font-size:12px;color:#6366f1;"></i>
+                                        <p>Kinerja Genetic Algorithm</p>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
 
@@ -1384,113 +1363,74 @@
                         ═══════════════════════════════ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">SISTEM</li>
 
-                        <li class="nav-item {{ request()->is('settings*') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ request()->is('settings*') ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-cog"></i>
-                                <p>Pengaturan <i class="right fas fa-angle-left"></i></p>
-                            </a>
-                            <ul class="nav nav-treeview">
+                        @if (auth()->user()?->isAdmin())
+                            {{-- Manajemen Pengguna --}}
+                            <li class="nav-item {{ request()->is('users*') ? 'menu-open' : '' }}">
+                                <a href="#" class="nav-link {{ request()->is('users*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-users"></i>
+                                    <p>Manajemen User <i class="right fas fa-angle-left"></i></p>
+                                </a>
+                                <ul class="nav nav-treeview">
+                                    <li class="nav-item">
+                                        <a href="{{ route('users.index') }}"
+                                            class="nav-link {{ request()->routeIs('users.index') ? 'active' : '' }}">
+                                            <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
+                                            <p>Daftar Pengguna</p>
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a href="{{ route('users.create') }}"
+                                            class="nav-link {{ request()->routeIs('users.create') ? 'active' : '' }}">
+                                            <i class="fas fa-user-plus nav-icon"
+                                                style="font-size:11px;color:#10b981;"></i>
+                                            <p>Tambah Pengguna</p>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
 
-                                {{-- User Management --}}
-                                <li class="nav-item {{ request()->is('settings/users*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('settings/users*') ? 'active' : '' }}">
-                                        <i class="fas fa-users nav-icon" style="font-size:12px;"></i>
-                                        <p>Manajemen User <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.users.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar User</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.users.create') ? 'active' : '' }}">
-                                                <i class="fas fa-user-plus nav-icon"
-                                                    style="font-size:11px;color:#10b981;"></i>
-                                                <p>Tambah User Baru</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.users.inactive') ? 'active' : '' }}">
-                                                <i class="fas fa-user-slash nav-icon"
-                                                    style="font-size:11px;color:#ef4444;"></i>
-                                                <p>User Nonaktif</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
+                            {{-- Role & Permission --}}
+                            <li class="nav-item {{ request()->is('roles*') ? 'menu-open' : '' }}">
+                                <a href="#" class="nav-link {{ request()->is('roles*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-user-shield"></i>
+                                    <p>Role &amp; Hak Akses <i class="right fas fa-angle-left"></i></p>
+                                </a>
+                                <ul class="nav nav-treeview">
+                                    <li class="nav-item">
+                                        <a href="{{ route('roles.index') }}"
+                                            class="nav-link {{ request()->routeIs('roles.index') ? 'active' : '' }}">
+                                            <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
+                                            <p>Daftar Role</p>
+                                        </a>
+                                    </li>
+                                    <li class="nav-item">
+                                        <a href="{{ route('roles.create') }}"
+                                            class="nav-link {{ request()->routeIs('roles.create') ? 'active' : '' }}">
+                                            <i class="fas fa-plus nav-icon" style="font-size:11px;color:#10b981;"></i>
+                                            <p>Tambah Role</p>
+                                        </a>
+                                    </li>
+                                </ul>
+                            </li>
 
-                                {{-- Role & Permission --}}
-                                <li class="nav-item {{ request()->is('settings/roles*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('settings/roles*') ? 'active' : '' }}">
-                                        <i class="fas fa-user-shield nav-icon" style="font-size:12px;"></i>
-                                        <p>Role &amp; Hak Akses <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.roles.index') ? 'active' : '' }}">
-                                                <i class="fas fa-list nav-icon" style="font-size:11px;"></i>
-                                                <p>Daftar Role</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.permissions.index') ? 'active' : '' }}">
-                                                <i class="fas fa-key nav-icon" style="font-size:11px;"></i>
-                                                <p>Kelola Permission</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.roles.assign') ? 'active' : '' }}">
-                                                <i class="fas fa-user-tag nav-icon" style="font-size:11px;"></i>
-                                                <p>Assign Role ke User</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
+                            {{-- Audit Log --}}
+                            <li class="nav-item">
+                                <a href="{{ route('audit.index') }}"
+                                    class="nav-link {{ request()->routeIs('audit.*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-history"></i>
+                                    <p>Audit Log</p>
+                                </a>
+                            </li>
 
-                                {{-- Log Aktivitas --}}
-                                <li class="nav-item {{ request()->is('settings/log*') ? 'menu-open' : '' }}">
-                                    <a href="#"
-                                        class="nav-link {{ request()->is('settings/log*') ? 'active' : '' }}">
-                                        <i class="fas fa-scroll nav-icon" style="font-size:12px;"></i>
-                                        <p>Log Aktivitas <i class="right fas fa-angle-left"></i></p>
-                                    </a>
-                                    <ul class="nav nav-treeview" style="padding-left:.8rem;">
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.log.system') ? 'active' : '' }}">
-                                                <i class="fas fa-server nav-icon" style="font-size:11px;"></i>
-                                                <p>Log Sistem</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.log.login') ? 'active' : '' }}">
-                                                <i class="fas fa-sign-in-alt nav-icon" style="font-size:11px;"></i>
-                                                <p>Log Login User</p>
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="#"
-                                                class="nav-link {{ request()->routeIs('settings.log.export') ? 'active' : '' }}">
-                                                <i class="fas fa-file-download nav-icon" style="font-size:11px;"></i>
-                                                <p>Export Log</p>
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </li>
-
-                            </ul>
-                        </li>
+                            {{-- API Token ERP --}}
+                            <li class="nav-item">
+                                <a href="{{ route('api-tokens.index') }}"
+                                    class="nav-link {{ request()->routeIs('api-tokens.*') ? 'active' : '' }}">
+                                    <i class="nav-icon fas fa-key"></i>
+                                    <p>API Token ERP</p>
+                                </a>
+                            </li>
+                        @endif
                     </ul>
                 </nav>
             </div>
@@ -1507,10 +1447,10 @@
 
         <!-- Footer -->
         <footer class="main-footer">
-            <strong>Copyright &copy; 2025 <a href="https://avianbrands.com" target="_blank">Avian Brands</a>.</strong>
+            <strong>Copyright &copy; 2026 <a href="https://avianbrands.com" target="_blank">Avian Brands</a>.</strong>
             All rights reserved.
-            <div class="float-right d-none d-sm-inline-block">
-                <b>Version</b> 1.0.0
+            <div class="float-right d-none d-sm-inline-block" style="color:#9ca3af;">
+                WMS Avian &nbsp;&middot;&nbsp; <b style="color:#6b7280;">v1.0.0</b>
             </div>
         </footer>
     </div>
@@ -1526,6 +1466,379 @@
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap4.min.js"></script>
     <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- DataTable global defaults (bahasa Indonesia + processing branded) -->
+    <script>
+    $.extend(true, $.fn.dataTable.defaults, {
+        language: {
+            processing:   '<i class="fas fa-circle-notch fa-spin mr-1" style="color:#0d8564"></i> Memuat…',
+            search:       'Cari:',
+            lengthMenu:   'Tampil _MENU_ data',
+            info:         'Data _START_–_END_ dari _TOTAL_',
+            infoEmpty:    'Tidak ada data',
+            infoFiltered: '(dari _MAX_ total)',
+            zeroRecords:  '<div class="text-center text-muted py-3 small"><i class="fas fa-search fa-lg d-block mb-1"></i>Data tidak ditemukan</div>',
+            emptyTable:   '<div class="text-center text-muted py-3 small"><i class="fas fa-inbox fa-lg d-block mb-1"></i>Belum ada data</div>',
+            paginate: { first: '«', last: '»', next: '›', previous: '‹' },
+        },
+    });
+    </script>
+
+    @if (session('success'))
+        <script>
+            $(document).ready(function() {
+                Swal.fire({
+                    title: 'Berhasil!',
+                    text: '{{ addslashes(session('success')) }}',
+                    icon: 'success',
+                    timer: 3500,
+                    timerProgressBar: true,
+                    showConfirmButton: false,
+                    position: 'top-end',
+                    toast: true,
+                    showClass: {
+                        popup: 'swal2-show',
+                    },
+                    hideClass: {
+                        popup: 'swal2-hide',
+                    },
+                });
+            });
+        </script>
+    @endif
+
+    @if (session('error'))
+        <script>
+            $(document).ready(function() {
+                Swal.fire({
+                    title: 'Gagal!',
+                    text: '{{ addslashes(session('error')) }}',
+                    icon: 'error',
+                    confirmButtonColor: '#dc3545',
+                    confirmButtonText: 'OK',
+                });
+            });
+        </script>
+    @endif
+
+    {{-- ── Page Loader JS ─────────────────────────────────────────── --}}
+    <script>
+    (function () {
+        const loader = document.getElementById('page-loader');
+        const bar    = document.getElementById('loader-bar');
+        let barTimer = null;
+        let hidden   = false;   // guard: jangan hide dua kali
+
+        function showLoader() {
+            hidden = false;
+            bar.style.width = '0%';
+            bar.style.transition = 'none';
+            requestAnimationFrame(() => {
+                bar.style.transition = 'width 2.5s cubic-bezier(.1,.6,.3,1)';
+                bar.style.width = '72%';
+            });
+            loader.classList.add('visible');
+        }
+
+        function hideLoader() {
+            if (hidden) return;
+            hidden = true;
+            bar.style.transition = 'width .2s ease';
+            bar.style.width = '100%';
+            loader.classList.remove('visible');
+            clearTimeout(barTimer);
+            barTimer = setTimeout(() => {
+                bar.style.transition = 'opacity .3s';
+                bar.style.opacity   = '0';
+                setTimeout(() => {
+                    bar.style.width   = '0%';
+                    bar.style.opacity = '1';
+                    bar.style.transition = '';
+                }, 300);
+            }, 250);
+        }
+
+        // Expose agar bisa dipanggil dari luar IIFE (koordinasi DataTable)
+        window.__hideLoader = hideLoader;
+
+        // ── Deteksi apakah halaman ini punya DataTable ──────────────
+        // #datatable adalah id standar yang dipakai di semua view
+        const hasDt = !!document.getElementById('datatable');
+
+        // window.load: hide hanya jika TIDAK ada DataTable
+        // Jika ada DataTable, biarkan init.dt yang hide setelah data pertama loaded
+        window.addEventListener('load', function () {
+            if (!hasDt) hideLoader();
+        });
+
+        // Cached page (readyState sudah complete saat script jalan)
+        if (document.readyState === 'complete' && !hasDt) hideLoader();
+
+        // Safety fallback: paksa hide setelah 8 detik (jika init.dt tidak pernah fire)
+        if (hasDt) setTimeout(hideLoader, 8000);
+
+        // ── DataTable: hide page loader setelah data pertama selesai dimuat ──
+        // init.dt fires setelah draw pertama (termasuk AJAX server-side selesai).
+        // Ini yang menggantikan window.load untuk halaman ber-DataTable,
+        // sehingga user hanya melihat SATU loading (page loader), bukan dua.
+        if (hasDt) {
+            $(document).one('init.dt', function () {
+                hideLoader();
+            });
+        }
+
+        // Tampilkan saat klik link navigasi (non-AJAX, non-anchor)
+        document.addEventListener('click', function (e) {
+            const a = e.target.closest('a');
+            if (!a) return;
+            const href = a.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('#') ||
+                href.startsWith('javascript') ||
+                a.getAttribute('target') === '_blank' ||
+                e.ctrlKey || e.metaKey || e.shiftKey) return;
+            if (a.hasAttribute('download')) return;
+            showLoader();
+        });
+
+        // Tampilkan saat submit form non-AJAX
+        document.addEventListener('submit', function (e) {
+            const form = e.target;
+            if (form.dataset.ajax || form.dataset.noLoader) return;
+            showLoader();
+        });
+    })();
+    </script>
+
+    {{-- ── Notification System JS ─────────────────────────────────── --}}
+    <script>
+    (function () {
+        const notifUrl    = "{{ route('notifications.index') }}";
+        const markReadUrl = "{{ url('notifications') }}";
+        const markAllUrl  = "{{ route('notifications.read-all') }}";
+        const csrfToken   = $('meta[name="csrf-token"]').attr('content');
+
+        // Tracking ID notifikasi per sesi browser
+        let knownIds    = null;
+        let isFirstPoll = true;
+
+        // Antrian toast supaya tidak tumpuk sekaligus
+        let toastQueue   = [];
+        let toastRunning = false;
+
+        const iconColorMap = {
+            primary:   '#0d8564',
+            info:      '#17a2b8',
+            warning:   '#f6993f',
+            success:   '#38c172',
+            danger:    '#e3342f',
+            secondary: '#6c757d',
+        };
+
+        const toastMeta = {
+            new_inbound:   { icon: 'fas fa-truck',        color: '#0d8564', label: 'Inbound Baru Masuk' },
+            qty_confirmed: { icon: 'fas fa-check-circle', color: '#17a2b8', label: 'Qty Dikonfirmasi'    },
+            ga_accepted:   { icon: 'fas fa-robot',        color: '#8b5cf6', label: 'GA Diterima'         },
+            putaway_done:  { icon: 'fas fa-boxes',        color: '#f59e0b', label: 'Put-Away Selesai'    },
+        };
+
+        // ── Render item di dropdown bell ────────────────────────────────
+        function renderNotif(n) {
+            const color  = iconColorMap[n.color] || '#6c757d';
+            const bgRead = n.is_read ? '#fff' : '#f0fff8';
+            const bold   = n.is_read ? '' : 'font-weight:600';
+            return `
+            <div class="notif-item d-flex align-items-start px-3 py-2"
+                 data-id="${n.id}" data-url="${n.url}"
+                 style="cursor:pointer;border-bottom:1px solid #f3f4f6;background:${bgRead};transition:background .15s">
+                <div class="mr-2 mt-1 flex-shrink-0"
+                     style="width:32px;height:32px;border-radius:50%;background:${color}22;
+                            display:flex;align-items:center;justify-content:center">
+                    <i class="${n.icon}" style="color:${color};font-size:13px"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                    <div class="text-dark" style="font-size:12.5px;${bold};line-height:1.4">
+                        ${n.title}
+                    </div>
+                    <div class="text-muted" style="font-size:11.5px;margin-top:2px;line-height:1.35">
+                        ${n.message}
+                    </div>
+                    <div class="text-muted" style="font-size:10px;margin-top:3px">
+                        <i class="far fa-clock mr-1"></i>${n.created_at}
+                    </div>
+                </div>
+                ${!n.is_read ? '<span class="ml-2 mt-1" style="width:7px;height:7px;border-radius:50%;background:#e3342f;flex-shrink:0;display:block"></span>' : ''}
+            </div>`;
+        }
+
+        // ── Tampilkan satu toast via SweetAlert2 ────────────────────────
+        function showNextToast() {
+            if (toastRunning || toastQueue.length === 0) return;
+            toastRunning = true;
+
+            const n    = toastQueue.shift();
+            const meta = toastMeta[n.type] || {
+                icon:  n.icon  || 'fas fa-bell',
+                color: iconColorMap[n.color] || '#6c757d',
+                label: 'Notifikasi Baru',
+            };
+
+            // Buat HTML konten toast (tanpa template literal bersarang)
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;align-items:flex-start;gap:10px;text-align:left;cursor:pointer;';
+
+            const iconBox = document.createElement('div');
+            iconBox.style.cssText = 'width:38px;height:38px;border-radius:50%;background:' + meta.color + '18;'
+                + 'display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;';
+            iconBox.innerHTML = '<i class="' + meta.icon + '" style="color:' + meta.color + ';font-size:16px;"></i>';
+
+            const textBox = document.createElement('div');
+            textBox.style.cssText = 'flex:1;min-width:0;';
+
+            const labelEl = document.createElement('div');
+            labelEl.style.cssText = 'font-size:11px;font-weight:700;color:' + meta.color
+                + ';text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px;';
+            labelEl.textContent = meta.label;
+
+            const titleEl = document.createElement('div');
+            titleEl.style.cssText = 'font-size:13.5px;font-weight:600;color:#1f2937;line-height:1.3;margin-bottom:3px;';
+            titleEl.textContent = n.title;
+
+            const msgEl = document.createElement('div');
+            msgEl.style.cssText = 'font-size:12px;color:#6b7280;line-height:1.4;';
+            msgEl.innerHTML = n.message; // message sudah dipercaya dari server sendiri
+
+            textBox.appendChild(labelEl);
+            textBox.appendChild(titleEl);
+            textBox.appendChild(msgEl);
+            wrap.appendChild(iconBox);
+            wrap.appendChild(textBox);
+
+            Swal.fire({
+                toast:             false,   // bukan toast kecil — pakai popup full supaya pasti terlihat
+                position:          'top-end',
+                html:              wrap.outerHTML,
+                showConfirmButton: true,
+                confirmButtonText: '<i class="fas fa-arrow-right mr-1"></i>Buka',
+                confirmButtonColor: meta.color,
+                showCloseButton:   true,
+                timer:             12000,
+                timerProgressBar:  true,
+                width:             '380px',
+                padding:           '1.2em',
+                customClass:       { popup: 'wms-notif-popup' },
+                didOpen: function (popup) {
+                    // Klik area konten → langsung navigasi
+                    popup.querySelector('.swal2-html-container').style.cursor = 'pointer';
+                    popup.querySelector('.swal2-html-container').addEventListener('click', function () {
+                        Swal.close();
+                        $.post(markReadUrl + '/' + n.id + '/read', { _token: csrfToken });
+                        if (n.url && n.url !== '#') window.location.href = n.url;
+                    });
+                },
+                didClose: function () {
+                    toastRunning = false;
+                    // Jika masih ada antrian, tampilkan berikutnya setelah jeda singkat
+                    if (toastQueue.length > 0) setTimeout(showNextToast, 400);
+                }
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    $.post(markReadUrl + '/' + n.id + '/read', { _token: csrfToken });
+                    if (n.url && n.url !== '#') window.location.href = n.url;
+                }
+            });
+        }
+
+        // ── Polling utama ────────────────────────────────────────────────
+        function loadNotifications() {
+            $.getJSON(notifUrl, function (data) {
+                const count = data.unread_count;
+
+                // Badge di bell icon
+                if (count > 0) {
+                    $('#notifBadge').text(count > 99 ? '99+' : count).show();
+                    $('#notifBadgeHeader').text(count).show();
+                } else {
+                    $('#notifBadge').hide();
+                    $('#notifBadgeHeader').hide();
+                }
+
+                updateSidebarBadges(data.sidebar_counts || {});
+
+                const items = data.notifications || [];
+
+                if (isFirstPoll) {
+                    // Polling pertama: rekam semua ID yang sudah ada — jangan tampilkan toast
+                    knownIds    = new Set(items.map(function(n) { return n.id; }));
+                    isFirstPoll = false;
+                } else {
+                    // Polling berikutnya: deteksi ID baru (tidak peduli is_read)
+                    items.forEach(function(n) {
+                        if (!knownIds.has(n.id)) {
+                            knownIds.add(n.id);
+                            toastQueue.push(n);
+                        }
+                    });
+                    if (toastQueue.length > 0) showNextToast();
+                }
+
+                // Render dropdown
+                if (items.length === 0) {
+                    $('#notifEmpty').show();
+                    $('#notifItems').empty();
+                    return;
+                }
+                $('#notifEmpty').hide();
+                $('#notifItems').html(items.map(renderNotif).join(''));
+            });
+        }
+
+        // Klik item dropdown → mark read + navigate
+        $(document).on('click', '.notif-item', function () {
+            const id  = $(this).data('id');
+            const url = $(this).data('url');
+            $.post(markReadUrl + '/' + id + '/read', { _token: csrfToken });
+            if (url && url !== '#') window.location.href = url;
+        });
+
+        // Mark all read
+        $('#btnMarkAllRead').on('click', function (e) {
+            e.stopPropagation();
+            $.post(markAllUrl, { _token: csrfToken }, function () {
+                loadNotifications();
+                Swal.fire({ icon: 'success', toast: true, position: 'top-end',
+                    showConfirmButton: false, timer: 1500, title: 'Semua notifikasi dibaca.' });
+            });
+        });
+
+        // Load saat bell diklik
+        $('#notifBellBtn').on('click', function () { loadNotifications(); });
+
+        // Polling tiap 20 detik
+        loadNotifications();
+        setInterval(loadNotifications, 20000);
+
+        // ── Sidebar badge helper ─────────────────────────────────────────
+        function updateSidebarBadges(counts) {
+            function setBadge(id, count) {
+                var el = $('#' + id);
+                if (count > 0) { el.text(count).show(); } else { el.hide(); }
+            }
+            setBadge('badge-inbound-draft',   counts.inbound_draft   || 0);
+            setBadge('badge-putaway-pending', counts.putaway_pending || 0);
+        }
+    })();
+    </script>
+
+    <style>
+    .wms-notif-popup {
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        border-radius: 12px !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,.18) !important;
+    }
+    .wms-notif-popup .swal2-html-container { margin: 0 !important; padding: 0 !important; }
+    .wms-notif-popup .swal2-actions { margin-top: 14px !important; }
+    </style>
+
     @stack('scripts')
 </body>
 

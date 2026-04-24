@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Activity Diagram – Monitor Kondisi Gudang &amp; Visualisasi 3D</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; background: #fff; color: #000; }
+  .page-title { text-align: center; padding: 14px 0 2px; font-size: 15px; font-weight: bold; letter-spacing: 0.4px; }
+  .page-sub   { text-align: center; font-size: 11px; color: #444; margin-bottom: 12px; }
+  .cols { display: flex; justify-content: center; gap: 30px; padding: 0 20px 40px; }
+  .col  { flex: 1; max-width: 500px; }
+  .col-title {
+    font-size: 11px; font-weight: bold; text-align: center;
+    border: 1.5px solid #000; padding: 5px 8px; background: #f0f0f0;
+    margin-bottom: 6px;
+  }
+  svg { display: block; }
+  @media print { .cols { page-break-inside: avoid; } }
+</style>
+</head>
+<body>
+
+<p class="page-title">Activity Diagram</p>
+<p class="page-sub">UC5: Monitor Kondisi Gudang &nbsp;|&nbsp; UC9: Lihat Visualisasi Denah 3D</p>
+<p class="page-sub">Sistem Informasi Manajemen Gudang (WMS) – Program Studi Teknik Informatika</p>
+
+<div class="cols">
+
+  <!-- ══════════════════════════════════════════════
+       UC5 : Monitor Kondisi Gudang
+       Actors : Supervisor  /  Sistem
+       ══════════════════════════════════════════════ -->
+  <div class="col">
+    <div class="col-title">UC5 – Monitor Kondisi Gudang (Supervisor)</div>
+    <svg width="500" height="860" viewBox="0 0 500 860"
+         xmlns="http://www.w3.org/2000/svg"
+         font-family="Arial, sans-serif" font-size="11" fill="#000">
+      <defs>
+        <marker id="a5" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+          <polygon points="0,0 8,3.5 0,7" fill="#000"/>
+        </marker>
+      </defs>
+
+      <!-- Swimlane columns -->
+      <rect x="0"   y="0" width="250" height="860" fill="#fafafa" stroke="#aaa" stroke-width="0.8"/>
+      <rect x="250" y="0" width="250" height="860" fill="#fff"    stroke="#aaa" stroke-width="0.8"/>
+      <!-- headers -->
+      <rect x="0"   y="0" width="250" height="24" fill="#ddd" stroke="#aaa" stroke-width="0.8"/>
+      <rect x="250" y="0" width="250" height="24" fill="#ddd" stroke="#aaa" stroke-width="0.8"/>
+      <text x="125" y="16" text-anchor="middle" font-weight="bold" font-size="10.5">Supervisor</text>
+      <text x="375" y="16" text-anchor="middle" font-weight="bold" font-size="10.5">Sistem</text>
+
+      <!-- helper macros via groups -->
+
+      <!-- [START] -->
+      <circle cx="125" cy="54" r="11" fill="#000"/>
+      <!-- ↓ -->
+      <line x1="125" y1="65" x2="125" y2="85" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [1] Login / Akses Sistem -->
+      <rect x="35"  y="85" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="107" text-anchor="middle">Login / Akses Sistem</text>
+      <!-- → ke Sistem -->
+      <line x1="215" y1="102" x2="268" y2="102" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [S1] Verifikasi Sesi -->
+      <rect x="268" y="85" width="192" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="107" text-anchor="middle">Verifikasi Sesi &amp; Role</text>
+      <!-- ← balik ke Supervisor -->
+      <line x1="268" y1="119" x2="268" y2="137" stroke="#000" stroke-width="1.5"/>
+      <line x1="268" y1="137" x2="215" y2="137" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <!-- ↓ (di sisi supervisor) -->
+      <line x1="125" y1="137" x2="125" y2="157" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [2] Buka Menu Monitoring -->
+      <rect x="35"  y="157" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="179" text-anchor="middle">Buka Menu Monitoring</text>
+      <!-- → ke Sistem -->
+      <line x1="215" y1="174" x2="268" y2="174" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [S2] Ambil Data Utilisasi Gudang -->
+      <rect x="268" y="157" width="192" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="179" text-anchor="middle">Ambil Data Utilisasi</text>
+
+      <!-- [S3] Tampilkan Ringkasan -->
+      <line x1="364" y1="191" x2="364" y2="211" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <rect x="268" y="211" width="192" height="44" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="229" text-anchor="middle">Tampilkan Ringkasan</text>
+      <text x="364" y="244" text-anchor="middle">Utilisasi Gudang</text>
+      <!-- ← balik -->
+      <line x1="268" y1="233" x2="215" y2="233" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <line x1="125" y1="191" x2="125" y2="233" stroke="#000" stroke-width="1.5"/>
+
+      <!-- ↓ -->
+      <line x1="125" y1="233" x2="125" y2="255" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [3] Pilih Zona untuk Detail -->
+      <rect x="35"  y="255" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="277" text-anchor="middle">Pilih Zona untuk Detail</text>
+      <!-- → -->
+      <line x1="215" y1="272" x2="268" y2="272" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [S4] Tampilkan Occupancy per Zona -->
+      <rect x="268" y="255" width="192" height="44" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="273" text-anchor="middle">Tampilkan Occupancy</text>
+      <text x="364" y="288" text-anchor="middle">per Zona &amp; Rak</text>
+      <!-- ← -->
+      <line x1="268" y1="277" x2="248" y2="277" stroke="#000" stroke-width="1.5"/>
+      <line x1="248" y1="277" x2="248" y2="319" stroke="#000" stroke-width="1.5"/>
+      <line x1="248" y1="319" x2="215" y2="319" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <line x1="125" y1="289" x2="125" y2="319" stroke="#000" stroke-width="1.5"/>
+
+      <!-- ↓ -->
+      <line x1="125" y1="319" x2="125" y2="341" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [D1] Ada Alert? -->
+      <polygon points="125,341 170,371 125,401 80,371" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="368" text-anchor="middle" font-size="10.5">Ada</text>
+      <text x="125" y="381" text-anchor="middle" font-size="10.5">Alert?</text>
+
+      <!-- Ya → kanan -->
+      <line x1="170" y1="371" x2="268" y2="371" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <text x="220" y="364" text-anchor="middle" font-size="9">Ya</text>
+
+      <!-- Tidak → bawah -->
+      <line x1="125" y1="401" x2="125" y2="435" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <text x="133" y="421" font-size="9">Tidak</text>
+
+      <!-- [S5] Tampilkan Notifikasi Alert -->
+      <rect x="268" y="354" width="192" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="376" text-anchor="middle">Tampilkan Notifikasi Alert</text>
+      <!-- ← merge ke bawah: ke y=435 -->
+      <line x1="364" y1="388" x2="364" y2="435" stroke="#000" stroke-width="1.5"/>
+      <line x1="364" y1="435" x2="215" y2="435" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [D2] Unduh Laporan? -->
+      <polygon points="125,435 170,465 125,495 80,465" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="462" text-anchor="middle" font-size="10.5">Unduh</text>
+      <text x="125" y="475" text-anchor="middle" font-size="10.5">Laporan?</text>
+
+      <!-- Ya → kanan -->
+      <line x1="170" y1="465" x2="268" y2="465" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <text x="220" y="458" text-anchor="middle" font-size="9">Ya</text>
+
+      <!-- Tidak → bawah -->
+      <line x1="125" y1="495" x2="125" y2="535" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+      <text x="133" y="519" font-size="9">Tidak</text>
+
+      <!-- [S6] Generate &amp; Unduh Laporan PDF -->
+      <rect x="268" y="448" width="192" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="470" text-anchor="middle">Generate &amp; Unduh</text>
+      <!-- ← merge -->
+      <line x1="364" y1="482" x2="364" y2="535" stroke="#000" stroke-width="1.5"/>
+      <line x1="364" y1="535" x2="215" y2="535" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [4] Selesai Monitoring -->
+      <rect x="35"  y="535" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="557" text-anchor="middle">Selesai Monitoring</text>
+      <!-- ↓ -->
+      <line x1="125" y1="569" x2="125" y2="593" stroke="#000" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- [END] -->
+      <circle cx="125" cy="610" r="11" fill="#fff" stroke="#000" stroke-width="2.5"/>
+      <circle cx="125" cy="610" r="7"  fill="#000"/>
+    </svg>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════
+       UC9 : Lihat Visualisasi Denah 3D
+       Actors : Operator/Supervisor  /  Sistem
+       ══════════════════════════════════════════════ -->
+  <div class="col">
+    <div class="col-title">UC9 – Lihat Visualisasi Denah 3D (Operator / Supervisor)</div>
+    <svg width="500" height="860" viewBox="0 0 500 860"
+         xmlns="http://www.w3.org/2000/svg"
+         font-family="Arial, sans-serif" font-size="11" fill="#000">
+      <defs>
+        <marker id="a9" markerWidth="8" markerHeight="7" refX="7" refY="3.5" orient="auto">
+          <polygon points="0,0 8,3.5 0,7" fill="#000"/>
+        </marker>
+      </defs>
+
+      <!-- Swimlane columns -->
+      <rect x="0"   y="0" width="250" height="860" fill="#fafafa" stroke="#aaa" stroke-width="0.8"/>
+      <rect x="250" y="0" width="250" height="860" fill="#fff"    stroke="#aaa" stroke-width="0.8"/>
+      <rect x="0"   y="0" width="250" height="24" fill="#ddd" stroke="#aaa" stroke-width="0.8"/>
+      <rect x="250" y="0" width="250" height="24" fill="#ddd" stroke="#aaa" stroke-width="0.8"/>
+      <text x="125" y="16" text-anchor="middle" font-weight="bold" font-size="10.5">Operator / Supervisor</text>
+      <text x="375" y="16" text-anchor="middle" font-weight="bold" font-size="10.5">Sistem</text>
+
+      <!-- [START] -->
+      <circle cx="125" cy="54" r="11" fill="#000"/>
+      <line x1="125" y1="65" x2="125" y2="85" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- [1] Buka Menu Visualisasi 3D -->
+      <rect x="35"  y="85" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="107" text-anchor="middle">Buka Menu Visualisasi 3D</text>
+      <line x1="125" y1="119" x2="125" y2="139" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- [2] Pilih Gudang -->
+      <rect x="35"  y="139" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="161" text-anchor="middle">Pilih Gudang</text>
+      <!-- → Sistem -->
+      <line x1="215" y1="156" x2="268" y2="156" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- [S1] Ambil Data Zona, Rak, Cell via API -->
+      <rect x="268" y="139" width="192" height="44" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="157" text-anchor="middle">Ambil Data Zona,</text>
+      <text x="364" y="171" text-anchor="middle">Rak &amp; Cell via API</text>
+
+      <!-- [S2] Render Scene Three.js -->
+      <line x1="364" y1="183" x2="364" y2="203" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <rect x="268" y="203" width="192" height="44" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="221" text-anchor="middle">Render Scene Three.js</text>
+      <text x="364" y="235" text-anchor="middle">(Rak, Cell, Zona)</text>
+      <!-- ← balik ke user -->
+      <line x1="268" y1="225" x2="248" y2="225" stroke="#000" stroke-width="1.5"/>
+      <line x1="248" y1="225" x2="248" y2="263" stroke="#000" stroke-width="1.5"/>
+      <line x1="248" y1="263" x2="215" y2="263" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <!-- penghubung sisi kiri juga turun -->
+      <line x1="125" y1="173" x2="125" y2="263" stroke="#000" stroke-width="1.5"/>
+
+      <!-- [3] Eksplorasi Scene -->
+      <rect x="35"  y="263" width="180" height="44" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="281" text-anchor="middle">Eksplorasi Scene</text>
+      <text x="125" y="296" text-anchor="middle">(Rotate / Zoom / Pan)</text>
+      <line x1="125" y1="307" x2="125" y2="329" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- [D1] Pilih Aksi? -->
+      <polygon points="125,329 175,362 125,395 75,362" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="359" text-anchor="middle" font-size="10.5">Pilih</text>
+      <text x="125" y="372" text-anchor="middle" font-size="10.5">Aksi?</text>
+
+      <!-- Hover Rak (kiri) -->
+      <line x1="75"  y1="362" x2="12"  y2="362" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <text x="44"   y="355" text-anchor="middle" font-size="9">Hover</text>
+
+      <!-- Klik Cell (kanan) -->
+      <line x1="175" y1="362" x2="268" y2="362" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <text x="222" y="355" text-anchor="middle" font-size="9">Klik</text>
+
+      <!-- Tidak (bawah) -->
+      <line x1="125" y1="395" x2="125" y2="535" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <text x="133" y="469" font-size="9">Tidak</text>
+
+      <!-- Hover path: ke pojok kiri, turun, balik -->
+      <rect x="0"  y="378" width="12" height="0"/>
+      <!-- arrow dari kiri diamond turun ke S-Hover box -->
+      <line x1="12" y1="362" x2="12"  y2="406" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <!-- [S-Hover] Tampilkan Tooltip Rak -->
+      <rect x="0" y="406" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="90" y="428" text-anchor="middle">Tampilkan Tooltip Rak</text>
+      <!-- turun dan merge ke y=535 -->
+      <line x1="90" y1="440" x2="90"  y2="535" stroke="#000" stroke-width="1.5"/>
+      <line x1="90" y1="535" x2="125" y2="535" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- Klik path: ke sistem -->
+      <!-- [S-Klik] Ambil Data Cell -->
+      <rect x="268" y="346" width="192" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="368" text-anchor="middle">Ambil Data Cell &amp; Stok</text>
+      <!-- [S-Klik2] Tampilkan Modal Detail -->
+      <line x1="364" y1="380" x2="364" y2="400" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <rect x="268" y="400" width="192" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="364" y="422" text-anchor="middle">Tampilkan Modal Detail</text>
+      <!-- ← merge -->
+      <line x1="268" y1="417" x2="250" y2="417" stroke="#000" stroke-width="1.5"/>
+      <line x1="250" y1="417" x2="250" y2="535" stroke="#000" stroke-width="1.5"/>
+      <line x1="250" y1="535" x2="215" y2="535" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- merge semua ke [D2] -->
+      <!-- [D2] Lanjut Eksplorasi? -->
+      <polygon points="125,535 175,567 125,599 75,567" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="564" text-anchor="middle" font-size="10.5">Lanjut</text>
+      <text x="125" y="577" text-anchor="middle" font-size="10.5">Eksplorasi?</text>
+
+      <!-- Ya: loop balik ke Eksplorasi -->
+      <line x1="75"  y1="567" x2="20"  y2="567" stroke="#000" stroke-width="1.5"/>
+      <line x1="20"  y1="567" x2="20"  y2="285" stroke="#000" stroke-width="1.5"/>
+      <line x1="20"  y1="285" x2="35"  y2="285" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <text x="10"   y="430" text-anchor="middle" font-size="9" transform="rotate(-90,10,430)">Ya</text>
+
+      <!-- Tidak: bawah -->
+      <line x1="125" y1="599" x2="125" y2="625" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+      <text x="133" y="615" font-size="9">Tidak</text>
+
+      <!-- [4] Tutup Visualisasi -->
+      <rect x="35"  y="625" width="180" height="34" rx="17" fill="#fff" stroke="#000" stroke-width="1.5"/>
+      <text x="125" y="647" text-anchor="middle">Tutup Visualisasi</text>
+      <line x1="125" y1="659" x2="125" y2="683" stroke="#000" stroke-width="1.5" marker-end="url(#a9)"/>
+
+      <!-- [END] -->
+      <circle cx="125" cy="700" r="11" fill="#fff" stroke="#000" stroke-width="2.5"/>
+      <circle cx="125" cy="700" r="7"  fill="#000"/>
+    </svg>
+  </div>
+
+</div><!-- /.cols -->
+</body>
+</html>

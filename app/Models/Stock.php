@@ -6,8 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Stock extends Model
 {
+    protected $table = 'stock_records';
+
     protected $fillable = [
-        'item_id', 'cell_id', 'inbound_order_item_id',
+        'item_id', 'cell_id', 'warehouse_id', 'inbound_order_item_id',
         'lpn', 'batch_no', 'quantity',
         'inbound_date', 'expiry_date', 'last_moved_at', 'status',
     ];
@@ -26,6 +28,11 @@ class Stock extends Model
     public function cell()
     {
         return $this->belongsTo(Cell::class);
+    }
+
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class);
     }
 
     public function inboundOrderItem()

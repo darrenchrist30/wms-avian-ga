@@ -1,0 +1,189 @@
+// ─────────────────────────────────────────────────────────────────
+//  ERD Inti Skripsi — WMS Avian GA Put-Away Optimization
+//  Paste ke: https://dbdiagram.io/d
+//
+//  Susunan tabel (dari kiri ke kanan, atas ke bawah):
+//
+//  [warehouses]   [item_categories]
+//      ↓               ↓         ↘
+//  [zones]         [items]     [cells] ←──────────────────┐
+//      ↓               ↓         ↑                        │
+//  [racks]     [item_affinities]  │                        │
+//      ↓                          │                        │
+//  [cells] ──────────────────────→┘                       │
+//      ↓                                                   │
+//  [inbound_transactions] ─────────────────────────────┐  │
+//      ↓                                               │  │
+//  [inbound_details] ──────────────────────────────┐   │  │
+//      ↓                                           │   ↓  │
+//  [ga_recommendations]                    [stock_records] │
+//      ↓                                           │       │
+//  [ga_recommendation_details] ────────────────────┘       │
+//      ↓                                                   │
+//  [put_away_confirmations] ──────────────────────────────→┘
+//      ↓
+//  [stock_movements]
+// ─────────────────────────────────────────────────────────────────
+
+// ══ MASTER LOKASI (kiri atas) ════════════════════════════════════
+
+Table warehouses [headercolor: #1d4ed8] {
+  id   bigint  [pk, increment]
+  code varchar [unique]
+  name varchar
+}
+
+Table zones [headercolor: #1d4ed8] {
+  id           bigint  [pk, increment]
+  warehouse_id bigint  [ref: > warehouses.id]
+  code         varchar
+  name         varchar
+}
+
+Table racks [headercolor: #1d4ed8] {
+  id            bigint  [pk, increment]
+  zone_id       bigint  [ref: > zones.id]
+  code          varchar
+  total_levels  int
+  total_columns int
+}
+
+Table cells [headercolor: #1d4ed8] {
+  id                   bigint  [pk, increment]
+  rack_id              bigint  [ref: > racks.id]
+  dominant_category_id bigint  [ref: > item_categories.id]
+  code                 varchar
+  capacity_max         int
+  capacity_used        int
+  status               varchar [note: 'available/partial/full/blocked']
+}
+
+// ══ MASTER ITEM (kanan atas) ══════════════════════════════════════
+
+Table item_categories [headercolor: #065f46] {
+  id   bigint  [pk, increment]
+  code varchar [unique]
+  name varchar
+}
+
+Table items [headercolor: #065f46] {
+  id            bigint  [pk, increment]
+  category_id   bigint  [ref: > item_categories.id]
+  sku           varchar [unique]
+  movement_type varchar [note: 'fast_moving / slow_moving']
+  weight_kg     decimal
+  volume_m3     decimal
+}
+
+Table item_affinities [headercolor: #065f46] {
+  id                  bigint  [pk, increment]
+  item_id             bigint  [ref: > items.id]
+  related_item_id     bigint  [ref: > items.id]
+  affinity_score      decimal [note: '0.0–1.0 · input FC_AFF']
+  co_occurrence_count int
+}
+
+// ══ PROSES INBOUND (tengah) ═══════════════════════════════════════
+
+Table inbound_transactions [headercolor: #92400e] {
+  id           bigint  [pk, increment]
+  warehouse_id bigint  [ref: > warehouses.id]
+  do_number    varchar [unique, note: 'Nomor surat jalan']
+  do_date      date
+  status       varchar [note: 'draft/processing/recommended/put_away/completed']
+}
+
+Table inbound_details [headercolor: #92400e] {
+  id                bigint  [pk, increment]
+  inbound_order_id  bigint  [ref: > inbound_transactions.id]
+  item_id           bigint  [ref: > items.id]
+  quantity_ordered  int
+  quantity_received int
+  status            varchar
+}
+
+// ══ GENETIC ALGORITHM (tengah-bawah) ══════════════════════════════
+
+Table ga_recommendations [headercolor: #5b21b6] {
+  id                bigint  [pk, increment]
+  inbound_order_id  bigint  [ref: > inbound_transactions.id]
+  chromosome_json   json    [note: 'Solusi: [item_id → cell_id]']
+  fitness_score     decimal [note: 'Skor total 0–100']
+  generations_run   int
+  execution_time_ms int
+  status            varchar [note: 'pending/accepted/rejected']
+}
+
+Table ga_recommendation_details [headercolor: #5b21b6] {
+  id                    bigint  [pk, increment]
+  ga_recommendation_id  bigint  [ref: > ga_recommendations.id]
+  inbound_order_item_id bigint  [ref: > inbound_details.id]
+  cell_id               bigint  [ref: > cells.id]
+  quantity              int
+  fc_cap_score          decimal [note: '40% · kapasitas cell']
+  fc_cat_score          decimal [note: '30% · kesesuaian kategori']
+  fc_aff_score          decimal [note: '20% · afinitas produk']
+  fc_split_score        decimal [note: '10% · penalti split']
+}
+
+Table put_away_confirmations [headercolor: #5b21b6] {
+  id                          bigint   [pk, increment]
+  inbound_order_item_id       bigint   [ref: > inbound_details.id]
+  cell_id                     bigint   [ref: > cells.id]
+  ga_recommendation_detail_id bigint   [ref: > ga_recommendation_details.id, note: 'NULL = operator override']
+  quantity_stored             int
+  follow_recommendation       boolean  [note: 'TRUE=ikut GA · FALSE=override']
+}
+
+// ══ INVENTORI (kanan bawah) ════════════════════════════════════════
+
+Table stock_records [headercolor: #991b1b] {
+  id                    bigint  [pk, increment]
+  item_id               bigint  [ref: > items.id]
+  cell_id               bigint  [ref: > cells.id]
+  inbound_order_item_id bigint  [ref: > inbound_details.id]
+  quantity              int
+  inbound_date          date
+  status                varchar [note: 'available/reserved/quarantine/expired']
+}
+
+Table stock_movements [headercolor: #991b1b] {
+  id            bigint   [pk, increment]
+  item_id       bigint   [ref: > items.id]
+  from_cell_id  bigint   [ref: > cells.id, note: 'NULL = inbound baru']
+  to_cell_id    bigint   [ref: > cells.id, note: 'NULL = outbound']
+  quantity      int
+  movement_type varchar  [note: 'inbound/outbound/transfer/adjustment']
+  moved_at      datetime
+}
+
+// ══ TABLE GROUPS ═══════════════════════════════════════════════════
+
+TableGroup "Master Lokasi" {
+  warehouses
+  zones
+  racks
+  cells
+}
+
+TableGroup "Master Item" {
+  item_categories
+  items
+  item_affinities
+}
+
+TableGroup "Proses Inbound" {
+  inbound_transactions
+  inbound_details
+}
+
+TableGroup "Genetic Algorithm" {
+  ga_recommendations
+  ga_recommendation_details
+  put_away_confirmations
+}
+
+TableGroup "Inventori" {
+  stock_records
+  stock_movements
+}

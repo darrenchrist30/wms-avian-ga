@@ -7,13 +7,14 @@ use App\Models\Warehouse;
 use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\DataTables;
 
 class ZoneController extends Controller
 {
     public function index()
     {
-        $zones = Zone::with('warehouse')->withCount('racks')->latest()->get();
-        return view('location.zones.index', compact('zones'));
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
+        return view('location.zones.index', compact('warehouses'));
     }
 
     public function create()
@@ -37,18 +38,12 @@ class ZoneController extends Controller
             'pos_z'        => 'nullable|numeric',
             'is_active'    => 'boolean',
         ]);
-
         $exists = Zone::where('warehouse_id', $request->warehouse_id)
-            ->where('code', strtoupper($request->code))
-            ->exists();
-
+            ->where('code', strtoupper($request->code))->exists();
         if ($exists) {
-            return back()->withInput()
-                ->withErrors(['code' => 'Kode zona sudah digunakan di warehouse ini.']);
+            return back()->withInput()->withErrors(['code' => 'Kode zona sudah digunakan di warehouse ini.']);
         }
-
         DB::beginTransaction();
-
         try {
             Zone::create([
                 'warehouse_id' => $request->warehouse_id,
@@ -59,22 +54,16 @@ class ZoneController extends Controller
                 'pos_z'        => $request->pos_z ?? 0,
                 'is_active'    => $request->boolean('is_active', true),
             ]);
-
             DB::commit();
-
-            return redirect()->route('location.zones.index')
-                ->with('success', 'Zona berhasil ditambahkan.');
+            return redirect()->route('location.zones.index')->with('success', 'Zona berhasil ditambahkan.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()
-                ->with('error', 'Gagal menyimpan zona: ' . $e->getMessage());
+            report($e);
+            return back()->withInput()->with('error', 'Gagal menyimpan zona. Silakan coba lagi.');
         }
     }
 
-    public function show($id)
-    {
-        return redirect()->route('location.zones.index');
-    }
+    public function show($id) { return redirect()->route('location.zones.index'); }
 
     public function edit($id)
     {
@@ -90,7 +79,6 @@ class ZoneController extends Controller
     public function update(Request $request, $id)
     {
         $data = Zone::findOrFail($id);
-
         $request->validate([
             'warehouse_id' => 'required|exists:warehouses,id',
             'code'         => 'required|string|max:10',
@@ -100,19 +88,13 @@ class ZoneController extends Controller
             'pos_z'        => 'nullable|numeric',
             'is_active'    => 'boolean',
         ]);
-
         $exists = Zone::where('warehouse_id', $request->warehouse_id)
             ->where('code', strtoupper($request->code))
-            ->where('id', '!=', $id)
-            ->exists();
-
+            ->where('id', '!=', $id)->exists();
         if ($exists) {
-            return back()->withInput()
-                ->withErrors(['code' => 'Kode zona sudah digunakan di warehouse ini.']);
+            return back()->withInput()->withErrors(['code' => 'Kode zona sudah digunakan di warehouse ini.']);
         }
-
         DB::beginTransaction();
-
         try {
             $data->update([
                 'warehouse_id' => $request->warehouse_id,
@@ -123,37 +105,59 @@ class ZoneController extends Controller
                 'pos_z'        => $request->pos_z ?? $data->pos_z,
                 'is_active'    => $request->boolean('is_active', true),
             ]);
-
             DB::commit();
-
-            return redirect()->route('location.zones.index')
-                ->with('success', 'Zona berhasil diperbarui.');
+            return redirect()->route('location.zones.index')->with('success', 'Zona berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withInput()
-                ->with('error', 'Gagal memperbarui zona: ' . $e->getMessage());
+            report($e);
+            return back()->withInput()->with('error', 'Gagal memperbarui zona. Silakan coba lagi.');
         }
     }
 
     public function destroy($id)
     {
         $data = Zone::withCount('racks')->findOrFail($id);
-
         if ($data->racks_count > 0) {
-            return back()->with('error', 'Zona tidak dapat dihapus karena masih memiliki ' . $data->racks_count . ' rak.');
+            return response()->json(['status' => 'error', 'message' => 'Zona tidak dapat dihapus karena masih memiliki ' . $data->racks_count . ' rak.'], 422);
         }
-
         DB::beginTransaction();
-
         try {
             $data->delete();
-
             DB::commit();
-
-            return back()->with('success', 'Zona berhasil dihapus.');
+            return response()->json(['status' => 'success', 'message' => 'Zona berhasil dihapus.']);
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Gagal menghapus zona: ' . $e->getMessage());
+            report($e);
+            return response()->json(['status' => 'error', 'message' => 'Terjadi kesalahan pada server.'], 500);
         }
+    }
+
+    public function datatable(Request $request)
+    {
+        $query = Zone::with('warehouse')->withCount('racks');
+        if ($request->filled('warehouse_id')) {
+            $query->where('warehouse_id', $request->warehouse_id);
+        }
+        if ($request->filled('status')) {
+            $query->where('is_active', $request->status);
+        }
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->addColumn('warehouse_name', function ($row) {
+                return $row->warehouse->name ?? '-';
+            })
+            ->addColumn('status_badge', function ($row) {
+                return $row->is_active
+                    ? '<span class="badge badge-success">Aktif</span>'
+                    : '<span class="badge badge-secondary">Nonaktif</span>';
+            })
+            ->addColumn('action', function ($row) {
+                $editUrl = route('location.zones.edit', $row->id);
+                $html  = '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a> ';
+                $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                return $html;
+            })
+            ->rawColumns(['status_badge', 'action'])
+            ->make(true);
     }
 }

@@ -37,7 +37,7 @@
                                 @method('PUT')
                             @endif
 
-                            <div class="card {{ $typeForm == 'create' ? 'card-primary' : 'card-warning' }} card-outline">
+                            <div class="card {{ $typeForm == 'create' ? 'card-primary' : 'card-success' }} card-outline">
                                 <div class="card-body">
 
                                     <div class="form-group row">
@@ -132,7 +132,7 @@
                                     <i class="fas fa-save mr-1"></i>Simpan
                                 </button>
                             @else
-                                <button type="submit" form="form-kategori" class="btn btn-warning text-white">
+                                <button type="submit" form="form-kategori" class="btn btn-success">
                                     <i class="fas fa-save mr-1"></i>Update
                                 </button>
                             @endif

@@ -1,0 +1,244 @@
+%% ERD Inti Skripsi - GA Put-Away
+%% Scope utama: 14 tabel domain
+%% Supporting refs: USERS, UNITS, SUPPLIERS
+
+erDiagram
+    WAREHOUSES {
+        bigint id PK
+        string code UK
+        string name
+        text address
+        string pic
+        string phone
+        boolean is_active
+    }
+
+    ZONES {
+        bigint id PK
+        bigint warehouse_id FK
+        string code
+        string name
+        string description
+        float pos_x
+        float pos_z
+        boolean is_active
+    }
+
+    RACKS {
+        bigint id PK
+        bigint zone_id FK
+        bigint warehouse_id FK
+        bigint dominant_category_id FK
+        string code
+        int rack_number
+        int total_levels
+        int total_columns
+        float pos_x
+        float pos_y
+        float pos_z
+        float width_3d
+        float height_3d
+        float depth_3d
+        boolean is_active
+    }
+
+    CELLS {
+        bigint id PK
+        bigint rack_id FK
+        bigint dominant_category_id FK
+        string code
+        string label
+        int level
+        int column
+        int capacity_max
+        int capacity_used
+        string zone_category
+        string qr_code UK
+        string status
+        boolean is_active
+    }
+
+    ITEM_CATEGORIES {
+        bigint id PK
+        string code UK
+        string name
+        string description
+        string color_code
+        boolean is_active
+    }
+
+    ITEMS {
+        bigint id PK
+        bigint category_id FK
+        bigint unit_id FK
+        string sku UK
+        string name
+        string barcode UK
+        string item_size
+        string movement_type
+        decimal weight_kg
+        decimal volume_m3
+        int min_stock
+        int max_stock
+        int reorder_point
+        boolean is_active
+    }
+
+    ITEM_AFFINITIES {
+        bigint id PK
+        bigint item_id FK
+        bigint related_item_id FK
+        decimal affinity_score
+        int co_occurrence_count
+    }
+
+    INBOUND_TRANSACTIONS {
+        bigint id PK
+        bigint warehouse_id FK
+        bigint supplier_id FK
+        bigint received_by FK
+        string do_number UK
+        date do_date
+        datetime received_at
+        string status
+        text notes
+    }
+
+    INBOUND_DETAILS {
+        bigint id PK
+        bigint inbound_order_id FK
+        bigint item_id FK
+        string lpn
+        int quantity_ordered
+        int quantity_received
+        string status
+        text notes
+    }
+
+    GA_RECOMMENDATIONS {
+        bigint id PK
+        bigint inbound_order_id FK
+        bigint generated_by FK
+        json chromosome_json
+        decimal fitness_score
+        int generations_run
+        int execution_time_ms
+        json parameters_json
+        string status
+    }
+
+    GA_RECOMMENDATION_DETAILS {
+        bigint id PK
+        bigint ga_recommendation_id FK
+        bigint inbound_order_item_id FK
+        bigint cell_id FK
+        int quantity
+        decimal gene_fitness
+        decimal fc_cap_score
+        decimal fc_cat_score
+        decimal fc_aff_score
+        decimal fc_split_score
+    }
+
+    PUT_AWAY_CONFIRMATIONS {
+        bigint id PK
+        bigint inbound_order_item_id FK
+        bigint cell_id FK
+        bigint ga_recommendation_detail_id FK
+        bigint user_id FK
+        int quantity_stored
+        boolean follow_recommendation
+        datetime confirmed_at
+        text notes
+    }
+
+    STOCK_RECORDS {
+        bigint id PK
+        bigint item_id FK
+        bigint cell_id FK
+        bigint warehouse_id FK
+        bigint inbound_order_item_id FK
+        string lpn
+        string batch_no
+        int quantity
+        date inbound_date
+        date expiry_date
+        string status
+    }
+
+    STOCK_MOVEMENTS {
+        bigint id PK
+        bigint item_id FK
+        bigint warehouse_id FK
+        bigint from_cell_id FK
+        bigint to_cell_id FK
+        bigint performed_by FK
+        int quantity
+        string movement_type
+        string reference_type
+        bigint reference_id
+        datetime moved_at
+        text notes
+    }
+
+    %% Supporting tables (external refs)
+    USERS {
+        bigint id PK
+        string name
+        string email
+    }
+
+    UNITS {
+        bigint id PK
+        string code UK
+        string name
+    }
+
+    SUPPLIERS {
+        bigint id PK
+        string code UK
+        string name
+    }
+
+    %% Core relationships
+    WAREHOUSES ||--o{ ZONES : has
+    ZONES ||--o{ RACKS : has
+    RACKS ||--o{ CELLS : has
+
+    ITEM_CATEGORIES ||--o{ ITEMS : categorizes
+    ITEM_CATEGORIES o|--o{ RACKS : dominant_category
+    ITEM_CATEGORIES o|--o{ CELLS : dominant_category
+
+    ITEMS ||--o{ ITEM_AFFINITIES : item_id
+    ITEMS ||--o{ ITEM_AFFINITIES : related_item_id
+
+    WAREHOUSES ||--o{ INBOUND_TRANSACTIONS : receives
+    INBOUND_TRANSACTIONS ||--o{ INBOUND_DETAILS : has_items
+    ITEMS ||--o{ INBOUND_DETAILS : item
+
+    INBOUND_TRANSACTIONS ||--o{ GA_RECOMMENDATIONS : ga_runs
+    GA_RECOMMENDATIONS ||--o{ GA_RECOMMENDATION_DETAILS : outputs
+    INBOUND_DETAILS ||--o{ GA_RECOMMENDATION_DETAILS : item_mapping
+    CELLS ||--o{ GA_RECOMMENDATION_DETAILS : recommended_cell
+
+    INBOUND_DETAILS ||--o{ PUT_AWAY_CONFIRMATIONS : confirmed
+    CELLS ||--o{ PUT_AWAY_CONFIRMATIONS : stored_in
+    GA_RECOMMENDATION_DETAILS o|--o{ PUT_AWAY_CONFIRMATIONS : ref_ga_detail
+
+    ITEMS ||--o{ STOCK_RECORDS : stock_item
+    CELLS ||--o{ STOCK_RECORDS : stock_cell
+    WAREHOUSES ||--o{ STOCK_RECORDS : stock_warehouse
+    INBOUND_DETAILS o|--o{ STOCK_RECORDS : source_inbound
+
+    ITEMS ||--o{ STOCK_MOVEMENTS : move_item
+    CELLS o|--o{ STOCK_MOVEMENTS : from_cell
+    CELLS o|--o{ STOCK_MOVEMENTS : to_cell
+    WAREHOUSES ||--o{ STOCK_MOVEMENTS : move_warehouse
+
+    %% External FK references
+    UNITS ||--o{ ITEMS : unit_ref
+    SUPPLIERS o|--o{ INBOUND_TRANSACTIONS : supplier_ref
+    USERS o|--o{ INBOUND_TRANSACTIONS : received_by
+    USERS o|--o{ GA_RECOMMENDATIONS : generated_by
+    USERS o|--o{ PUT_AWAY_CONFIRMATIONS : operator
+    USERS o|--o{ STOCK_MOVEMENTS : performed_by

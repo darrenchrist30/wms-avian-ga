@@ -1,0 +1,156 @@
+---
+config:
+  layout: elk
+---
+erDiagram
+    direction TB
+
+    WAREHOUSES {
+        bigint id PK
+        string code UK
+        string name
+    }
+
+    ZONES {
+        bigint id PK
+        bigint warehouse_id FK
+        string code
+        string name
+    }
+
+    RACKS {
+        bigint id PK
+        bigint zone_id FK
+        string code
+        int total_levels
+        int total_columns
+    }
+
+    CELLS {
+        bigint id PK
+        bigint rack_id FK
+        bigint dominant_category_id FK
+        string code
+        int capacity_max
+        int capacity_used
+        string status
+    }
+
+    ITEM_CATEGORIES {
+        bigint id PK
+        string code UK
+        string name
+    }
+
+    ITEMS {
+        bigint id PK
+        bigint category_id FK
+        string sku UK
+        string movement_type
+        decimal weight_kg
+        decimal volume_m3
+    }
+
+    ITEM_AFFINITIES {
+        bigint id PK
+        bigint item_id FK
+        bigint related_item_id FK
+        decimal affinity_score
+        int co_occurrence_count
+    }
+
+    INBOUND_TRANSACTIONS {
+        bigint id PK
+        bigint warehouse_id FK
+        string do_number UK
+        date do_date
+        string status
+    }
+
+    INBOUND_DETAILS {
+        bigint id PK
+        bigint inbound_order_id FK
+        bigint item_id FK
+        int quantity_ordered
+        int quantity_received
+        string status
+    }
+
+    GA_RECOMMENDATIONS {
+        bigint id PK
+        bigint inbound_order_id FK
+        json chromosome_json
+        decimal fitness_score
+        int generations_run
+        int execution_time_ms
+        string status
+    }
+
+    GA_RECOMMENDATION_DETAILS {
+        bigint id PK
+        bigint ga_recommendation_id FK
+        bigint inbound_order_item_id FK
+        bigint cell_id FK
+        int quantity
+        decimal fc_cap_score
+        decimal fc_cat_score
+        decimal fc_aff_score
+        decimal fc_split_score
+    }
+
+    PUT_AWAY_CONFIRMATIONS {
+        bigint id PK
+        bigint inbound_order_item_id FK
+        bigint cell_id FK
+        bigint ga_recommendation_detail_id FK
+        int quantity_stored
+        boolean follow_recommendation
+    }
+
+    STOCK_RECORDS {
+        bigint id PK
+        bigint item_id FK
+        bigint cell_id FK
+        bigint inbound_order_item_id FK
+        int quantity
+        date inbound_date
+        string status
+    }
+
+    STOCK_MOVEMENTS {
+        bigint id PK
+        bigint item_id FK
+        bigint from_cell_id FK
+        bigint to_cell_id FK
+        int quantity
+        string movement_type
+        datetime moved_at
+    }
+
+    WAREHOUSES ||--o{ ZONES : has
+    ZONES ||--o{ RACKS : has
+    RACKS ||--o{ CELLS : has
+
+    ITEM_CATEGORIES ||--o{ ITEMS : categorizes
+    ITEM_CATEGORIES ||--o{ CELLS : dominant_category
+    ITEMS ||--o{ ITEM_AFFINITIES : affinity_pair
+
+    WAREHOUSES ||--o{ INBOUND_TRANSACTIONS : receives
+    INBOUND_TRANSACTIONS ||--o{ INBOUND_DETAILS : has_items
+    ITEMS ||--o{ INBOUND_DETAILS : item
+
+    INBOUND_TRANSACTIONS ||--o{ GA_RECOMMENDATIONS : ga_runs
+    GA_RECOMMENDATIONS ||--o{ GA_RECOMMENDATION_DETAILS : outputs
+    INBOUND_DETAILS ||--o{ GA_RECOMMENDATION_DETAILS : item_mapping
+    CELLS ||--o{ GA_RECOMMENDATION_DETAILS : recommended_cell
+
+    INBOUND_DETAILS ||--o| PUT_AWAY_CONFIRMATIONS : confirmed
+    CELLS ||--o{ PUT_AWAY_CONFIRMATIONS : stored_in
+    GA_RECOMMENDATION_DETAILS o|--o| PUT_AWAY_CONFIRMATIONS : ref_ga_detail
+
+    ITEMS ||--o{ STOCK_RECORDS : stock_item
+    CELLS ||--o{ STOCK_RECORDS : stock_cell
+    INBOUND_DETAILS o|--o{ STOCK_RECORDS : source_inbound
+
+    ITEMS ||--o{ STOCK_MOVEMENTS : move_item
+    CELLS o|--o{ STOCK_MOVEMENTS : from_to_cell

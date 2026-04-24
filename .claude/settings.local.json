@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan *)",
+      "Bash(php -l app/Services/GaService.php)",
+      "Bash(php -l app/Services/PutAwayService.php)",
+      "Bash(php -l app/Jobs/RecalculateAffinityJob.php)",
+      "Bash(php -l app/Http/Controllers/PutAway/PutAwayController.php)",
+      "Bash(grep -n \"ref_doc_spk\\\\|batch_header\\\\|no_bukti_manual\\\\|processed_at\\\\|erp_vendor_id\" database/migrations/*.php)",
+      "Bash(php -r ' *)"
+    ]
+  }
+}

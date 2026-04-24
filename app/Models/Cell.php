@@ -2,17 +2,23 @@
 
 namespace App\Models;
 
+use App\Traits\Auditable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Cell extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Auditable;
+
+    public function getAuditLabel(): string
+    {
+        return 'Sel ' . $this->code;
+    }
 
     protected $fillable = [
-        'rack_id', 'dominant_category_id', 'code',
+        'rack_id', 'dominant_category_id', 'code', 'label',
         'level', 'column', 'capacity_max', 'capacity_used',
-        'status', 'is_active',
+        'zone_category', 'qr_code', 'status', 'is_active',
     ];
 
     protected $casts = ['is_active' => 'boolean'];
@@ -32,13 +38,28 @@ class Cell extends Model
         return $this->hasMany(Stock::class);
     }
 
-    public function putAwayRecommendations()
+    public function gaRecommendationDetails()
     {
-        return $this->hasMany(PutAwayRecommendation::class);
+        return $this->hasMany(GaRecommendationDetail::class);
     }
 
-    // Sisa kapasitas
+    public function putAwayConfirmations()
+    {
+        return $this->hasMany(PutAwayConfirmation::class);
+    }
+
+    public function deadstockNotifications()
+    {
+        return $this->hasMany(DeadstockNotification::class);
+    }
+
+    // Sisa kapasitas (dua nama alias agar kompatibel)
     public function getRemainingCapacityAttribute(): int
+    {
+        return $this->capacity_max - $this->capacity_used;
+    }
+
+    public function getCapacityRemainingAttribute(): int
     {
         return $this->capacity_max - $this->capacity_used;
     }
