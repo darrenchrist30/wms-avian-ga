@@ -416,13 +416,27 @@ class InboundOrderController extends Controller
             return [false, 'Fitness score tidak valid (' . round($recommendation->fitness_score, 2) . ').'];
         }
 
-        // 3. Setiap gene harus memiliki cell_id dan quantity > 0
+        // Load relasi cell secara fresh agar kondisi aktual terbaca (bukan cache saat GA run)
+        $recommendation->load('details.cell');
+
+        // 3. Setiap gene harus memiliki cell yang valid, aktif, dan kapasitas cukup
         foreach ($recommendation->details as $detail) {
             if (empty($detail->cell_id)) {
                 return [false, 'Terdapat item tanpa sel penempatan yang ditentukan.'];
             }
+
             if ($detail->quantity <= 0) {
                 return [false, 'Terdapat penempatan dengan quantity 0 atau negatif.'];
+            }
+
+            // Validasi kondisi cell saat ini (bisa berubah sejak GA dikalkulasi)
+            if (!$detail->cell || !in_array($detail->cell->status, ['available', 'partial'])) {
+                return [false, 'Terdapat rekomendasi cell yang tidak tersedia (cell ' . ($detail->cell?->code ?? $detail->cell_id) . ').'];
+            }
+
+            $remainingCapacity = $detail->cell->capacity_max - $detail->cell->capacity_used;
+            if ($remainingCapacity < $detail->quantity) {
+                return [false, 'Kapasitas cell ' . ($detail->cell->code ?? $detail->cell_id) . ' tidak mencukupi (sisa ' . $remainingCapacity . ', dibutuhkan ' . $detail->quantity . ').'];
             }
         }
 
