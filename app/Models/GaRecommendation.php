@@ -16,15 +16,25 @@ class GaRecommendation extends Model
         'parameters_json',
         'generated_at',
         'status',
+        'review_required',
+        'review_reason',
+        'accepted_by',
+        'accepted_at',
+        'rejected_by',
+        'rejected_at',
+        'rejection_reason',
     ];
 
     protected $casts = [
-        'chromosome_json'  => 'array',
-        'parameters_json'  => 'array',
-        'fitness_score'    => 'float',
-        'generated_at'     => 'datetime',
-        'generations_run'  => 'integer',
-        'execution_time_ms'=> 'integer',
+        'chromosome_json'   => 'array',
+        'parameters_json'   => 'array',
+        'fitness_score'     => 'float',
+        'generated_at'      => 'datetime',
+        'generations_run'   => 'integer',
+        'execution_time_ms' => 'integer',
+        'review_required'   => 'boolean',
+        'accepted_at'       => 'datetime',
+        'rejected_at'       => 'datetime',
     ];
 
     public function inboundOrder()
@@ -37,12 +47,21 @@ class GaRecommendation extends Model
         return $this->belongsTo(User::class, 'generated_by');
     }
 
+    public function acceptedBy()
+    {
+        return $this->belongsTo(User::class, 'accepted_by');
+    }
+
+    public function rejectedBy()
+    {
+        return $this->belongsTo(User::class, 'rejected_by');
+    }
+
     public function details()
     {
         return $this->hasMany(GaRecommendationDetail::class);
     }
 
-    // Jumlah item yang sudah di-confirm put-away dari rekomendasi ini
     public function getConfirmedCountAttribute(): int
     {
         return $this->details()

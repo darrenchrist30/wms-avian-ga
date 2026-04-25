@@ -45,12 +45,12 @@
 @php
     /* ─── Status meta ─── */
     $statusMeta = [
-        'draft'       => ['secondary', 'Draft',             'fas fa-inbox'],
-        'processing'  => ['warning',   'Processing GA',     'fas fa-spinner fa-spin'],
-        'recommended' => ['info',      'Menunggu Review GA','fas fa-lightbulb'],
-        'put_away'    => ['primary',   'Sedang Put-Away',   'fas fa-dolly'],
-        'completed'   => ['success',   'Selesai',           'fas fa-check-circle'],
-        'cancelled'   => ['danger',    'Dibatalkan',        'fas fa-ban'],
+        'draft'       => ['secondary', 'Draft',                  'fas fa-inbox'],
+        'processing'  => ['warning',   'Processing GA',          'fas fa-spinner fa-spin'],
+        'recommended' => ['info',      'Rekomendasi GA Selesai', 'fas fa-lightbulb'],
+        'put_away'    => ['primary',   'Sedang Put-Away',        'fas fa-dolly'],
+        'completed'   => ['success',   'Selesai',                'fas fa-check-circle'],
+        'cancelled'   => ['danger',    'Dibatalkan',             'fas fa-ban'],
     ];
     [$sCls, $sLabel, $sIcon] = $statusMeta[$order->status] ?? ['secondary', ucfirst($order->status), 'fas fa-circle'];
 
@@ -108,19 +108,19 @@
         </button>
         @endif
 
-        {{-- DRAFT: Jalankan GA (supervisor/admin) --}}
-        @if ($order->status === 'draft' && $isSupervisor)
+        {{-- DRAFT: Jalankan GA (operator/supervisor/admin — role middleware handles access) --}}
+        @if ($order->status === 'draft')
         <button class="btn btn-sm btn-primary" id="btnProcessGA"
             data-url="{{ route('inbound.orders.process-ga', $order->id) }}">
             <i class="fas fa-dna mr-1"></i>Jalankan GA
         </button>
         @endif
 
-        {{-- RECOMMENDED: Accept / Reject (supervisor/admin) --}}
-        @if ($order->status === 'recommended' && $latestGa && $latestGa->status === 'pending' && $isSupervisor)
+        {{-- RECOMMENDED + pending_review: Supervisor accept / reject --}}
+        @if ($order->status === 'recommended' && $latestGa && $latestGa->status === 'pending_review' && $isSupervisor)
         <button class="btn btn-sm btn-success" id="btnAcceptGa"
             data-url="{{ route('inbound.orders.ga.accept', [$order->id, $latestGa->id]) }}">
-            <i class="fas fa-check-circle mr-1"></i>Terima Rekomendasi
+            <i class="fas fa-check-circle mr-1"></i>Setujui Rekomendasi
         </button>
         <button class="btn btn-sm btn-outline-danger" id="btnRejectGa"
             data-url="{{ route('inbound.orders.ga.reject', [$order->id, $latestGa->id]) }}">
@@ -481,9 +481,10 @@
 @if ($latestGa)
 @php
     $gaStatusCfg = [
-        'accepted' => ['success','Diterima',        'fas fa-check-circle'],
-        'rejected' => ['danger', 'Ditolak',         'fas fa-times-circle'],
-        'pending'  => ['info',   'Menunggu Review',  'fas fa-hourglass-half'],
+        'accepted'       => ['success',  'Diterima (Auto)',    'fas fa-check-circle'],
+        'rejected'       => ['danger',   'Ditolak',            'fas fa-times-circle'],
+        'pending'        => ['info',     'Menunggu Review',    'fas fa-hourglass-half'],
+        'pending_review' => ['warning',  'Perlu Review SPV',   'fas fa-exclamation-triangle'],
     ];
     [$gaCl, $gaLbl, $gaIco] = $gaStatusCfg[$latestGa->status] ?? ['secondary','—','fas fa-circle'];
 
@@ -721,12 +722,46 @@
         </div>
         @endif
 
-        {{-- Alert jika rejected --}}
+        {{-- Alert: pending_review — perlu persetujuan Supervisor --}}
+        @if ($latestGa->status === 'pending_review')
+        <div class="alert alert-warning mt-3 mb-0 py-2 d-flex align-items-start">
+            <i class="fas fa-exclamation-triangle mr-2 mt-1" style="font-size:18px;"></i>
+            <div>
+                <strong>Rekomendasi GA memerlukan persetujuan Supervisor.</strong><br>
+                <span class="text-muted" style="font-size:12px;">
+                    Alasan: {{ $latestGa->review_reason ?? '—' }}
+                </span><br>
+                @if ($isSupervisor)
+                <small class="text-dark">Gunakan tombol <strong>Setujui</strong> atau <strong>Tolak</strong> di atas untuk menangani.</small>
+                @else
+                <small class="text-dark">Supervisor akan segera mereview rekomendasi ini. Silakan tunggu notifikasi.</small>
+                @endif
+            </div>
+        </div>
+        @endif
+
+        {{-- Alert: accepted (auto atau manual) --}}
+        @if ($latestGa->status === 'accepted')
+        <div class="alert alert-success mt-3 mb-0 py-2">
+            <i class="fas fa-check-circle mr-1"></i>
+            Rekomendasi GA <strong>diterima</strong> oleh
+            {{ $latestGa->acceptedBy->name ?? 'sistem' }}
+            pada {{ $latestGa->accepted_at?->format('d M Y, H:i') ?? '' }}.
+            Operator dapat langsung melakukan <a href="{{ route('putaway.show', $order->id) }}"><strong>Put-Away</strong></a>.
+        </div>
+        @endif
+
+        {{-- Alert: rejected --}}
         @if ($latestGa->status === 'rejected')
         <div class="alert alert-danger mt-3 mb-0 py-2">
-            <i class="fas fa-exclamation-triangle mr-1"></i>
-            Rekomendasi ini telah <strong>ditolak</strong>. Status order dikembalikan ke Draft.
-            Supervisor dapat menjalankan GA ulang dengan mengklik <strong>"Jalankan GA"</strong>.
+            <i class="fas fa-times-circle mr-1"></i>
+            Rekomendasi ini telah <strong>ditolak</strong>
+            oleh {{ $latestGa->rejectedBy->name ?? '—' }}
+            pada {{ $latestGa->rejected_at?->format('d M Y, H:i') ?? '' }}.
+            @if ($latestGa->rejection_reason)
+            <br><small class="text-muted">Alasan: {{ $latestGa->rejection_reason }}</small>
+            @endif
+            <br>Status order dikembalikan ke Draft. Jalankan GA ulang dengan klik <strong>"Jalankan GA"</strong>.
         </div>
         @endif
 
@@ -757,16 +792,14 @@
                 </div>
             </div>
             <div class="col-md-4 mb-3">
-                <div class="rounded border p-3 h-100 {{ $isSupervisor ? 'border-primary' : '' }}">
+                <div class="rounded border border-primary p-3 h-100">
                     <i class="fas fa-dna fa-2x text-primary mb-2 d-block"></i>
-                    <strong>Step 2 — Supervisor</strong>
+                    <strong>Step 2 — Jalankan GA</strong>
                     <p class="small text-muted mt-1 mb-0">
-                        Setelah qty dikonfirmasi, klik <strong>Jalankan GA</strong> untuk mendapatkan
-                        rekomendasi penempatan optimal dari Genetic Algorithm.
+                        Klik <strong>Jalankan GA</strong> untuk mendapatkan rekomendasi penempatan optimal.
+                        Jika hasil valid, sistem otomatis menerima dan langsung siap <em>put-away</em>.
+                        Jika fitness rendah, Supervisor akan dinotifikasi untuk review.
                     </p>
-                    @if (!$isSupervisor)
-                    <small class="text-danger"><i class="fas fa-lock mr-1"></i>Hanya Supervisor/Admin</small>
-                    @endif
                 </div>
             </div>
             <div class="col-md-4 mb-3">
@@ -774,8 +807,8 @@
                     <i class="fas fa-dolly fa-2x text-success mb-2 d-block"></i>
                     <strong>Step 3 — Put-Away</strong>
                     <p class="small text-muted mt-1 mb-0">
-                        Supervisor review dan terima rekomendasi GA. Operator put-away barang
-                        ke cell yang direkomendasikan dengan scan QR.
+                        Operator put-away barang ke cell yang direkomendasikan GA dengan scan QR.
+                        Jika ada exception, Supervisor dapat meng-override lokasi.
                     </p>
                 </div>
             </div>
@@ -931,11 +964,29 @@ $('#btnProcessGA').on('click', function () {
             data: { _token: csrfToken },
             timeout: 180000,
             success(res) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'GA Selesai!',
-                    text: res.message,
-                }).then(() => showNavLoader(() => location.reload()));
+                if (res.status === 'success' && res.data?.auto_accepted) {
+                    // GA valid & auto-accepted — langsung ke put-away
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'GA Selesai & Diterima Otomatis!',
+                        html: res.message + '<br><small class="text-muted">Mengalihkan ke halaman put-away…</small>',
+                        timer: 2500,
+                        showConfirmButton: false,
+                    }).then(() => showNavLoader(() => { window.location.href = res.data.redirect || location.href; }));
+                } else if (res.status === 'warning') {
+                    // GA selesai tapi fitness rendah — perlu review supervisor
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'GA Selesai — Perlu Review Supervisor',
+                        html: res.message + '<br><small class="text-muted">Supervisor telah dinotifikasi.</small>',
+                    }).then(() => showNavLoader(() => location.reload()));
+                } else {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'GA Selesai!',
+                        text: res.message,
+                    }).then(() => showNavLoader(() => location.reload()));
+                }
             },
             error(xhr) {
                 Swal.fire('GA Gagal', xhr.responseJSON?.message || 'Terjadi kesalahan saat menjalankan GA.', 'error')

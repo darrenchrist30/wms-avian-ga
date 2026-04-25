@@ -94,10 +94,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         // STEP 1: Operator konfirmasi qty fisik di dock
         Route::post('orders/{order}/confirm-qty', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'confirmQty'])
             ->name('orders.confirm-qty');
-        // STEP 2: Supervisor trigger GA
+        // STEP 2: Operator/Supervisor trigger GA — hasil langsung auto-validate
         Route::post('orders/{order}/process-ga', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'processGA'])
-            ->name('orders.process-ga')->middleware('role:admin,supervisor');
-        // STEP 3: Supervisor accept / reject rekomendasi GA
+            ->name('orders.process-ga')->middleware('role:admin,supervisor,operator');
+        // STEP 3: Supervisor review exception (pending_review) — accept / reject
         Route::post('orders/{order}/ga/{recommendation}/accept', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'acceptGa'])
             ->name('orders.ga.accept')->middleware('role:admin,supervisor');
         Route::post('orders/{order}/ga/{recommendation}/reject', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'rejectGa'])

@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Notifications\GaAcceptedNotification;
+use App\Notifications\GaPendingReviewNotification;
 use App\Notifications\QtyConfirmedNotification;
 use App\Services\GaService;
 use App\Services\PutAwayService;
@@ -309,8 +310,9 @@ class InboundOrderController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // STEP 2 — Trigger GA (Supervisor)
+    // STEP 2 — Trigger GA (Operator/Supervisor/Admin)
     // POST /inbound/orders/{order}/process-ga
+    // Auto-validate hasil GA; jika valid → auto-accept; jika tidak → pending_review
     // ─────────────────────────────────────────────────────────────────────────
 
     public function processGA(Request $request, $id)
@@ -324,7 +326,6 @@ class InboundOrderController extends Controller
             ], 422);
         }
 
-        // Validasi: ada item dengan qty_received > 0
         $hasQtyReceived = $order->items->where('quantity_received', '>', 0)->isNotEmpty();
         if (!$hasQtyReceived) {
             return response()->json([
@@ -336,27 +337,105 @@ class InboundOrderController extends Controller
         $order->update(['status' => 'processing']);
 
         try {
-            // Tombol "Jalankan GA" harus memanggil engine GA asli (Python FastAPI)
             $recommendation = $this->gaService->run($order, auth()->id());
 
+            // Auto-validasi hasil GA
+            [$isValid, $reviewReason] = $this->validateGaResult($recommendation);
+
+            if ($isValid) {
+                // Langsung accept — operator tidak perlu tunggu supervisor
+                $recommendation->update([
+                    'status'      => 'accepted',
+                    'accepted_by' => auth()->id(),
+                    'accepted_at' => now(),
+                ]);
+
+                // Notifikasi semua user: siap put-away
+                $triggeredBy = auth()->user()->name;
+                $notifUsers  = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
+                \Illuminate\Support\Facades\Notification::send(
+                    $notifUsers,
+                    new GaAcceptedNotification($order->fresh(), $triggeredBy, $recommendation->fitness_score)
+                );
+
+                return response()->json([
+                    'status'  => 'success',
+                    'message' => 'GA selesai & otomatis diterima. Fitness: ' . round($recommendation->fitness_score, 2) . '/100. Operator dapat langsung memulai put-away.',
+                    'data'    => [
+                        'ga_recommendation_id' => $recommendation->id,
+                        'fitness_score'        => $recommendation->fitness_score,
+                        'auto_accepted'        => true,
+                        'redirect'             => route('putaway.show', $order->id),
+                    ],
+                ]);
+            }
+
+            // Hasil tidak memenuhi threshold — minta review supervisor
+            $recommendation->update([
+                'status'          => 'pending_review',
+                'review_required' => true,
+                'review_reason'   => $reviewReason,
+            ]);
+
+            $triggeredBy = auth()->user()->name;
+            $supervisors = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor']))->get();
+            \Illuminate\Support\Facades\Notification::send(
+                $supervisors,
+                new GaPendingReviewNotification($order->fresh(), $triggeredBy, $recommendation->fitness_score, $reviewReason)
+            );
+
             return response()->json([
-                'status'  => 'success',
-                'message' => 'GA selesai. Fitness score: ' . round($recommendation->fitness_score, 2) . '. Silakan review rekomendasi.',
+                'status'  => 'warning',
+                'message' => 'GA selesai namun memerlukan review Supervisor. ' . $reviewReason,
                 'data'    => [
                     'ga_recommendation_id' => $recommendation->id,
                     'fitness_score'        => $recommendation->fitness_score,
-                    'generations_run'      => $recommendation->generations_run,
-                    'execution_time_ms'    => $recommendation->execution_time_ms,
+                    'auto_accepted'        => false,
+                    'review_reason'        => $reviewReason,
                 ],
             ]);
         } catch (\Exception $e) {
-            $order->update(['status' => 'draft']); // rollback status jika GA gagal
+            $order->update(['status' => 'draft']);
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
     }
 
+    /**
+     * Validasi hasil GA secara otomatis.
+     * Return [bool $isValid, string $reason]
+     */
+    private function validateGaResult(GaRecommendation $recommendation): array
+    {
+        // 1. Harus ada detail (genes)
+        if ($recommendation->details->isEmpty()) {
+            return [false, 'Rekomendasi GA tidak menghasilkan detail penempatan.'];
+        }
+
+        // 2. Fitness score harus valid
+        if ($recommendation->fitness_score <= 0 || $recommendation->fitness_score > 100) {
+            return [false, 'Fitness score tidak valid (' . round($recommendation->fitness_score, 2) . ').'];
+        }
+
+        // 3. Setiap gene harus memiliki cell_id dan quantity > 0
+        foreach ($recommendation->details as $detail) {
+            if (empty($detail->cell_id)) {
+                return [false, 'Terdapat item tanpa sel penempatan yang ditentukan.'];
+            }
+            if ($detail->quantity <= 0) {
+                return [false, 'Terdapat penempatan dengan quantity 0 atau negatif.'];
+            }
+        }
+
+        // 4. Fitness score di bawah threshold → minta konfirmasi supervisor
+        if ($recommendation->fitness_score < 50) {
+            return [false, 'Fitness score terlalu rendah (' . round($recommendation->fitness_score, 2) . '/100 < 50). Supervisor perlu meninjau.'];
+        }
+
+        return [true, ''];
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
-    // STEP 3a — Supervisor Accept Rekomendasi GA
+    // STEP 3a — Supervisor Accept Rekomendasi GA (untuk kasus pending_review)
     // POST /inbound/orders/{order}/ga/{recommendation}/accept
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -366,15 +445,19 @@ class InboundOrderController extends Controller
         $recommendation = GaRecommendation::where('inbound_order_id', $orderId)
             ->findOrFail($recommendationId);
 
-        if ($order->status !== 'recommended') {
-            return response()->json(['status' => 'error', 'message' => 'Order belum berstatus recommended.'], 422);
+        if (!in_array($recommendation->status, ['pending', 'pending_review'])) {
+            return response()->json(['status' => 'error', 'message' => 'Rekomendasi tidak dalam status yang dapat diterima.'], 422);
         }
 
-        $recommendation->update(['status' => 'accepted']);
+        $recommendation->update([
+            'status'      => 'accepted',
+            'accepted_by' => auth()->id(),
+            'accepted_at' => now(),
+        ]);
 
-        // Notifikasi ke semua Operator: siap put-away
-        $acceptedBy  = auth()->user()->name;
-        $notifUsers  = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
+        // Notifikasi ke semua user: siap put-away
+        $acceptedBy = auth()->user()->name;
+        $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
         \Illuminate\Support\Facades\Notification::send(
             $notifUsers,
             new GaAcceptedNotification($order, $acceptedBy, $recommendation->fitness_score)
@@ -382,7 +465,7 @@ class InboundOrderController extends Controller
 
         return response()->json([
             'status'   => 'success',
-            'message'  => 'Rekomendasi GA diterima. Operator dapat memulai put-away.',
+            'message'  => 'Rekomendasi GA diterima oleh Supervisor. Operator dapat memulai put-away.',
             'redirect' => route('putaway.show', $orderId),
         ]);
     }
@@ -398,20 +481,25 @@ class InboundOrderController extends Controller
         $recommendation = GaRecommendation::where('inbound_order_id', $orderId)
             ->findOrFail($recommendationId);
 
-        if ($order->status !== 'recommended') {
-            return response()->json(['status' => 'error', 'message' => 'Order belum berstatus recommended.'], 422);
+        if (!in_array($recommendation->status, ['pending', 'pending_review'])) {
+            return response()->json(['status' => 'error', 'message' => 'Rekomendasi tidak dalam status yang dapat ditolak.'], 422);
         }
 
         $request->validate(['reason' => 'nullable|string|max:255']);
 
-        $recommendation->update(['status' => 'rejected']);
+        $recommendation->update([
+            'status'           => 'rejected',
+            'rejected_by'      => auth()->id(),
+            'rejected_at'      => now(),
+            'rejection_reason' => $request->reason,
+        ]);
 
         // Reset order ke draft agar GA bisa di-run ulang
         $order->update(['status' => 'draft']);
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Rekomendasi GA ditolak. Anda dapat menjalankan GA ulang atau melakukan manual assignment.',
+            'message' => 'Rekomendasi GA ditolak. Anda dapat menjalankan GA ulang.',
         ]);
     }
 
