@@ -4,8 +4,8 @@ ga/engine.py — Main GA Loop untuk Warehouse Slotting Optimization.
 Alur Genetic Algorithm (Holland, 1975):
     1. Inisialisasi populasi  → Random 50% + Greedy 50%  (Whitley, 1994)
     2. Evaluasi fitness       → FC_CAP + FC_CAT + FC_AFF + FC_SPLIT  (Goldberg, 1989)
-    3. [LOOP] Seleksi parent  → Roulette Wheel Selection  (Goldberg, 1989)
-    4. [LOOP] Crossover       → One-Point Crossover  (Holland, 1975)
+    3. [LOOP] Seleksi parent  → Tournament Selection (size=3)  (Miller & Goldberg, 1995)
+    4. [LOOP] Crossover       → Uniform Crossover  (Syswerda, 1989)
     5. [LOOP] Mutasi          → Random Reset Mutation  (Michalewicz, 1996)
     6. [LOOP] Elitisme        → pertahankan top-k individu  (De Jong, 1975)
     7. [LOOP] Early stopping  → berhenti jika tidak ada perbaikan k generasi
@@ -22,6 +22,10 @@ Referensi:
       Adaptive Systems. PhD Thesis, University of Michigan.
     Whitley, D. (1994). A genetic algorithm tutorial.
       Statistics and Computing, 4(2), 65-85.
+    Miller, B.L. & Goldberg, D.E. (1995). Genetic algorithms, tournament
+      selection, and the effects of noise. Complex Systems, 9(3), 193-212.
+    Syswerda, G. (1989). Uniform crossover in genetic algorithms.
+      Proceedings of the 3rd ICGA, pp. 2-9.
 """
 
 from __future__ import annotations
@@ -36,9 +40,9 @@ from ga.fitness import build_affinity_map, evaluate_chromosome, AffinityMap
 from ga.operators import (
     apply_elitism,
     initialize_population,
-    one_point_crossover,
+    tournament_selection,
+    uniform_crossover,
     random_reset_mutation,
-    roulette_wheel_selection,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,12 +111,12 @@ class GeneticAlgorithmEngine:
 
             # Hasilkan individu baru hingga populasi terpenuhi
             while len(new_pop) < p.population:
-                # Seleksi: Roulette Wheel Selection (Goldberg, 1989)
-                parent1 = roulette_wheel_selection(population, fitnesses)
-                parent2 = roulette_wheel_selection(population, fitnesses)
+                # Seleksi: Tournament Selection size=3 (Miller & Goldberg, 1995)
+                parent1 = tournament_selection(population, fitnesses, tournament_size=3)
+                parent2 = tournament_selection(population, fitnesses, tournament_size=3)
 
-                # Crossover: One-Point Crossover (Holland, 1975)
-                child1, child2 = one_point_crossover(parent1, parent2, p.crossover_rate)
+                # Crossover: Uniform Crossover (Syswerda, 1989)
+                child1, child2 = uniform_crossover(parent1, parent2, p.crossover_rate)
 
                 # Mutasi: Random Reset Mutation (Michalewicz, 1996)
                 child1 = random_reset_mutation(child1, self.cell_ids, p.mutation_rate)

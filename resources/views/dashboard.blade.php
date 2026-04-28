@@ -818,7 +818,7 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════════
-     ROW 2 — KAPASITAS GUDANG + GRAFIK INBOUND/OUTBOUND
+    ROW 2 — KAPASITAS GUDANG + GRAFIK INBOUND/OUTBOUND
 ══════════════════════════════════════════════════════ --}}
     <p class="section-title"><i class="fas fa-chart-line mr-1"></i> Trend Inbound vs Outbound Harian</p>
     <div class="row dashboard-section">

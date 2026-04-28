@@ -30,6 +30,9 @@
     </a>
 </div>
 
+{{-- Flash alert transfer --}}
+<div id="transferAlert" class="alert d-none mb-3" role="alert"></div>
+
 {{-- Item Info Card --}}
 <div class="card mb-3">
     <div class="card-header py-2 d-flex justify-content-between align-items-center">
@@ -145,6 +148,9 @@
                         <th width="110">Tgl Masuk</th>
                         <th width="110">Tgl Expired</th>
                         <th class="text-center" width="90">Status</th>
+                        @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                        <th class="text-center" width="80">Aksi</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -208,6 +214,21 @@
                             @endphp
                             <span class="badge badge-{{ $sBadge }}">{{ $sText }}</span>
                         </td>
+                        @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                        <td class="text-center">
+                            @if($s->status === 'available' && $s->quantity > 0)
+                            <button class="btn btn-xs btn-outline-primary btn-transfer"
+                                data-stock-id="{{ $s->id }}"
+                                data-from-cell="{{ $s->cell?->code ?? '—' }}"
+                                data-max-qty="{{ $s->quantity }}"
+                                title="Transfer ke cell lain">
+                                <i class="fas fa-exchange-alt"></i>
+                            </button>
+                            @else
+                            <span class="text-muted">—</span>
+                            @endif
+                        </td>
+                        @endif
                     </tr>
                     @endforeach
                 </tbody>
@@ -215,7 +236,11 @@
                     <tr>
                         <td colspan="5" class="text-right pr-2">Total:</td>
                         <td class="text-center">{{ number_format($totalQty) }}</td>
+                        @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                        <td colspan="5"></td>
+                        @else
                         <td colspan="4"></td>
+                        @endif
                     </tr>
                 </tfoot>
             </table>
@@ -223,6 +248,63 @@
         @endif
     </div>
 </div>
+
+{{-- Modal Transfer Stok --}}
+@if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+<div class="modal fade" id="modalTransfer" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title font-weight-bold">
+                    <i class="fas fa-exchange-alt mr-1 text-primary"></i>Transfer Stok
+                </h6>
+                <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group mb-2">
+                    <label class="small font-weight-bold">Item</label>
+                    <div class="form-control form-control-sm bg-light">{{ $item->name }}</div>
+                </div>
+                <div class="form-group mb-2">
+                    <label class="small font-weight-bold">Dari Cell</label>
+                    <div class="form-control form-control-sm bg-light" id="tfFromCell"></div>
+                </div>
+                <div class="form-group mb-2">
+                    <label class="small font-weight-bold">Cell Tujuan <span class="text-danger">*</span></label>
+                    <div class="input-group input-group-sm">
+                        <input type="text" id="tfToCellCode" class="form-control"
+                            placeholder="Ketik kode cell lalu Enter atau klik Cari">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" type="button" id="btnLookupCell">
+                                <i class="fas fa-search"></i> Cari
+                            </button>
+                        </div>
+                    </div>
+                    <div id="tfCellInfo" class="mt-1 small text-muted d-none"></div>
+                    <input type="hidden" id="tfToCellId">
+                </div>
+                <div class="form-group mb-2">
+                    <label class="small font-weight-bold">Jumlah <span class="text-danger">*</span></label>
+                    <input type="number" id="tfQty" class="form-control form-control-sm"
+                        min="1" placeholder="Masukkan jumlah">
+                    <small class="text-muted">Maks: <span id="tfMaxQty"></span> unit tersedia di cell asal</small>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="small font-weight-bold">Catatan</label>
+                    <input type="text" id="tfNotes" class="form-control form-control-sm"
+                        placeholder="Opsional" maxlength="255">
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-sm btn-primary" id="btnDoTransfer">
+                    <i class="fas fa-exchange-alt mr-1"></i>Transfer
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- Riwayat Mutasi Item Ini --}}
 <div class="card">
@@ -255,6 +337,7 @@
 @push('scripts')
 <script>
 $(function () {
+    // ── Riwayat mutasi DataTable ──────────────────────────────────────────
     $('#tblMovements').DataTable({
         processing: true,
         serverSide: true,
@@ -270,6 +353,90 @@ $(function () {
         pageLength: 15,
         language: { url: '/vendor/datatables/i18n/id.json' },
     });
+
+    @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+    // ── Transfer modal ─────────────────────────────────────────────────────
+    var currentStockId = null;
+
+    $(document).on('click', '.btn-transfer', function () {
+        currentStockId = $(this).data('stock-id');
+        var fromCell   = $(this).data('from-cell');
+        var maxQty     = $(this).data('max-qty');
+
+        $('#tfFromCell').text(fromCell);
+        $('#tfMaxQty').text(maxQty);
+        $('#tfToCellCode').val('').trigger('input');
+        $('#tfToCellId').val('');
+        $('#tfCellInfo').addClass('d-none').text('');
+        $('#tfQty').val('').attr('max', maxQty);
+        $('#tfNotes').val('');
+        $('#modalTransfer').modal('show');
+    });
+
+    // Lookup cell tujuan
+    function doLookup() {
+        var code = $.trim($('#tfToCellCode').val());
+        if (!code) return;
+        $.get('{{ route("location.cells.lookup") }}', { code: code }, function (res) {
+            if (!res.found) {
+                $('#tfCellInfo').removeClass('d-none text-success').addClass('text-danger').text(res.message);
+                $('#tfToCellId').val('');
+                return;
+            }
+            $('#tfToCellId').val(res.cell.id);
+            var info = res.cell.code + ' — ' + res.cell.rack_zone + ' | Kapasitas sisa: ' + res.cell.capacity_remaining;
+            $('#tfCellInfo').removeClass('d-none text-danger').addClass('text-success').text(info);
+        });
+    }
+
+    $('#btnLookupCell').on('click', doLookup);
+    $('#tfToCellCode').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
+
+    // Eksekusi transfer
+    $('#btnDoTransfer').on('click', function () {
+        var toCellId = $('#tfToCellId').val();
+        var qty      = parseInt($('#tfQty').val(), 10);
+        var maxQty   = parseInt($('#tfQty').attr('max'), 10);
+
+        if (!toCellId) { alert('Pilih cell tujuan terlebih dahulu.'); return; }
+        if (!qty || qty < 1) { alert('Masukkan jumlah minimal 1.'); return; }
+        if (qty > maxQty) { alert('Jumlah melebihi stok tersedia (' + maxQty + ').'); return; }
+
+        var $btn = $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Proses...');
+
+        $.ajax({
+            url: '{{ route("stock.transfer") }}',
+            method: 'POST',
+            data: {
+                _token:      '{{ csrf_token() }}',
+                stock_id:    currentStockId,
+                to_cell_id:  toCellId,
+                quantity:    qty,
+                notes:       $('#tfNotes').val(),
+            },
+            success: function (res) {
+                $('#modalTransfer').modal('hide');
+                showAlert('success', '<i class="fas fa-check-circle mr-1"></i>' + res.message);
+                setTimeout(function () { location.reload(); }, 1500);
+            },
+            error: function (xhr) {
+                var msg = xhr.responseJSON ? xhr.responseJSON.message : 'Terjadi kesalahan.';
+                showAlert('danger', '<i class="fas fa-times-circle mr-1"></i>' + msg);
+                $btn.prop('disabled', false).html('<i class="fas fa-exchange-alt mr-1"></i>Transfer');
+            }
+        });
+    });
+
+    function showAlert(type, html) {
+        var $a = $('#transferAlert');
+        $a.removeClass('d-none alert-success alert-danger')
+          .addClass('alert-' + type)
+          .html(html)
+          .removeClass('d-none');
+        $('html, body').animate({ scrollTop: 0 }, 300);
+        setTimeout(function () { $a.addClass('d-none'); }, 5000);
+    }
+    @endif
 });
 </script>
 @endpush

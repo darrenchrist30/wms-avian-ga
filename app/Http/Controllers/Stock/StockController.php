@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Stock;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cell;
 use App\Models\Item;
 use App\Models\Stock;
 use App\Models\StockMovement;
@@ -395,6 +396,136 @@ class StockController extends Controller
         ];
 
         return view('stock.near-expiry', compact('stocks', 'summary', 'days'));
+    }
+
+    // =========================================================================
+    // 6. TRANSFER STOK — transfer()
+    //    Pindahkan qty dari satu cell ke cell lain (admin/supervisor)
+    // =========================================================================
+
+    public function transfer(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $validated = $request->validate([
+            'stock_id'   => 'required|exists:stock_records,id',
+            'to_cell_id' => 'required|exists:cells,id',
+            'quantity'   => 'required|integer|min:1',
+            'notes'      => 'nullable|string|max:255',
+        ]);
+
+        $stock  = Stock::with(['cell', 'item', 'warehouse'])->findOrFail($validated['stock_id']);
+        $toCell = Cell::with('rack.zone')->findOrFail($validated['to_cell_id']);
+        $qty    = (int) $validated['quantity'];
+
+        if ($stock->status !== 'available') {
+            return response()->json(['status' => 'error', 'message' => 'Stok tidak dalam status tersedia.'], 422);
+        }
+        if ($qty > $stock->quantity) {
+            return response()->json(['status' => 'error', 'message' => "Qty transfer ({$qty}) melebihi stok tersedia ({$stock->quantity})."], 422);
+        }
+        if ($stock->cell_id === $toCell->id) {
+            return response()->json(['status' => 'error', 'message' => 'Sel tujuan sama dengan sel asal.'], 422);
+        }
+        if (!$toCell->is_active || in_array($toCell->status, ['blocked', 'full'])) {
+            return response()->json(['status' => 'error', 'message' => "Sel {$toCell->code} tidak dapat menerima stok (status: {$toCell->status})."], 422);
+        }
+        $remCap = $toCell->capacity_max - $toCell->capacity_used;
+        if ($qty > $remCap) {
+            return response()->json(['status' => 'error', 'message' => "Kapasitas sel {$toCell->code} tidak cukup (tersisa: {$remCap})."], 422);
+        }
+
+        try {
+            DB::transaction(function () use ($stock, $toCell, $qty, $validated) {
+                $fromCell    = $stock->cell;
+                $itemId      = $stock->item_id;
+                $warehouseId = $stock->warehouse_id;
+
+                // a) Kurangi/hapus stock asal
+                if ($qty === (int) $stock->quantity) {
+                    $stock->delete();
+                } else {
+                    $stock->update(['quantity' => $stock->quantity - $qty, 'last_moved_at' => now()]);
+                }
+
+                // b) Update kapasitas sel asal
+                $fromCell->update(['capacity_used' => max(0, $fromCell->capacity_used - $qty)]);
+                $fromCell->updateStatus();
+
+                // c) Tambah ke sel tujuan (merge jika sudah ada)
+                $destStock = Stock::where('item_id', $itemId)
+                    ->where('cell_id', $toCell->id)
+                    ->where('status', 'available')
+                    ->first();
+
+                if ($destStock) {
+                    $destStock->update(['quantity' => $destStock->quantity + $qty, 'last_moved_at' => now()]);
+                } else {
+                    Stock::create([
+                        'item_id'               => $itemId,
+                        'cell_id'               => $toCell->id,
+                        'warehouse_id'          => $toCell->rack->zone->warehouse_id ?? $warehouseId,
+                        'inbound_order_item_id' => $stock->inbound_order_item_id,
+                        'lpn'                   => $stock->lpn,
+                        'batch_no'              => $stock->batch_no,
+                        'quantity'              => $qty,
+                        'inbound_date'          => $stock->inbound_date,
+                        'expiry_date'           => $stock->expiry_date,
+                        'last_moved_at'         => now(),
+                        'status'                => 'available',
+                    ]);
+                }
+
+                // d) Update kapasitas sel tujuan
+                $toCell->update(['capacity_used' => $toCell->capacity_used + $qty]);
+                $toCell->updateStatus();
+
+                // e) Catat stock_movement
+                StockMovement::create([
+                    'item_id'        => $itemId,
+                    'warehouse_id'   => $warehouseId,
+                    'from_cell_id'   => $fromCell->id,
+                    'to_cell_id'     => $toCell->id,
+                    'performed_by'   => auth()->id(),
+                    'lpn'            => $stock->lpn,
+                    'quantity'       => $qty,
+                    'movement_type'  => 'transfer',
+                    'notes'          => $validated['notes'] ?? null,
+                    'moved_at'       => now(),
+                ]);
+            });
+
+            return response()->json(['status' => 'success', 'message' => "Transfer {$qty} unit ke sel {$toCell->code} berhasil."]);
+        } catch (\Exception $e) {
+            report($e);
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    // =========================================================================
+    // 7. SEARCH STOK — search()
+    //    AJAX: cari item yang memiliki stok tersedia (untuk Select2 / autocomplete)
+    // =========================================================================
+
+    public function search(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $term = $request->input('q', '');
+
+        $items = Item::where('is_active', true)
+            ->whereHas('stocks', fn($q) => $q->where('status', 'available')->where('quantity', '>', 0))
+            ->where(function ($q) use ($term) {
+                $q->where('name', 'like', "%{$term}%")
+                  ->orWhere('sku', 'like', "%{$term}%");
+            })
+            ->with('unit')
+            ->limit(20)
+            ->get()
+            ->map(fn($i) => [
+                'id'   => $i->id,
+                'text' => "{$i->sku} — {$i->name}",
+                'sku'  => $i->sku,
+                'name' => $i->name,
+            ]);
+
+        return response()->json(['results' => $items]);
     }
 
     // =========================================================================

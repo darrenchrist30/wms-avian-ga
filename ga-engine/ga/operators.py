@@ -10,6 +10,8 @@ Referensi:
       Programs. 3rd ed. Springer-Verlag, Berlin.
     - De Jong, K.A. (1975). An Analysis of the Behavior of a Class of Genetic
       Adaptive Systems. PhD Thesis, University of Michigan.
+    - Miller, B.L. & Goldberg, D.E. (1995). Genetic algorithms, tournament
+      selection, and the effects of noise. Complex Systems, 9(3), 193-212.
 """
 
 from __future__ import annotations
@@ -92,14 +94,13 @@ def initialize_population(
         population.append([random.choice(cell_ids) for _ in range(n_items)])
 
     # ── b) Greedy ──────────────────────────────────────────────────────────
-    sorted_cells = sorted(cells, key=lambda c: c.capacity_remaining, reverse=True)
-    top_cell_ids = [c.cell_id for c in sorted_cells[:max(1, len(sorted_cells) // 2)]]
+    sorted_cells  = sorted(cells, key=lambda c: c.capacity_remaining, reverse=True)
+    top_cell_ids  = [c.cell_id for c in sorted_cells[:max(1, len(sorted_cells) // 2)]]
 
     for _ in range(pop_size - half):
         chromosome: List[int] = []
         for item in items:
             if item.quantity <= sorted_cells[0].capacity_remaining:
-                # Pilih dari cell berkapasitas besar dengan sedikit randomness
                 chromosome.append(random.choice(top_cell_ids))
             else:
                 chromosome.append(random.choice(cell_ids))
@@ -109,89 +110,103 @@ def initialize_population(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. Seleksi — Roulette Wheel Selection (Fitness Proportionate Selection)
+# 2. Seleksi — Tournament Selection
 # ─────────────────────────────────────────────────────────────────────────────
 
-def roulette_wheel_selection(
-    population: List[List[int]],
-    fitnesses:  List[float],
+def tournament_selection(
+    population:      List[List[int]],
+    fitnesses:       List[float],
+    tournament_size: int = 3,
 ) -> List[int]:
     """
-    Roulette Wheel Selection / Fitness Proportionate Selection (Goldberg, 1989):
-
-    Analogi: setiap individu mendapat jatah lingkaran roulette sebanding
-    dengan fitness-nya. Semakin tinggi fitness, semakin besar peluang terpilih.
+    Tournament Selection (Miller & Goldberg, 1995):
 
     Algoritma:
-        1. Hitung total fitness  S = Σ fitness[i]
-        2. Bangkitkan bilangan acak  r ~ Uniform(0, S)
-        3. Iterasi populasi, akumulasikan fitness sampai kumulatif ≥ r
-        4. Kembalikan individu saat kondisi terpenuhi
+        1. Pilih secara acak sejumlah `tournament_size` individu dari populasi
+        2. Kembalikan individu dengan nilai fitness tertinggi dari turnamen tersebut
 
-    Probabilitas seleksi individu ke-i:
-        P(i) = fitness[i] / S
+    Analogi: beberapa peserta dipilih secara acak untuk bertanding,
+    pemenang (fitness terbaik) melanjutkan ke tahap reproduksi.
 
-    Properti:
-        - Individu dengan fitness lebih tinggi memiliki peluang terpilih lebih besar
-        - Semua individu (termasuk yang lemah) tetap punya peluang terpilih
-        - Menjaga keberagaman (diversity) populasi
+    Keunggulan dibanding Roulette Wheel:
+        - Tidak bergantung pada skala fitness (scale-independent)
+        - Tekanan seleksi dapat diatur melalui tournament_size:
+              size kecil  → seleksi lemah, diversity tinggi (eksplorasi)
+              size besar  → seleksi ketat, konvergensi cepat (eksploitasi)
+        - Tournament size = 3 menjaga keseimbangan eksplorasi dan eksploitasi
+        - Lebih stabil pada fungsi fitness yang memiliki nilai negatif atau nol
 
-    Kompleksitas: O(n)
+    Probabilitas individu terbaik terpilih:
+        P(best) = 1 - (1 - 1/N)^k
+        di mana N = ukuran populasi, k = tournament_size
 
-    Referensi: Goldberg, D.E. (1989). Genetic Algorithms in Search,
-               Optimization, and Machine Learning. Addison-Wesley, Boston.
+    Kompleksitas: O(tournament_size)
+
+    Referensi: Miller, B.L. & Goldberg, D.E. (1995). Genetic algorithms,
+               tournament selection, and the effects of noise.
+               Complex Systems, 9(3), 193-212.
     """
-    total_fitness = sum(fitnesses)
-
-    if total_fitness <= 0:
-        return random.choice(population).copy()
-
-    r          = random.uniform(0, total_fitness)
-    cumulative = 0.0
-
-    for individual, fitness in zip(population, fitnesses):
-        cumulative += fitness
-        if cumulative >= r:
-            return individual.copy()
-
-    return population[-1].copy()
+    k          = min(tournament_size, len(population))
+    candidates = random.sample(range(len(population)), k)
+    winner_idx = max(candidates, key=lambda i: fitnesses[i])
+    return population[winner_idx].copy()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. Crossover — One-Point Crossover
+# 3. Crossover — Uniform Crossover
 # ─────────────────────────────────────────────────────────────────────────────
 
-def one_point_crossover(
+def uniform_crossover(
     parent1:        List[int],
     parent2:        List[int],
     crossover_rate: float = 0.80,
 ) -> Tuple[List[int], List[int]]:
     """
-    One-Point Crossover (Holland, 1975):
+    Uniform Crossover (Syswerda, 1989):
 
     Algoritma:
         1. Dengan probabilitas `crossover_rate`, lakukan crossover
-        2. Pilih satu titik potong acak: point ∈ [1, n-1]
-        3. Child1 = parent1[:point] + parent2[point:]
-           Child2 = parent2[:point] + parent1[point:]
+        2. Bangkitkan mask biner acak M = [m₁, m₂, ..., mₙ],
+           setiap mᵢ ~ Bernoulli(0.5)
+        3. child1[i] = parent1[i] jika mᵢ = 0,  parent2[i] jika mᵢ = 1
+           child2[i] = parent2[i] jika mᵢ = 0,  parent1[i] jika mᵢ = 1
 
-    Contoh (n=6, point=3):
-        P1: [A  B  C | D  E  F]   →   C1: [A  B  C | d  e  f]
-        P2: [a  b  c | d  e  f]   →   C2: [a  b  c | D  E  F]
+    Contoh (n=6, mask=[0,1,0,1,0,1]):
+        P1: [A  B  C  D  E  F]
+        P2: [a  b  c  d  e  f]
+        M : [0  1  0  1  0  1]
+               ↓
+        C1: [A  b  C  d  E  f]   ← P1 di posisi mask=0, P2 di mask=1
+        C2: [a  B  c  D  e  F]   ← P2 di posisi mask=0, P1 di mask=1
 
-    Cocok untuk integer encoding (assignment problem) karena:
-        - Tidak seperti permutation encoding, gen yang sama boleh muncul berulang
-        - Tidak perlu repair operator seperti pada TSP
+    Keunggulan dibanding One-Point Crossover untuk Assignment Problem:
+        - Setiap gen dipertukaran secara INDEPENDEN → lebih banyak kombinasi baru
+        - Tidak ada "building block" yang tergantung posisi gen
+        - Cocok untuk Direct Value Encoding (cell_id assignment):
+          setiap gene merepresentasikan keputusan assignment yang independen
+        - Meningkatkan eksplorasi ruang solusi yang besar (SLAP berdimensi tinggi)
 
     Kompleksitas: O(n)
+
+    Referensi: Syswerda, G. (1989). Uniform crossover in genetic algorithms.
+               Proceedings of the 3rd International Conference on Genetic
+               Algorithms (ICGA), pp. 2–9.
     """
     n = len(parent1)
-    if n <= 1 or random.random() > crossover_rate:
+    if n == 0 or random.random() > crossover_rate:
         return parent1.copy(), parent2.copy()
 
-    point  = random.randint(1, n - 1)
-    child1 = parent1[:point] + parent2[point:]
-    child2 = parent2[:point] + parent1[point:]
+    child1: List[int] = []
+    child2: List[int] = []
+
+    for i in range(n):
+        if random.random() < 0.5:
+            child1.append(parent1[i])
+            child2.append(parent2[i])
+        else:
+            child1.append(parent2[i])
+            child2.append(parent1[i])
+
     return child1, child2
 
 
@@ -210,7 +225,7 @@ def random_reset_mutation(
     Algoritma:
         Untuk setiap gen i:
             Dengan probabilitas `mutation_rate`:
-                chromosome[i] ← pilih cell_id baru secara acak
+                chromosome[i] ← pilih cell_id baru secara acak dari domain valid
 
     Berbeda dengan Bit-Flip Mutation (hanya untuk binary encoding).
     Untuk integer encoding, reset ke nilai lain dalam domain yang valid.
@@ -221,6 +236,9 @@ def random_reset_mutation(
         - mutation_rate = 0.15 → sekitar 15% gen akan dimutasi per individu
 
     Kompleksitas: O(n)
+
+    Referensi: Michalewicz, Z. (1996). Genetic Algorithms + Data Structures
+               = Evolution Programs. 3rd ed. Springer-Verlag, Berlin.
     """
     mutated = chromosome.copy()
     for i in range(len(mutated)):
@@ -253,12 +271,15 @@ def apply_elitism(
     Algoritma:
         1. Ambil top-k individu dari populasi lama (sorted by fitness desc)
         2. Ganti k individu terburuk dari populasi baru dengan elite tersebut
+
+    Referensi: De Jong, K.A. (1975). An Analysis of the Behavior of a Class
+               of Genetic Adaptive Systems. PhD Thesis, University of Michigan.
     """
     if elite_count <= 0:
         return new_population, new_fitnesses
 
     # Urutkan populasi lama, ambil yang terbaik
-    sorted_old = sorted(
+    sorted_old  = sorted(
         zip(old_fitnesses, old_population),
         key=lambda x: x[0],
         reverse=True,
