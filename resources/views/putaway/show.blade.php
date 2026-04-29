@@ -777,10 +777,19 @@
                                                         <span class="cell-code c-ga" id="sendToCode-{{ $detail->id }}">
                                                             {{ $gaDetail->cell->code }}
                                                         </span>
-                                                        <span class="badge badge-primary" style="font-size:9px"
-                                                            id="sendToBadge-{{ $detail->id }}">
-                                                            GA Suggest
-                                                        </span>
+                                                        <div class="d-flex align-items-center" style="gap:4px">
+                                                            <span class="badge badge-primary" style="font-size:9px"
+                                                                id="sendToBadge-{{ $detail->id }}">
+                                                                GA Suggest
+                                                            </span>
+                                                            <a href="{{ route('warehouse3d.index', ['highlight_cell_id' => $gaDetail->cell_id]) }}"
+                                                               target="_blank"
+                                                               title="Lihat posisi cell ini di denah 3D"
+                                                               class="badge badge-dark"
+                                                               style="font-size:9px;text-decoration:none">
+                                                                <i class="fas fa-cube mr-1"></i>3D
+                                                            </a>
+                                                        </div>
                                                     </div>
 
                                                     {{-- Lokasi --}}
@@ -1178,6 +1187,22 @@
                             </div>
                         </div>
 
+                        {{-- Perbandingan Rekomendasi GA vs Cell yang Dipilih --}}
+                        <div id="gaComparePanel" class="mx-3 mt-2 mb-0 p-2 rounded"
+                             style="display:none;background:#f8f9fa;border:1px solid #dee2e6;font-size:12px">
+                            <div class="row no-gutters mb-1">
+                                <div class="col-6 pr-1">
+                                    <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Rekomendasi GA</span>
+                                    <span class="font-weight-bold" id="gaCompareGaCell" style="font-size:15px;color:#0056b3">—</span>
+                                </div>
+                                <div class="col-6 pl-1">
+                                    <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Cell Dipilih</span>
+                                    <span class="font-weight-bold" id="gaCompareScannedCell" style="font-size:15px;color:#155724">—</span>
+                                </div>
+                            </div>
+                            <div id="gaCompareStatus"></div>
+                        </div>
+
                         {{-- Warning kapasitas --}}
                         <div id="resultCapWarning" class="alert alert-warning mx-3 py-2 mb-0"
                              style="display:none;font-size:12px">
@@ -1187,14 +1212,11 @@
 
                         {{-- Qty (bisa diedit) --}}
                         <div class="px-3 pt-3 pb-1">
-                            <div class="d-flex justify-content-between align-items-center mb-1">
+                            <div class="mb-1">
                                 <label class="text-muted mb-0" style="font-size:12px">
                                     <i class="fas fa-boxes mr-1"></i>Qty yang Ditempatkan
+                                    <small class="text-info ml-1">(harus = qty diterima di dock)</small>
                                 </label>
-                                <button type="button" class="btn btn-xs btn-link text-muted p-0"
-                                        id="btnEditQty" style="font-size:11px">
-                                    <i class="fas fa-edit mr-1"></i>Edit qty
-                                </button>
                             </div>
                             <div id="qtyDisplay"
                                  style="font-size:32px;font-weight:800;text-align:center;
@@ -1476,7 +1498,7 @@
             // Kapasitas
             const rem = cell.capacity_remaining || 0;
             const max = cell.capacity_max || 0;
-            let effectiveQty = modalQty;
+            let capOk = true;
 
             if (max > 0) {
                 const usedPct = Math.min(100, Math.round((max - rem) / max * 100));
@@ -1485,16 +1507,16 @@
                 $('#resultCapBar').show();
 
                 if (rem <= 0) {
-                    $('#resultCapWarningText').text('Cell ini penuh! Scan cell lain.');
+                    $('#resultCapWarningText').text('Cell ini penuh — scan cell lain yang cukup kapasitasnya.');
                     $('#resultCapWarning').show();
-                    effectiveQty = 0;
+                    capOk = false;
                 } else if (modalQty > rem) {
                     $('#resultCapWarningText').html(
-                        'Qty order (' + modalQty + ' unit) melebihi sisa kapasitas (' + rem + ' unit). ' +
-                        'Hanya <strong>' + rem + ' unit</strong> yang bisa disimpan di sini.'
+                        'Kapasitas tidak cukup: butuh <strong>' + modalQty + '</strong> unit, tersedia <strong>' + rem + '</strong> unit. ' +
+                        'Scan atau pilih cell lain yang muat.'
                     );
                     $('#resultCapWarning').show();
-                    effectiveQty = rem;
+                    capOk = false;
                 } else {
                     $('#resultCapWarning').hide();
                 }
@@ -1504,16 +1526,44 @@
                 $('#resultCapInfo').text('');
             }
 
-            // ── Qty display ──
+            // ── Panel perbandingan GA vs cell dipilih ──
+            if (modalGaCell) {
+                $('#gaCompareGaCell').text(modalGaCell.code);
+                $('#gaCompareScannedCell').text(isGaSkip ? modalGaCell.code : cell.code);
+                if (isMatch || isGaSkip) {
+                    $('#gaCompareStatus').html(
+                        '<span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Sesuai rekomendasi GA — dicatat sebagai mengikuti GA</span>'
+                    );
+                } else {
+                    $('#gaCompareStatus').html(
+                        '<span class="badge badge-warning text-dark"><i class="fas fa-exclamation-triangle mr-1"></i>Tidak sesuai — dicatat sebagai tidak mengikuti rekomendasi GA</span>'
+                    );
+                }
+                $('#gaComparePanel').show();
+            } else {
+                $('#gaComparePanel').hide();
+            }
+
+            // ── Qty display (strict = quantity_received, tidak bisa diubah) ──
             qtyEditing = false;
-            $('#confirmQty').val(effectiveQty).hide();
-            $('#qtyDisplay').text(effectiveQty);
+            $('#confirmQty').val(modalQty).hide();
+            $('#qtyDisplay').text(modalQty);
             $('#qtyUnitLabel').text('unit yang akan ditempatkan');
             $('#confirmNotes').val(isOverride ? '[OVERRIDE] ' : '');
 
             $('#phaseScan').hide();
             $('#phaseConfirm').show();
-            $('#btnDoConfirm').show();
+
+            // Disable konfirmasi jika kapasitas tidak mencukupi
+            if (capOk) {
+                $('#btnDoConfirm').prop('disabled', false)
+                    .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi Sekarang')
+                    .show();
+            } else {
+                $('#btnDoConfirm').prop('disabled', true)
+                    .html('<i class="fas fa-times-circle mr-1"></i>Kapasitas tidak cukup — scan cell lain')
+                    .show();
+            }
         }
 
         // ── Simpan ke DB (dipanggil dari auto-confirm maupun tombol manual) ─────────
@@ -1669,21 +1719,6 @@
 
         // ── Scan ulang (balik ke phase 1) ────────────────────────────────────────────
         $('#btnRescan').on('click', showScanPhase);
-
-        // ── Edit qty toggle ───────────────────────────────────────────────────────────
-        $('#btnEditQty').on('click', function() {
-            qtyEditing = !qtyEditing;
-            if (qtyEditing) {
-                $('#confirmQty').val($('#qtyDisplay').text()).show().focus();
-                $('#qtyDisplay').hide();
-                $(this).html('<i class="fas fa-check mr-1"></i>Selesai');
-            } else {
-                const v = parseInt($('#confirmQty').val()) || 1;
-                $('#qtyDisplay').text(v).show();
-                $('#confirmQty').hide();
-                $(this).html('<i class="fas fa-edit mr-1"></i>Edit qty');
-            }
-        });
 
         // ── Auto-fokus saat modal terbuka ─────────────────────────────────────────────
         $('#modalConfirm').on('shown.bs.modal', function() {

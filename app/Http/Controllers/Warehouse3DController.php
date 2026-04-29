@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cell;
 use App\Models\Rack;
+use App\Models\Stock;
 use App\Models\Warehouse;
 use App\Models\Zone;
 use Illuminate\Http\Request;
@@ -14,14 +15,23 @@ class Warehouse3DController extends Controller
     // ─── View utama 3D / grid visualisasi ───────────────────────────────────
     public function index(Request $request)
     {
-        $warehouseId = $request->input('warehouse_id');
+        $warehouseId     = $request->input('warehouse_id');
+        $highlightCellId = (int) $request->input('highlight_cell_id', 0);
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 
-        // Default: gudang pertama
+        // Default: gudang pertama; jika ada highlight_cell_id, auto-pilih warehouse-nya
         $selectedWarehouse = $warehouseId
             ? $warehouses->find($warehouseId)
             : $warehouses->first();
+
+        if ($highlightCellId && !$warehouseId) {
+            $hCell = Cell::with('rack.zone')->find($highlightCellId);
+            $detectedWid = $hCell?->rack?->zone?->warehouse_id;
+            if ($detectedWid) {
+                $selectedWarehouse = $warehouses->find($detectedWid);
+            }
+        }
 
         // Summary utilisasi
         $summary = null;
@@ -41,7 +51,7 @@ class Warehouse3DController extends Controller
                 ? round(($summary['used_cells'] / $summary['total_cells']) * 100, 1) : 0;
         }
 
-        return view('warehouse3d.index', compact('warehouses', 'selectedWarehouse', 'summary'));
+        return view('warehouse3d.index', compact('warehouses', 'selectedWarehouse', 'summary', 'highlightCellId'));
     }
 
     // ─── JSON data grid visualisasi (per warehouse) ──────────────────────────
@@ -107,6 +117,34 @@ class Warehouse3DController extends Controller
         });
 
         return response()->json($data);
+    }
+
+    // ─── Cell list berisi item (untuk highlight pencarian SKU) ──────────────
+    public function cellsByItem(Request $request)
+    {
+        $q = trim($request->input('q', ''));
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $cells = Stock::where('status', 'available')
+            ->where('quantity', '>', 0)
+            ->whereHas('item', fn($iq) =>
+                $iq->where('sku', 'like', "%{$q}%")
+                   ->orWhere('name', 'like', "%{$q}%")
+            )
+            ->with(['cell', 'item'])
+            ->get()
+            ->groupBy('cell_id')
+            ->map(fn($group) => [
+                'cell_id'  => $group->first()->cell_id,
+                'code'     => $group->first()->cell?->code ?? '—',
+                'quantity' => $group->sum('quantity'),
+                'item'     => $group->first()->item?->name ?? '—',
+            ])
+            ->values();
+
+        return response()->json($cells);
     }
 
     // ─── Detail satu cell (AJAX popup) ──────────────────────────────────────

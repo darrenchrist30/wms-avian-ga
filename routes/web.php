@@ -152,6 +152,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/', [\App\Http\Controllers\Warehouse3DController::class, 'index'])->name('index');
         Route::get('data', [\App\Http\Controllers\Warehouse3DController::class, 'data'])->name('data');
         Route::get('cell/{cell}', [\App\Http\Controllers\Warehouse3DController::class, 'cellDetail'])->name('cell-detail');
+        Route::get('cells-by-item', [\App\Http\Controllers\Warehouse3DController::class, 'cellsByItem'])->name('cells-by-item');
     });
 
     /*

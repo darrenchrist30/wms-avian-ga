@@ -98,10 +98,15 @@
         </div>
     </div>
     <div class="col-4 mb-2">
-        <div class="small-box bg-info mb-0">
+        <div class="small-box mb-0 {{ $cellCount > 1 ? 'bg-warning' : 'bg-info' }}">
             <div class="inner">
                 <h4>{{ $cellCount }}</h4>
-                <p>Jumlah Lokasi (Cell)</p>
+                <p>
+                    Jumlah Lokasi (Cell)
+                    @if($cellCount > 1)
+                        <br><small style="font-size:10px;opacity:.9;">&#9888; Split Location</small>
+                    @endif
+                </p>
             </div>
             <div class="icon"><i class="fas fa-map-marker-alt"></i></div>
         </div>
@@ -124,6 +129,15 @@
             <i class="fas fa-map-marker-alt mr-1 text-primary"></i>
             Posisi Stok per Cell
             <span class="badge badge-primary ml-1">FIFO</span>
+            @if($cellCount > 1)
+                <span class="badge badge-warning ml-1 text-dark">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>Split Location: {{ $cellCount }} lokasi
+                </span>
+            @else
+                <span class="badge badge-success ml-1">
+                    <i class="fas fa-check-circle mr-1"></i>Tidak Split
+                </span>
+            @endif
         </span>
         <small class="text-muted">Urut dari tanggal masuk paling lama → yang harus diambil pertama</small>
     </div>
@@ -174,6 +188,15 @@
                             <strong>{{ $s->cell?->code ?? '—' }}</strong>
                             @if($s->cell?->label)
                                 <br><small class="text-muted">{{ $s->cell->label }}</small>
+                            @endif
+                            @if($s->cell_id)
+                                <br>
+                                <button class="btn btn-xs btn-outline-info mt-1 btn-view3d"
+                                    data-cell-id="{{ $s->cell_id }}"
+                                    data-cell-code="{{ $s->cell?->code }}"
+                                    title="Lihat detail cell di visualisasi 3D">
+                                    <i class="fas fa-cube mr-1"></i>3D
+                                </button>
                             @endif
                         </td>
                         <td>{{ $s->cell?->rack?->code ?? '—' }}</td>
@@ -306,6 +329,69 @@
 </div>
 @endif
 
+{{-- Modal Detail Cell 3D --}}
+<div class="modal fade" id="modal3dCell" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header py-2" style="background:#1a2332">
+                <h6 class="modal-title text-white font-weight-bold mb-0">
+                    <i class="fas fa-cube mr-1"></i>
+                    Detail Cell: <span id="m3dCellCode">—</span>
+                </h6>
+                <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body p-0">
+                <div id="m3dLoading" class="text-center py-4">
+                    <i class="fas fa-spinner fa-spin text-primary fa-2x mb-2 d-block"></i>
+                    <small class="text-muted">Memuat data cell…</small>
+                </div>
+                <div id="m3dContent" style="display:none">
+                    {{-- Info cell --}}
+                    <div class="px-3 pt-3 pb-2 border-bottom" style="font-size:13px">
+                        <div class="row">
+                            <div class="col-6 mb-1">
+                                <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase">Rak / Zona / Gudang</span>
+                                <span id="m3dLocation" class="font-weight-bold">—</span>
+                            </div>
+                            <div class="col-6 mb-1">
+                                <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase">Status Cell</span>
+                                <span id="m3dStatus">—</span>
+                            </div>
+                            <div class="col-6 mb-1">
+                                <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase">Kapasitas</span>
+                                <span id="m3dCapacity">—</span>
+                            </div>
+                            <div class="col-6 mb-1">
+                                <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase">Utilisasi</span>
+                                <div class="d-flex align-items-center" style="gap:6px">
+                                    <div style="flex:1;background:#e9ecef;border-radius:3px;height:8px;">
+                                        <div id="m3dCapBar" style="height:100%;border-radius:3px;background:#28a745;width:0%"></div>
+                                    </div>
+                                    <small id="m3dCapPct" class="font-weight-bold">0%</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {{-- Stok dalam cell ini --}}
+                    <div class="px-3 py-2">
+                        <small class="text-muted text-uppercase font-weight-bold" style="font-size:10px;letter-spacing:.4px">
+                            Semua Item di Cell Ini
+                        </small>
+                        <div id="m3dStockList" class="mt-1"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <a id="m3dLink3D" href="{{ route('warehouse3d.index') }}" target="_blank"
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-cube mr-1"></i>Buka Visualisasi 3D
+                </a>
+                <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Riwayat Mutasi Item Ini --}}
 <div class="card">
     <div class="card-header py-2">
@@ -352,6 +438,59 @@ $(function () {
         order: [[0, 'desc']],
         pageLength: 15,
         language: { url: '/vendor/datatables/i18n/id.json' },
+    });
+
+    // ── Modal Detail Cell 3D ───────────────────────────────────────────────
+    $(document).on('click', '.btn-view3d', function () {
+        var cellId   = $(this).data('cell-id');
+        var cellCode = $(this).data('cell-code');
+
+        $('#m3dCellCode').text(cellCode);
+        $('#m3dLoading').show();
+        $('#m3dContent').hide();
+        $('#modal3dCell').modal('show');
+
+        $.get('/warehouse-3d/cell/' + cellId, function (res) {
+            var c = res.cell;
+
+            // Info cell
+            $('#m3dLocation').text((c.rack || '—') + ' / ' + (c.zone || '—') + ' / ' + (c.warehouse || '—'));
+
+            var statusMap = { available:'Tersedia', partial:'Terisi Sebagian', full:'Penuh', blocked:'Diblokir', reserved:'Reserved' };
+            var statusColor = { available:'success', partial:'info', full:'danger', blocked:'dark', reserved:'warning' };
+            $('#m3dStatus').html('<span class="badge badge-' + (statusColor[c.status] || 'secondary') + '">' + (statusMap[c.status] || c.status) + '</span>');
+
+            $('#m3dCapacity').text(c.capacity_used + ' / ' + c.capacity_max + ' unit terpakai');
+            var pct = c.capacity_max > 0 ? Math.min(100, Math.round(c.capacity_used / c.capacity_max * 100)) : 0;
+            var barColor = pct >= 90 ? '#dc3545' : pct >= 60 ? '#ffc107' : '#28a745';
+            $('#m3dCapBar').css({ width: pct + '%', background: barColor });
+            $('#m3dCapPct').text(pct + '%');
+
+            // Daftar stok dalam cell
+            var stocks = res.stocks;
+            var html = '';
+            if (stocks.length === 0) {
+                html = '<small class="text-muted">Tidak ada stok di cell ini.</small>';
+            } else {
+                stocks.forEach(function (s) {
+                    var isCurrentItem = (s.sku === '{{ $item->sku }}');
+                    html += '<div class="d-flex justify-content-between align-items-center py-1 border-bottom ' + (isCurrentItem ? 'bg-light' : '') + '" style="font-size:12px">'
+                          + '<div>'
+                          + (isCurrentItem ? '<i class="fas fa-arrow-right text-primary mr-1"></i>' : '<span style="width:14px;display:inline-block"></span>')
+                          + '<strong>' + s.sku + '</strong> — ' + s.item_name
+                          + (s.lpn ? ' <code class="small">' + s.lpn + '</code>' : '')
+                          + '</div>'
+                          + '<span class="badge badge-light border text-dark">' + s.quantity + ' ' + (s.unit || '') + '</span>'
+                          + '</div>';
+                });
+            }
+            $('#m3dStockList').html(html);
+
+            $('#m3dLoading').hide();
+            $('#m3dContent').show();
+        }).fail(function () {
+            $('#m3dLoading').html('<div class="text-center text-danger py-3"><i class="fas fa-times-circle fa-2x mb-1 d-block"></i><small>Gagal memuat data cell.</small></div>');
+        });
     });
 
     @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())

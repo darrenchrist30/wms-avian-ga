@@ -175,7 +175,7 @@ class ReportController extends Controller
                 AVG(fitness_score) as avg_fitness,
                 AVG(execution_time_ms) as avg_exec_ms,
                 AVG(generations_run) as avg_generations,
-                SUM(CASE WHEN status = "approved" THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN status = "accepted" THEN 1 ELSE 0 END) as approved,
                 SUM(CASE WHEN status = "rejected" THEN 1 ELSE 0 END) as rejected
             ')
             ->whereYear('created_at', $year)
@@ -334,6 +334,35 @@ class ReportController extends Controller
             ->whereYear('pac.created_at', $year)
             ->first();
 
+        // ── Metrik Efektivitas Penempatan (Slot Efficiency) ──────────────────
+        // a) Split location: item yang tersebar di lebih dari 1 cell
+        $stockLocations = DB::table('stock_records')
+            ->where('status', 'available')
+            ->groupBy('item_id')
+            ->select('item_id', DB::raw('COUNT(DISTINCT cell_id) as cell_count'))
+            ->get();
+
+        $splitLocationCount = $stockLocations->where('cell_count', '>', 1)->count();
+        $avgLocationsPerSku = $stockLocations->count() > 0
+            ? round($stockLocations->avg('cell_count'), 2) : 0;
+
+        // b) Utilisasi kapasitas rak (seluruh gudang, snapshot saat ini)
+        $capStats = DB::table('cells')
+            ->where('is_active', true)
+            ->selectRaw('SUM(capacity_used) as used, SUM(capacity_max) as total_cap')
+            ->first();
+        $rackUtilization = ($capStats->total_cap ?? 0) > 0
+            ? round(($capStats->used / $capStats->total_cap) * 100, 1) : 0;
+
+        // c) Estimasi waktu put-away: rata-rata durasi order dari created → completed
+        $avgPutAwayMinutes = (int) round(
+            DB::table('inbound_orders')
+                ->where('status', 'completed')
+                ->whereYear('created_at', $year)
+                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) as avg_min')
+                ->value('avg_min') ?? 0
+        );
+
         // Available years
         $years = DB::table('ga_recommendations')
             ->selectRaw('YEAR(created_at) as yr')
@@ -380,11 +409,16 @@ class ReportController extends Controller
             ? round(($compliance->followed / $compliance->total) * 100, 1) : 0;
 
         $summary = [
-            'total_ga'       => $overallStats->total ?? 0,
-            'avg_fitness'    => round($overallStats->avg_fitness ?? 0, 4),
-            'best_fitness'   => round($overallStats->best_fitness ?? 0, 4),
-            'avg_exec_ms'    => round($overallStats->avg_exec_ms ?? 0),
-            'compliance_pct' => $compliancePct,
+            'total_ga'              => $overallStats->total ?? 0,
+            'avg_fitness'           => round($overallStats->avg_fitness ?? 0, 4),
+            'best_fitness'          => round($overallStats->best_fitness ?? 0, 4),
+            'avg_exec_ms'           => round($overallStats->avg_exec_ms ?? 0),
+            'compliance_pct'        => $compliancePct,
+            // Slot efficiency metrics
+            'split_location_count'  => $splitLocationCount,
+            'avg_locations_per_sku' => $avgLocationsPerSku,
+            'rack_utilization'      => $rackUtilization,
+            'avg_putaway_minutes'   => $avgPutAwayMinutes,
         ];
 
         return view('reports.ga-effectiveness', compact(

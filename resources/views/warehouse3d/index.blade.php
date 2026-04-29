@@ -93,6 +93,13 @@
     transition: background .2s;
 }
 .btn-reset-cam:hover { background: rgba(51,65,85,.9); color: #fff; }
+
+/* Highlight legend dot pulse */
+@keyframes dot-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.35; }
+}
+.leg-dot-pulse { animation: dot-pulse 1.4s ease-in-out infinite; }
 </style>
 @endpush
 
@@ -107,7 +114,7 @@
         </h5>
         <small class="text-muted">Rotasi dengan mouse kiri · Zoom scroll · Klik cell untuk detail stok</small>
     </div>
-    <div class="d-flex align-items-center" style="gap:6px">
+    <div class="d-flex align-items-center flex-wrap" style="gap:6px">
         <select id="warehouseSelector" class="form-control form-control-sm" style="width:210px">
             <option value="">— Pilih Gudang —</option>
             @foreach($warehouses as $wh)
@@ -116,6 +123,17 @@
             </option>
             @endforeach
         </select>
+        {{-- SKU / Item search for highlight --}}
+        @if($selectedWarehouse)
+        <div class="input-group input-group-sm" style="width:220px">
+            <input type="text" id="skuSearch" class="form-control" placeholder="Cari SKU / nama item..." style="border-color:#6c757d">
+            <div class="input-group-append">
+                <button class="btn btn-outline-secondary" id="btnSkuSearch" title="Highlight cell berisi item ini">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </div>
+        @endif
         <a href="{{ route('stock.index') }}" class="btn btn-sm btn-light border">
             <i class="fas fa-boxes mr-1"></i>Stok
         </a>
@@ -165,6 +183,14 @@
 </div>
 @endif
 
+{{-- ── Highlight Banner ───────────────────────────────────────────────────── --}}
+<div id="highlightBanner" class="alert py-2 px-3 mb-2 d-flex align-items-center justify-content-between" style="display:none;border-radius:8px">
+    <span id="highlightBannerText" class="font-weight-bold" style="font-size:13px"></span>
+    <button class="btn btn-sm ml-3" id="btnClearHighlight" style="white-space:nowrap">
+        <i class="fas fa-times mr-1"></i>Hapus Highlight
+    </button>
+</div>
+
 {{-- ── Three.js Canvas ───────────────────────────────────────────────────── --}}
 @if($selectedWarehouse)
 <div id="threeWrap">
@@ -181,6 +207,10 @@
         <div class="leg-item"><div class="leg-dot" style="background:#b71c1c"></div> Penuh</div>
         <div class="leg-item"><div class="leg-dot" style="background:#37474f"></div> Diblokir</div>
         <div class="leg-item"><div class="leg-dot" style="background:#4a148c"></div> Direservasi</div>
+        <div class="leg-item leg-highlight" style="display:none">
+            <div class="leg-dot leg-dot-pulse" id="legHighlightDot" style="background:#ffd700;border:1px solid #fff"></div>
+            <span id="legHighlightLabel">Rekomendasi GA</span>
+        </div>
     </div>
 
     {{-- Controls hint --}}
@@ -242,6 +272,24 @@ $('#warehouseSelector').on('change', function () {
     const wid = $(this).val();
     if (wid) window.location.href = '{{ route("warehouse3d.index") }}?warehouse_id=' + wid;
 });
+
+// SKU search
+$('#skuSearch').on('keydown', function (e) { if (e.key === 'Enter') $('#btnSkuSearch').trigger('click'); });
+$('#btnSkuSearch').on('click', function () {
+    const q = $('#skuSearch').val().trim();
+    if (q.length < 2) { alert('Masukkan minimal 2 karakter untuk pencarian.'); return; }
+    $.getJSON('{{ route("warehouse3d.cells-by-item") }}', { q }, function (results) {
+        if (!results.length) {
+            alert('Tidak ditemukan cell berisi item "' + q + '".');
+            return;
+        }
+        const ids   = new Set(results.map(r => r.cell_id));
+        const label = results[0].item + (results.length > 1 ? ' (+' + (results.length - 1) + ' item lain)' : '');
+        applyHighlight(ids, 'search', label + ' — ' + results.length + ' cell ditemukan');
+    }).fail(function () { alert('Gagal mencari item.'); });
+});
+
+$('#btnClearHighlight').on('click', function () { clearHighlight(); });
 
 @if($selectedWarehouse)
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -381,6 +429,15 @@ const cellMeshes = [];
 let hoveredMesh = null, hoveredOrigMat = null;
 
 function clearScene() {
+    // Wipe highlight state before disposing meshes (avoids stale material refs)
+    if (typeof highlightedMeshes !== 'undefined') {
+        highlightedMeshes = [];
+        highlightMats     = [];
+        const b = document.getElementById('highlightBanner');
+        if (b) b.style.display = 'none';
+        const l = document.querySelector('.leg-highlight');
+        if (l) l.style.display = 'none';
+    }
     cellMeshes.forEach(m => { scene.remove(m); m.material.dispose(); });
     cellMeshes.length = 0;
 }
@@ -466,9 +523,90 @@ function loadScene(wid) {
     $.getJSON('{{ route("warehouse3d.data") }}', { warehouse_id: wid }, function (zones) {
         buildWarehouse(zones);
         loading.style.display = 'none';
+        // Auto-highlight jika ada highlight_cell_id dari URL
+        if (INIT_HIGHLIGHT_ID) {
+            applyHighlight(new Set([INIT_HIGHLIGHT_ID]), 'ga', 'Cell rekomendasi GA disorot — klik cell untuk detail');
+        }
     }).fail(function () {
         loading.innerHTML = '<i class="fas fa-exclamation-triangle fa-2x text-danger"></i><span class="text-danger">Gagal memuat data 3D.</span>';
     });
+}
+
+// ── Highlight State ───────────────────────────────────────────────────────
+const INIT_HIGHLIGHT_ID  = {{ $highlightCellId ?: 'null' }};
+let highlightedMeshes    = [];
+let highlightMats        = [];
+
+function applyHighlight(ids, reason, label) {
+    clearHighlight();
+
+    const isGa   = (reason === 'ga');
+    const color   = isGa ? 0xffd700 : 0x00e5ff;   // gold for GA, cyan for search
+    const emBase  = isGa ? new THREE.Color(0.4, 0.28, 0) : new THREE.Color(0, 0.35, 0.5);
+
+    let firstMesh = null;
+    cellMeshes.forEach(mesh => {
+        if (!ids.has(mesh.userData.cellId)) return;
+
+        mesh.userData._savedMat   = mesh.material;
+        mesh.userData._savedScale = mesh.scale.y;
+
+        const mat = new THREE.MeshLambertMaterial({ color, emissive: emBase.clone() });
+        mesh.material = mat;
+        mesh.scale.y  = 1.25;
+
+        highlightMats.push(mat);
+        highlightedMeshes.push(mesh);
+        if (!firstMesh) firstMesh = mesh;
+    });
+
+    if (firstMesh) flyToCell(firstMesh);
+
+    // Banner
+    const bannerEl = document.getElementById('highlightBanner');
+    const bannerTx = document.getElementById('highlightBannerText');
+    const bannerBtn = document.getElementById('btnClearHighlight');
+    if (isGa) {
+        bannerEl.className = 'alert alert-warning py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
+        bannerBtn.className = 'btn btn-sm btn-outline-warning ml-3';
+        bannerTx.innerHTML  = '<i class="fas fa-star mr-2" style="color:#856404"></i>' + (label || 'Cell rekomendasi GA disorot');
+    } else {
+        bannerEl.className = 'alert alert-info py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
+        bannerBtn.className = 'btn btn-sm btn-outline-info ml-3';
+        bannerTx.innerHTML  = '<i class="fas fa-search mr-2"></i>' + (label || 'Cell hasil pencarian disorot');
+    }
+    bannerEl.style.display = 'flex';
+
+    // Legend
+    const legItem = document.querySelector('.leg-highlight');
+    const legDot  = document.getElementById('legHighlightDot');
+    const legLbl  = document.getElementById('legHighlightLabel');
+    legItem.style.display = '';
+    legDot.style.background = isGa ? '#ffd700' : '#00e5ff';
+    legLbl.textContent = isGa ? 'Rekomendasi GA' : 'Hasil Pencarian';
+}
+
+function clearHighlight() {
+    highlightedMeshes.forEach(mesh => {
+        if (mesh.userData._savedMat) {
+            mesh.material      = mesh.userData._savedMat;
+            mesh.scale.y       = mesh.userData._savedScale ?? 1;
+            delete mesh.userData._savedMat;
+            delete mesh.userData._savedScale;
+        }
+    });
+    highlightedMeshes = [];
+    highlightMats     = [];
+
+    document.getElementById('highlightBanner').style.display = 'none';
+    document.querySelector('.leg-highlight').style.display    = 'none';
+}
+
+function flyToCell(mesh) {
+    const p = mesh.position;
+    camera.position.set(p.x + 12, p.y + 9, p.z + 12);
+    controls.target.set(p.x, p.y, p.z);
+    controls.update();
 }
 
 loadScene({{ $selectedWarehouse->id }});
@@ -603,6 +741,13 @@ window.addEventListener('resize', function () {
 (function animate() {
     requestAnimationFrame(animate);
     controls.update();
+
+    // Pulse emissive untuk highlighted cells (range [0.1 – 1.0])
+    if (highlightMats.length) {
+        const pulse = 0.55 + 0.45 * Math.sin(Date.now() * 0.003);
+        highlightMats.forEach(mat => mat.emissiveIntensity = pulse);
+    }
+
     renderer.render(scene, camera);
 })();
 @endif

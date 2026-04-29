@@ -56,6 +56,77 @@
     </div>
 </div>
 
+{{-- ── Metrik Efektivitas Penempatan (selalu tampil) ────────────────────── --}}
+<div class="d-flex align-items-center mb-2 mt-1">
+    <span class="font-weight-bold text-dark" style="font-size:13px">
+        <i class="fas fa-map-marker-alt mr-1" style="color:#6f42c1"></i>Metrik Efektivitas Penempatan
+    </span>
+    <span class="text-muted ml-2" style="font-size:11px">— kondisi saat ini (snapshot gudang)</span>
+</div>
+<div class="row mb-4">
+    {{-- Split Location --}}
+    <div class="col-6 col-md-3 mb-2">
+        <div class="card mb-0" style="border-left:4px solid #fd7e14;">
+            <div class="card-body py-2 px-3">
+                <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.5px">Split Location</div>
+                <div class="h3 font-weight-bold mb-0" style="color:#fd7e14">{{ number_format($summary['split_location_count']) }}</div>
+                <small class="text-muted">item tersimpan di &gt;1 cell</small>
+                <div class="mt-1" style="font-size:10px;color:#6c757d">
+                    <i class="fas fa-info-circle mr-1"></i>Idealnya mendekati 0 (tidak split)
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Avg Lokasi per SKU --}}
+    <div class="col-6 col-md-3 mb-2">
+        <div class="card mb-0" style="border-left:4px solid #17a2b8;">
+            <div class="card-body py-2 px-3">
+                <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.5px">Rata-rata Lokasi / SKU</div>
+                <div class="h3 font-weight-bold mb-0" style="color:#17a2b8">{{ $summary['avg_locations_per_sku'] }}</div>
+                <small class="text-muted">cell per item (rata-rata)</small>
+                <div class="mt-1" style="font-size:10px;color:#6c757d">
+                    <i class="fas fa-info-circle mr-1"></i>GA mengoptimasi mendekati 1.0
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Utilisasi Kapasitas Rak --}}
+    <div class="col-6 col-md-3 mb-2">
+        <div class="card mb-0" style="border-left:4px solid #28a745;">
+            <div class="card-body py-2 px-3">
+                <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.5px">Utilisasi Kapasitas Rak</div>
+                <div class="h3 font-weight-bold mb-0" style="color:#28a745">{{ $summary['rack_utilization'] }}%</div>
+                <small class="text-muted">dari total kapasitas rak aktif</small>
+                <div class="progress mt-1" style="height:4px">
+                    <div class="progress-bar bg-success" style="width:{{ $summary['rack_utilization'] }}%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Estimasi Waktu Put-Away --}}
+    <div class="col-6 col-md-3 mb-2">
+        <div class="card mb-0" style="border-left:4px solid #007bff;">
+            <div class="card-body py-2 px-3">
+                <div class="text-uppercase text-muted mb-1" style="font-size:10px;letter-spacing:.5px">Estimasi Waktu Put-Away</div>
+                <div class="h3 font-weight-bold mb-0" style="color:#007bff">
+                    @if($summary['avg_putaway_minutes'] >= 60)
+                        {{ round($summary['avg_putaway_minutes'] / 60, 1) }} jam
+                    @else
+                        {{ $summary['avg_putaway_minutes'] }} mnt
+                    @endif
+                </div>
+                <small class="text-muted">rata-rata order selesai (tahun {{ $year }})</small>
+                <div class="mt-1" style="font-size:10px;color:#6c757d">
+                    <i class="fas fa-info-circle mr-1"></i>Dari buat order → semua item put-away
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if($summary['total_ga'] == 0)
 {{-- Empty state --}}
 <div class="card">
@@ -177,7 +248,7 @@
                         <td class="text-center">{{ number_format($ga->execution_time_ms ?? 0) }}</td>
                         <td class="text-center">
                             @php
-                                $stColors = ['approved'=>'success','rejected'=>'danger','pending'=>'warning'];
+                                $stColors = ['accepted'=>'success','rejected'=>'danger','pending'=>'warning'];
                             @endphp
                             <span class="badge badge-{{ $stColors[$ga->status] ?? 'secondary' }}">
                                 {{ ucfirst($ga->status) }}

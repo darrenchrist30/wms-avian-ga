@@ -662,6 +662,15 @@
                             <span class="badge badge-primary" style="font-size:11px;padding:3px 8px;">
                                 {{ $det->cell->code ?? '—' }}
                             </span>
+                            @if($det->cell_id)
+                            <a href="{{ route('warehouse3d.index', ['highlight_cell_id' => $det->cell_id]) }}"
+                               target="_blank"
+                               title="Lihat di denah 3D"
+                               class="badge badge-dark d-inline-block mt-1"
+                               style="font-size:9px;text-decoration:none">
+                                <i class="fas fa-cube mr-1"></i>3D
+                            </a>
+                            @endif
                         </td>
                         <td class="text-center">
                             <span class="badge badge-light border" style="font-size:10px;">

@@ -113,6 +113,24 @@ class PutAwayService
             );
         }
 
+        // Validasi: qty yang ditempatkan harus sama dengan qty yang diterima di dock
+        if ($quantityStored !== $detail->quantity_received) {
+            throw new \Exception(
+                "Qty yang ditempatkan ({$quantityStored}) harus sama dengan qty yang diterima ({$detail->quantity_received}). " .
+                "Gunakan cell yang cukup kapasitasnya."
+            );
+        }
+
+        // Validasi: cell harus berada di warehouse yang sama dengan inbound order
+        $cell->loadMissing('rack.zone');
+        $orderWarehouseId = $detail->inboundOrder->warehouse_id;
+        $cellWarehouseId  = $cell->rack?->zone?->warehouse_id ?? null;
+        if ($cellWarehouseId !== $orderWarehouseId) {
+            throw new \Exception(
+                "Sel {$cell->code} tidak berada di gudang yang sama dengan order ini. Scan sel dari gudang yang benar."
+            );
+        }
+
         // Apakah operator mengikuti rekomendasi GA?
         $followRecommendation = $gaDetail
             ? ($gaDetail->cell_id === $cell->id)

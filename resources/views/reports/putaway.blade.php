@@ -44,7 +44,7 @@
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box {{ $summary['approved_pct'] >= 80 ? 'bg-success' : 'bg-secondary' }} mb-0">
-            <div class="inner"><h4>{{ $summary['approved_pct'] }}%</h4><p>GA Disetujui</p></div>
+            <div class="inner"><h4>{{ $summary['approved_pct'] }}%</h4><p>GA Diterima</p></div>
             <div class="icon"><i class="fas fa-thumbs-up"></i></div>
         </div>
     </div>
@@ -103,7 +103,7 @@
             <div class="col-6 col-md-3 mb-3">
                 <div class="border rounded p-3">
                     <h4 class="text-warning mb-1">{{ $gaStats->approved ?? 0 }} / {{ $summary['total_ga'] }}</h4>
-                    <small class="text-muted">Disetujui / Total</small>
+                    <small class="text-muted">Diterima / Total</small>
                 </div>
             </div>
             <div class="col-6 col-md-3 mb-3">
