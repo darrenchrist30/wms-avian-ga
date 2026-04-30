@@ -356,7 +356,7 @@ class ReportController extends Controller
 
         // c) Estimasi waktu put-away: rata-rata durasi order dari created → completed
         $avgPutAwayMinutes = (int) round(
-            DB::table('inbound_orders')
+            DB::table('inbound_transactions')
                 ->where('status', 'completed')
                 ->whereYear('created_at', $year)
                 ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, created_at, updated_at)) as avg_min')

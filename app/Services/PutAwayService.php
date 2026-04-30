@@ -124,7 +124,9 @@ class PutAwayService
         // Validasi: cell harus berada di warehouse yang sama dengan inbound order
         $cell->loadMissing('rack.zone');
         $orderWarehouseId = $detail->inboundOrder->warehouse_id;
-        $cellWarehouseId  = $cell->rack?->zone?->warehouse_id ?? null;
+        $cellWarehouseId  = $cell->rack?->zone?->warehouse_id
+                         ?? $cell->rack?->warehouse_id
+                         ?? null;
         if ($cellWarehouseId !== $orderWarehouseId) {
             throw new \Exception(
                 "Sel {$cell->code} tidak berada di gudang yang sama dengan order ini. Scan sel dari gudang yang benar."

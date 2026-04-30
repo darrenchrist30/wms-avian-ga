@@ -220,8 +220,8 @@
                 <tbody>
                     @foreach($gaRecords as $i => $ga)
                     @php
-                        $fitColor = $ga->fitness_score >= 0.8 ? 'success'
-                                  : ($ga->fitness_score >= 0.5 ? 'warning' : 'danger');
+                        $fitColor = $ga->fitness_score >= 75 ? 'success'
+                                  : ($ga->fitness_score >= 50 ? 'warning' : 'danger');
                     @endphp
                     <tr>
                         <td class="text-center text-muted">{{ $i + 1 }}</td>
@@ -283,7 +283,7 @@ $(function () {
         chart: { style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
         title: { text: null },
         xAxis: { categories: monthNames },
-        yAxis: { title: { text: 'Fitness Score' }, min: 0, max: 1 },
+        yAxis: { title: { text: 'Fitness Score' }, min: 0, max: 100 },
         tooltip: { shared: true, valueSuffix: '' },
         series: [
             {
