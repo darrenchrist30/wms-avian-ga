@@ -20,6 +20,10 @@
                                 <a href="{{ route('location.cells.scan') }}" class="btn btn-sm btn-avian-secondary">
                                     <i class="fas fa-qrcode mr-1"></i>Scan QR Cell
                                 </a>
+                                <a href="#" id="btnBulkQr" class="btn btn-sm btn-outline-success"
+                                   title="Pilih rak di filter lalu klik untuk cetak semua label QR sekaligus">
+                                    <i class="fas fa-layer-group mr-1"></i>Cetak Label Rak
+                                </a>
                                 <div class="btn-group">
                                     <button class="btn btn-sm btn-outline-dark btnFilter" data-toggle="collapse"
                                         data-target=".filter">
@@ -159,6 +163,24 @@
 
             $('#filter-zone, #filter-rack, #filter-status').on('change', function() {
                 table.ajax.reload();
+            });
+
+            // Cetak Label Rak — butuh rack filter dipilih dahulu
+            const BULK_QR_URL = '{{ route("location.cells.bulk-qr") }}';
+            $('#btnBulkQr').on('click', function (e) {
+                e.preventDefault();
+                const rackId = $('#filter-rack').val();
+                if (!rackId) {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Pilih Rak Terlebih Dahulu',
+                        text: 'Gunakan filter Rak di atas, lalu klik "Cetak Label Rak" untuk mencetak semua label QR dalam satu rak sekaligus.',
+                        confirmButtonColor: '#28a745',
+                        confirmButtonText: 'Mengerti',
+                    });
+                    return;
+                }
+                window.open(BULK_QR_URL + '?rack_id=' + rackId, '_blank');
             });
 
             $(document).on('click', '.btnDel', function(e) {

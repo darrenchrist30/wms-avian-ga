@@ -15,6 +15,13 @@
             <a href="{{ route('location.cells.index') }}" class="btn btn-sm btn-light border">
                 <i class="fas fa-arrow-left mr-1"></i>Kembali
             </a>
+            @if($cell->rack_id)
+            <a href="{{ route('location.cells.bulk-qr', ['rack_id' => $cell->rack_id]) }}"
+               class="btn btn-sm btn-outline-primary" target="_blank"
+               title="Cetak semua label cell dalam rak {{ $cell->rack?->code }}">
+                <i class="fas fa-layer-group mr-1"></i>Cetak Semua Label Rak
+            </a>
+            @endif
             <button onclick="window.print()" class="btn btn-sm btn-success">
                 <i class="fas fa-print mr-1"></i>Cetak Label
             </button>
@@ -228,31 +235,31 @@
 
 @push('styles')
 <style>
+@page { size: A4 portrait; margin: 15mm; }
+
 @media print {
-    /* Sembunyikan semua elemen */
     body * { visibility: hidden !important; }
 
-    /* Tampilkan hanya label dan semua isinya */
     #qr-label-print,
     #qr-label-print * { visibility: visible !important; }
 
-    /* Posisikan label di tengah atas halaman */
+    /* calc() lebih browser-compatible daripada transform untuk print */
     #qr-label-print {
         position: fixed !important;
         top: 15mm !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
+        left: calc(50% - 30mm) !important;
         width: 60mm !important;
         border: 1px solid #000 !important;
         background: #fff !important;
         padding: 8px !important;
         border-radius: 0 !important;
+        box-shadow: none !important;
     }
 
-    /* Canvas dan SVG harus ikut tercetak */
     #qrCanvas, #barcodeBar {
         display: block !important;
         visibility: visible !important;
+        max-width: 100% !important;
     }
 }
 </style>

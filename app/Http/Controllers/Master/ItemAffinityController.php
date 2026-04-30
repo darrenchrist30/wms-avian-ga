@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Master;
 
 use App\Http\Controllers\Controller;
+use App\Models\InboundOrder;
 use App\Models\ItemAffinity;
 use App\Models\ItemCategory;
 use Illuminate\Http\Request;
@@ -12,10 +13,12 @@ class ItemAffinityController extends Controller
 {
     public function index()
     {
-        $totalPairs   = ItemAffinity::count();
-        $avgScore     = $totalPairs > 0 ? round(ItemAffinity::avg('affinity_score'), 4) : 0;
-        $maxCount     = $totalPairs > 0 ? ItemAffinity::max('co_occurrence_count') : 0;
-        $categories   = ItemCategory::orderBy('name')->get();
+        $totalPairs      = ItemAffinity::count();
+        $avgScore        = $totalPairs > 0 ? round(ItemAffinity::avg('affinity_score'), 4) : 0;
+        $maxCount        = $totalPairs > 0 ? ItemAffinity::max('co_occurrence_count') : 0;
+        $categories      = ItemCategory::orderBy('name')->get();
+        $lastUpdated     = ItemAffinity::latest('updated_at')->value('updated_at');
+        $ordersCompleted = InboundOrder::where('status', 'completed')->count();
 
         // Top 10 pasangan untuk bar chart
         $top10 = ItemAffinity::with(['item:id,name,sku', 'relatedItem:id,name,sku'])
@@ -30,7 +33,8 @@ class ItemAffinityController extends Controller
             ->values();
 
         return view('master.affinities.index', compact(
-            'totalPairs', 'avgScore', 'maxCount', 'categories', 'top10'
+            'totalPairs', 'avgScore', 'maxCount', 'categories', 'top10',
+            'lastUpdated', 'ordersCompleted'
         ));
     }
 
@@ -46,6 +50,8 @@ class ItemAffinityController extends Controller
                   ->orWhereHas('relatedItem', fn($q2) => $q2->where('category_id', $cat));
             });
         }
+
+        $maxCount = ItemAffinity::max('co_occurrence_count') ?: 1;
 
         return DataTables::of($query)
             ->addIndexColumn()
@@ -65,6 +71,14 @@ class ItemAffinityController extends Controller
                 return '<div class="font-weight-bold" style="font-size:13px;">' . e($row->relatedItem->name ?? '—') . '</div>'
                      . '<small class="text-muted">' . e($row->relatedItem->sku ?? '') . '</small> ' . $badge;
             })
+            ->addColumn('cocount_html', function ($row) use ($maxCount) {
+                $pct   = round($row->co_occurrence_count / $maxCount * 100);
+                $color = $pct >= 70 ? '#dc3545' : ($pct >= 40 ? '#fd7e14' : '#6c757d');
+                return '<div class="text-center">'
+                     . '<span class="font-weight-bold" style="font-size:17px;color:' . $color . ';">' . $row->co_occurrence_count . '</span>'
+                     . '<div class="text-muted" style="font-size:10px;line-height:1.2;">kali bersamaan</div>'
+                     . '</div>';
+            })
             ->addColumn('score_bar', function ($row) {
                 $pct   = round((float) $row->affinity_score * 100);
                 $color = $pct >= 70 ? '#28a745' : ($pct >= 40 ? '#fd7e14' : '#6c757d');
@@ -74,7 +88,7 @@ class ItemAffinityController extends Controller
                      . '<small class="font-weight-bold" style="min-width:36px;">' . number_format((float) $row->affinity_score, 4) . '</small>'
                      . '</div>';
             })
-            ->rawColumns(['item_a', 'item_b', 'score_bar'])
+            ->rawColumns(['item_a', 'item_b', 'cocount_html', 'score_bar'])
             ->make(true);
     }
 }

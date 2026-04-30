@@ -64,11 +64,15 @@
     $isSupervisor = auth()->user()->isAdmin() || auth()->user()->isSupervisor();
 
     /* ─── Item stats ─── */
-    $totalOrdered  = $order->items->sum('quantity_ordered');
-    $totalReceived = $order->items->sum('quantity_received');
-    $totalPutAway  = $order->items->where('status','put_away')->count();
-    $totalItems    = $order->items->count();
-    $progressPct   = $totalItems > 0 ? round($totalPutAway / $totalItems * 100) : 0;
+    $totalOrdered   = $order->items->sum('quantity_ordered');
+    $totalReceived  = $order->items->sum('quantity_received');
+    $totalPutAway   = $order->items->where('status','put_away')->count();
+    $totalItems     = $order->items->count();
+    $progressPct    = $totalItems > 0 ? round($totalPutAway / $totalItems * 100) : 0;
+    $qtyConfirmed   = $totalReceived > 0;
+    $hasQtyDiff     = $order->items->contains(
+        fn($i) => $i->quantity_received > 0 && $i->quantity_received != $i->quantity_ordered
+    );
 @endphp
 
 <div class="container-fluid pb-4">
@@ -108,12 +112,21 @@
         </button>
         @endif
 
-        {{-- DRAFT: Jalankan GA (operator/supervisor/admin — role middleware handles access) --}}
+        {{-- DRAFT: Jalankan GA — disabled jika qty fisik belum dikonfirmasi --}}
         @if ($order->status === 'draft')
+        @if ($qtyConfirmed)
         <button class="btn btn-sm btn-primary" id="btnProcessGA"
             data-url="{{ route('inbound.orders.process-ga', $order->id) }}">
             <i class="fas fa-dna mr-1"></i>Jalankan GA
         </button>
+        @else
+        <button class="btn btn-sm btn-primary" disabled
+            data-toggle="tooltip" data-placement="bottom"
+            title="Konfirmasi qty fisik terlebih dahulu sebelum menjalankan GA">
+            <i class="fas fa-dna mr-1"></i>Jalankan GA
+            <i class="fas fa-lock ml-1" style="font-size:10px;opacity:.7"></i>
+        </button>
+        @endif
         @endif
 
         {{-- RECOMMENDED + pending_review: Supervisor accept / reject --}}
@@ -147,6 +160,18 @@
         </a>
     </div>
 </div>
+
+{{-- Alert: belum konfirmasi qty → GA terkunci --}}
+@if ($order->status === 'draft' && !$qtyConfirmed)
+<div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center" style="border-radius:8px;border-left:4px solid #ffc107">
+    <i class="fas fa-lock mr-2" style="font-size:16px;color:#856404"></i>
+    <span>
+        <strong>Qty fisik belum dikonfirmasi.</strong>
+        Isi kolom <em>Qty Terima</em> pada tabel di bawah, lalu klik
+        <strong>Konfirmasi Qty Fisik</strong> sebelum menjalankan GA.
+    </span>
+</div>
+@endif
 
 {{-- ══════════════════════════════════════════════════════
      2. STATUS STEPPER
@@ -323,9 +348,20 @@
             <span class="badge badge-primary ml-1">{{ $totalItems }}</span>
         </span>
         @if ($order->status === 'draft')
-        <span class="badge badge-warning">
-            <i class="fas fa-pencil-alt mr-1"></i>Mode Input Qty — isi jumlah barang yang diterima secara fisik
-        </span>
+            @if ($qtyConfirmed)
+            <span class="badge badge-success px-2 py-1">
+                <i class="fas fa-check-circle mr-1"></i>Qty Fisik Terkonfirmasi
+                @if ($hasQtyDiff)
+                    <span class="badge badge-warning ml-1 text-dark" style="font-size:9px">
+                        Ada Selisih
+                    </span>
+                @endif
+            </span>
+            @else
+            <span class="badge badge-warning">
+                <i class="fas fa-pencil-alt mr-1"></i>Mode Input Qty — isi jumlah barang yang diterima secara fisik
+            </span>
+            @endif
         @endif
     </div>
     <div class="card-body p-0">
@@ -370,9 +406,12 @@
                             'cancelled'   => ['danger',    'Dibatalkan'],
                         ];
                         [$iCls, $iLabel] = $iStatusMap[$itm->status] ?? ['secondary', ucfirst($itm->status)];
-                        $diff = $itm->quantity_received - $itm->quantity_ordered;
+                        $diff    = $itm->quantity_received - $itm->quantity_ordered;
+                        $isDiff  = $itm->quantity_received > 0 && $diff !== 0;
+                        $rowCls  = $itm->status === 'put_away' ? 'table-success'
+                                 : ($isDiff ? 'table-warning' : '');
                     @endphp
-                    <tr class="{{ $itm->status === 'put_away' ? 'table-success' : '' }}">
+                    <tr class="{{ $rowCls }}" title="{{ $isDiff ? 'Qty diterima berbeda dari qty DO' : '' }}">
                         <td class="text-center text-muted">{{ $i + 1 }}</td>
                         <td>
                             <div class="font-weight-bold" style="font-size:13px;">{{ $itm->item->name ?? '-' }}</div>
@@ -889,6 +928,9 @@
 @push('scripts')
 <script>
 const csrfToken = $('meta[name="csrf-token"]').attr('content');
+
+// Bootstrap tooltip untuk tombol GA yang di-disabled
+$('[data-toggle="tooltip"]').tooltip();
 
 // ── Helper: tampilkan loading spinner lalu navigasi ──────────────────────────
 function showNavLoader(navigateFn) {

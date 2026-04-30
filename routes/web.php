@@ -76,6 +76,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');
         Route::get('cells/scan',      [\App\Http\Controllers\Location\CellController::class, 'scanPage'])->name('cells.scan');
         Route::get('cells/lookup',    [\App\Http\Controllers\Location\CellController::class, 'lookup'])->name('cells.lookup');
+        Route::get('cells/bulk-qr',   [\App\Http\Controllers\Location\CellController::class, 'bulkQrLabel'])->name('cells.bulk-qr');
         Route::resource('cells', \App\Http\Controllers\Location\CellController::class);
         Route::get('cells/{cell}/stock',    [\App\Http\Controllers\Location\CellController::class, 'stockDetail'])->name('cells.stock');
         Route::get('cells/{cell}/qr-label', [\App\Http\Controllers\Location\CellController::class, 'qrLabel'])->name('cells.qr-label');

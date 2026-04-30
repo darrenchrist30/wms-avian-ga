@@ -449,6 +449,17 @@
             border-radius: 8px;
             padding: 10px 12px;
             background: #fff;
+            position: relative;
+            transition: border-color .15s, box-shadow .15s;
+        }
+
+        .bottleneck-chip.has-link {
+            cursor: pointer;
+        }
+
+        .bottleneck-chip.has-link:hover {
+            border-color: #9ca3af;
+            box-shadow: 0 2px 8px rgba(0,0,0,.08);
         }
 
         .bottleneck-chip .chip-label {
@@ -688,8 +699,8 @@
                                         <small class="text-muted" style="font-size:10px;line-height:1">DO</small>
                                     </div>
                                 </div>
-                                <div style="font-size:12px;font-weight:600;color:#b45309">Setujui Rekomendasi GA</div>
-                                <div style="font-size:11px;color:#6c757d;margin-top:2px">Supervisor perlu review & accept GA
+                                <div style="font-size:12px;font-weight:600;color:#b45309">Review Rekomendasi GA</div>
+                                <div style="font-size:11px;color:#6c757d;margin-top:2px">Hasil GA perlu review Supervisor (<code style="font-size:10px;">pending_review</code>)
                                 </div>
                                 <div class="mt-2">
                                     <span class="badge badge-warning" style="font-size:10px">
@@ -894,10 +905,19 @@
                     <div id="chartBottleneck" class="hc-chart" style="height:145px;"></div>
                     <div class="bottleneck-list">
                         @foreach ($bottleneckSummary as $b)
-                            <div class="bottleneck-chip">
+                            <div class="bottleneck-chip {{ $b['count'] > 0 ? 'has-link' : '' }}">
                                 <div class="chip-label">{{ $b['label'] }}</div>
                                 <div class="chip-value" style="color:{{ $b['color'] }}">{{ number_format($b['count']) }}</div>
-                                <div class="chip-sub">Terlama {{ $b['oldest_days'] }} hari</div>
+                                <div class="chip-sub">
+                                    Terlama {{ $b['oldest_days'] }} hari
+                                    @if ($b['count'] > 0)
+                                    &nbsp;·&nbsp;<span style="color:{{ $b['color'] }};font-weight:600;">{{ $b['url_label'] }} →</span>
+                                    @endif
+                                </div>
+                                @if ($b['count'] > 0)
+                                <a href="{{ $b['url'] }}" aria-label="{{ $b['url_label'] }}"
+                                   style="position:absolute;top:0;left:0;right:0;bottom:0;border-radius:8px;z-index:1;"></a>
+                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -921,9 +941,14 @@
                         </thead>
                         <tbody>
                             @forelse($oldestOpenOrders as $order)
-                                <tr>
+                                @php
+                                    $orderUrl = in_array($order['status'], ['recommended', 'put_away'])
+                                        ? route('putaway.show', $order['id'])
+                                        : route('inbound.orders.show', $order['id']);
+                                @endphp
+                                <tr style="cursor:pointer;" onclick="location.href='{{ $orderUrl }}'">
                                     <td>
-                                        <strong>{{ $order['do_number'] }}</strong><br>
+                                        <strong class="text-primary">{{ $order['do_number'] }}</strong><br>
                                         <small class="text-muted">{{ $order['supplier'] }}</small>
                                     </td>
                                     <td><span class="badge badge-status badge-pending">{{ ucfirst(str_replace('_', ' ', $order['status'])) }}</span></td>

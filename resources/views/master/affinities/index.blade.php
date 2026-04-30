@@ -5,15 +5,99 @@
 <div class="container-fluid pb-4">
 
 {{-- ── Header ── --}}
-<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap" style="gap:8px;">
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap" style="gap:8px;">
     <div>
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-project-diagram text-primary mr-2"></i>Analisis Co-Occurrence Sparepart
         </h5>
         <small class="text-muted">
             Pasangan sparepart yang sering datang bersamaan dalam satu inbound order —
-            digunakan GA sebagai komponen <strong>FC_AFF</strong> (afinitas, maks 20 poin).
+            digunakan GA sebagai komponen <strong>FC_AFF</strong> (bobot afinitas, maks 20 poin).
         </small>
+    </div>
+    <div class="text-right text-muted" style="font-size:11px;line-height:1.6;">
+        <div>
+            <i class="fas fa-history mr-1"></i>
+            @if ($lastUpdated)
+                Diperbarui: <strong>{{ \Carbon\Carbon::parse($lastUpdated)->format('d M Y, H:i') }}</strong>
+            @else
+                Belum ada data
+            @endif
+        </div>
+        <div>
+            <i class="fas fa-truck mr-1"></i>
+            Berdasarkan <strong>{{ number_format($ordersCompleted) }}</strong> inbound order selesai
+        </div>
+    </div>
+</div>
+
+{{-- ── Metodologi Panel ── --}}
+<div class="card mb-3" style="border-left:4px solid #007bff;">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center"
+         data-toggle="collapse" data-target="#panelMetodologi" style="cursor:pointer;">
+        <span class="font-weight-bold small">
+            <i class="fas fa-book-open mr-1 text-primary"></i>Sumber Data &amp; Cara Kerja
+        </span>
+        <i class="fas fa-angle-down text-muted" id="iconMetodologi"></i>
+    </div>
+    <div id="panelMetodologi" class="collapse show">
+        <div class="card-body py-3">
+            <div class="row">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="d-flex align-items-start">
+                        <div class="mr-2 mt-1" style="width:28px;height:28px;border-radius:50%;background:#17a2b8;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fas fa-database text-white" style="font-size:11px;"></i>
+                        </div>
+                        <div>
+                            <div class="font-weight-bold small mb-1">Sumber Data</div>
+                            <p class="text-muted mb-0" style="font-size:12px;line-height:1.5;">
+                                Co-occurrence dihitung dari histori <strong>inbound order</strong> yang berstatus
+                                <code>completed</code>. Setiap pasangan item yang muncul dalam order yang
+                                sama akan menaikkan hitungan (<em>co_occurrence_count</em>) sebesar 1.
+                                Dihitung ulang otomatis via <code>RecalculateAffinityJob</code>
+                                setiap kali sebuah order selesai diproses.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <div class="d-flex align-items-start">
+                        <div class="mr-2 mt-1" style="width:28px;height:28px;border-radius:50%;background:#fd7e14;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fas fa-calculator text-white" style="font-size:11px;"></i>
+                        </div>
+                        <div>
+                            <div class="font-weight-bold small mb-1">Formula Normalisasi</div>
+                            <div class="p-2 rounded mb-1" style="background:#f8f9fa;font-family:monospace;font-size:12px;">
+                                affinity_score = co_count / max(co_count)
+                            </div>
+                            <p class="text-muted mb-0" style="font-size:12px;line-height:1.5;">
+                                Skor dinormalisasi ke rentang <strong>0.0 – 1.0</strong>.
+                                Pasangan dengan co-occurrence tertinggi mendapat skor <strong>1.0</strong>;
+                                pasangan lain dihitung secara proporsional.
+                                Normalisasi diulang setiap kali ada order baru selesai.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-start">
+                        <div class="mr-2 mt-1" style="width:28px;height:28px;border-radius:50%;background:#28a745;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fas fa-dna text-white" style="font-size:11px;"></i>
+                        </div>
+                        <div>
+                            <div class="font-weight-bold small mb-1">Penggunaan di GA</div>
+                            <p class="text-muted mb-0" style="font-size:12px;line-height:1.5;">
+                                Skor afinitas dipakai GA pada komponen fitness <strong>FC_AFF</strong>
+                                (kontribusi maks 20 poin dari total 100). Item dengan afinitas tinggi
+                                akan cenderung ditempatkan di cell yang <strong>berdekatan</strong>,
+                                sehingga operator tidak perlu berpindah-pindah area saat mengambil
+                                sparepart yang sering dipakai bersama.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -80,8 +164,9 @@
     <div class="card-footer py-1">
         <small class="text-muted">
             <i class="fas fa-info-circle mr-1"></i>
-            Batang biru = jumlah co-occurrence. Garis oranye = skor afinitas (0–1, sumbu kanan).
-            Skor afinitas dinormalisasi: pasangan dengan co-occurrence tertinggi mendapat skor 1.0.
+            Batang biru = jumlah co-occurrence (sumbu kiri).
+            Garis oranye = skor afinitas 0–1 (sumbu kanan).
+            Skor tertinggi selalu 1.0 — dinormalisasi relatif terhadap pasangan paling sering bersama.
         </small>
     </div>
 </div>
@@ -125,11 +210,26 @@
             </table>
         </div>
     </div>
-    <div class="card-footer py-1">
-        <small class="text-muted">
-            <i class="fas fa-lightbulb text-warning mr-1"></i>
-            Pasangan dengan skor afinitas tinggi akan diprioritaskan GA untuk ditempatkan di cell yang berdekatan.
-        </small>
+    <div class="card-footer py-2">
+        <div class="d-flex flex-wrap align-items-center" style="gap:12px;">
+            <small class="text-muted font-weight-bold">Interpretasi skor:</small>
+            <small>
+                <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#28a745;"></span>
+                <strong style="color:#28a745;">≥ 0.70</strong> — Afinitas tinggi (sering bersama)
+            </small>
+            <small>
+                <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#fd7e14;"></span>
+                <strong style="color:#fd7e14;">0.40 – 0.69</strong> — Afinitas sedang
+            </small>
+            <small>
+                <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#6c757d;"></span>
+                <strong style="color:#6c757d;">&lt; 0.40</strong> — Afinitas rendah
+            </small>
+            <small class="text-muted ml-auto">
+                <i class="fas fa-lightbulb text-warning mr-1"></i>
+                Pasangan dengan skor tinggi diprioritaskan GA untuk cell berdekatan.
+            </small>
+        </div>
     </div>
 </div>
 
@@ -140,6 +240,13 @@
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script>
 $(document).ready(function () {
+
+    // Toggle icon for metodologi panel
+    $('#panelMetodologi').on('show.bs.collapse', function () {
+        $('#iconMetodologi').removeClass('fa-angle-right').addClass('fa-angle-down');
+    }).on('hide.bs.collapse', function () {
+        $('#iconMetodologi').removeClass('fa-angle-down').addClass('fa-angle-right');
+    });
 
     // ── DataTable ──────────────────────────────────────────────────────────
     var table = $('#datatable').DataTable({
@@ -154,11 +261,11 @@ $(document).ready(function () {
             }
         },
         columns: [
-            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false, className: 'text-center' },
-            { data: 'item_a',  name: 'item.name',        orderable: false },
-            { data: 'item_b',  name: 'relatedItem.name', orderable: false },
-            { data: 'co_occurrence_count', name: 'co_occurrence_count', className: 'text-center font-weight-bold' },
-            { data: 'score_bar', name: 'affinity_score', orderable: false, searchable: false },
+            { data: 'DT_RowIndex',  name: 'DT_RowIndex',       orderable: false, searchable: false, className: 'text-center' },
+            { data: 'item_a',       name: 'item.name',          orderable: false },
+            { data: 'item_b',       name: 'relatedItem.name',   orderable: false },
+            { data: 'cocount_html', name: 'co_occurrence_count', searchable: false },
+            { data: 'score_bar',    name: 'affinity_score',     orderable: false, searchable: false },
         ]
     });
 
@@ -171,9 +278,9 @@ $(document).ready(function () {
     // ── Highcharts Bar+Line ────────────────────────────────────────────────
     @if ($totalPairs > 0)
     var top10 = @json($top10);
-    var labels  = top10.map(function(d){ return d.label; });
-    var counts  = top10.map(function(d){ return d.count; });
-    var scores  = top10.map(function(d){ return d.score; });
+    var labels = top10.map(function(d){ return d.label; });
+    var counts = top10.map(function(d){ return d.count; });
+    var scores = top10.map(function(d){ return d.score; });
 
     Highcharts.chart('chartCoOccurrence', {
         chart: { type: 'column', style: { fontFamily: 'inherit' } },

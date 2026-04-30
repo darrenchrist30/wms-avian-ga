@@ -176,7 +176,7 @@ class DashboardController extends Controller
             ->count();
 
         $pendingGaAccept = InboundOrder::where('status', 'recommended')
-            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'pending'))
+            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'pending_review'))
             ->count();
 
         $pendingPutAway = InboundOrder::whereIn('status', ['recommended', 'put_away'])
@@ -200,48 +200,56 @@ class DashboardController extends Controller
 
         $bottleneckSummary = [
             [
-                'label' => 'Belum Qty',
-                'count' => $pendingQtyConfirm,
+                'label'       => 'Belum Qty',
+                'count'       => $pendingQtyConfirm,
                 'oldest_days' => (int) optional(
                     InboundOrder::where('status', 'draft')
                         ->whereHas('items', fn($q) => $q->where('quantity_received', 0))
                         ->oldest('created_at')
                         ->first()
                 )?->created_at?->diffInDays(now()),
-                'color' => '#6b7280',
+                'color'       => '#6b7280',
+                'url'         => route('inbound.orders.index', ['status' => 'draft']),
+                'url_label'   => 'Konfirmasi Qty',
             ],
             [
-                'label' => 'Belum GA',
-                'count' => $pendingGaRun,
+                'label'       => 'Belum GA',
+                'count'       => $pendingGaRun,
                 'oldest_days' => (int) optional(
                     InboundOrder::where('status', 'draft')
                         ->whereHas('items', fn($q) => $q->where('quantity_received', '>', 0))
                         ->oldest('updated_at')
                         ->first()
                 )?->updated_at?->diffInDays(now()),
-                'color' => '#3b82f6',
+                'color'       => '#3b82f6',
+                'url'         => route('inbound.orders.index', ['status' => 'draft']),
+                'url_label'   => 'Jalankan GA',
             ],
             [
-                'label' => 'Belum Approve',
-                'count' => $pendingGaAccept,
+                'label'       => 'Belum Review',
+                'count'       => $pendingGaAccept,
                 'oldest_days' => (int) optional(
                     InboundOrder::where('status', 'recommended')
-                        ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'pending'))
+                        ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'pending_review'))
                         ->oldest('processed_at')
                         ->first()
                 )?->processed_at?->diffInDays(now()),
-                'color' => '#f59e0b',
+                'color'       => '#f59e0b',
+                'url'         => route('inbound.orders.index', ['status' => 'recommended']),
+                'url_label'   => 'Review GA',
             ],
             [
-                'label' => 'Belum Put-Away',
-                'count' => $pendingPutAway,
+                'label'       => 'Belum Put-Away',
+                'count'       => $pendingPutAway,
                 'oldest_days' => (int) optional(
                     InboundOrder::whereIn('status', ['recommended', 'put_away'])
                         ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
                         ->oldest('updated_at')
                         ->first()
                 )?->updated_at?->diffInDays(now()),
-                'color' => '#0d8564',
+                'color'       => '#0d8564',
+                'url'         => route('putaway.index'),
+                'url_label'   => 'Mulai Put-Away',
             ],
         ];
 
@@ -251,6 +259,7 @@ class DashboardController extends Controller
             ->take(4)
             ->get()
             ->map(fn($order) => [
+                'id'        => $order->id,
                 'do_number' => $order->do_number,
                 'status'    => $order->status,
                 'warehouse' => $order->warehouse?->name ?? '-',

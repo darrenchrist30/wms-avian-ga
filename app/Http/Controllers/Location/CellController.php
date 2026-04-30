@@ -9,6 +9,7 @@ use App\Models\Rack;
 use App\Models\Stock;
 use App\Models\Zone;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
 
@@ -91,7 +92,14 @@ class CellController extends Controller
     {
         $cell = Cell::findOrFail($id);
         $request->validate([
-            'capacity_max'         => 'required|integer|min:1',
+            'capacity_max'         => [
+                'required', 'integer', 'min:1',
+                function ($attribute, $value, $fail) use ($cell) {
+                    if ((int) $value < $cell->capacity_used) {
+                        $fail("Kapasitas maks tidak boleh kurang dari kapasitas terpakai saat ini ({$cell->capacity_used} unit).");
+                    }
+                },
+            ],
             'dominant_category_id' => 'nullable|exists:item_categories,id',
             'status'               => 'required|in:available,partial,full,blocked,reserved',
             'is_active'            => 'boolean',
@@ -207,6 +215,35 @@ class CellController extends Controller
                 'lpn'            => $s->lpn,
             ]),
         ]);
+    }
+
+    // ─── Print QR Label untuk seluruh cell dalam satu rak ───────────────────────
+    public function bulkQrLabel(Request $request)
+    {
+        $rackId = $request->input('rack_id');
+        if (!$rackId) {
+            return back()->with('error', 'Pilih rak terlebih dahulu.');
+        }
+
+        $rack  = Rack::with('zone.warehouse')->findOrFail($rackId);
+        $cells = Cell::where('rack_id', $rackId)
+            ->where('is_active', true)
+            ->orderBy('level')
+            ->get();
+
+        if ($cells->isEmpty()) {
+            return back()->with('error', 'Tidak ada cell aktif di rak ' . $rack->code . '.');
+        }
+
+        // Auto-generate qr_code jika belum ada
+        $cells->each(function ($cell) {
+            if (!$cell->qr_code) {
+                $cell->qr_code = $cell->code;
+                $cell->saveQuietly();
+            }
+        });
+
+        return view('location.cells.bulk-qr', compact('cells', 'rack'));
     }
 
     // ─── Print QR Label untuk Cell ───────────────────────────────────────────────
