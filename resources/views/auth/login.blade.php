@@ -228,7 +228,7 @@
     {{-- Top brand bar --}}
     <div class="card-top">
         <img src="{{ asset('images/avian-logo-normal.png') }}" alt="Avian" style="height:60px; width:auto; margin-bottom:10px;">
-        <h1>WMS Avian GA</h1>
+        <h1>Sistem WMS Avian</h1>
         <p>Warehouse Management System</p>
     </div>
 

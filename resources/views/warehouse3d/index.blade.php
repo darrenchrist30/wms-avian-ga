@@ -326,7 +326,7 @@ scene.background = new THREE.Color(0x0d1117);
 scene.fog        = new THREE.FogExp2(0x0d1117, 0.006);
 
 const camera = new THREE.PerspectiveCamera(48, wrap.clientWidth / wrap.clientHeight, 0.1, 600);
-camera.position.set(46, 24, 42);
+camera.position.set(13, 42, 25);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -337,7 +337,7 @@ wrap.appendChild(renderer.domElement);
 
 // ── Controls ──────────────────────────────────────────────────────────────
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.target.set(46, 4, 0);
+controls.target.set(13, 0, -20);
 controls.enableDamping  = true;
 controls.dampingFactor  = 0.06;
 controls.minDistance    = 6;
@@ -345,7 +345,7 @@ controls.maxDistance    = 200;
 controls.maxPolarAngle  = Math.PI / 2 - 0.02;
 controls.update();
 
-const DEFAULT_CAM = { pos: new THREE.Vector3(46, 24, 42), target: new THREE.Vector3(46, 4, 0) };
+const DEFAULT_CAM = { pos: new THREE.Vector3(13, 42, 25), target: new THREE.Vector3(13, 0, -20) };
 document.getElementById('btnResetCam').addEventListener('click', function () {
     camera.position.copy(DEFAULT_CAM.pos);
     controls.target.copy(DEFAULT_CAM.target);
@@ -357,13 +357,13 @@ scene.add(new THREE.AmbientLight(0xffffff, 0.38));
 scene.add(new THREE.HemisphereLight(0x334466, 0x1a1a2e, 0.35));
 
 const dir = new THREE.DirectionalLight(0xffffff, 0.85);
-dir.position.set(70, 90, 50);
+dir.position.set(25, 70, 20);
 dir.castShadow = true;
 dir.shadow.camera.set = (near, far, left, right, top, bottom) => {};
 dir.shadow.camera.near   = 1;
-dir.shadow.camera.far    = 250;
-dir.shadow.camera.left   = -90;
-dir.shadow.camera.right  = 150;
+dir.shadow.camera.far    = 200;
+dir.shadow.camera.left   = -30;
+dir.shadow.camera.right  = 30;
 dir.shadow.camera.top    = 60;
 dir.shadow.camera.bottom = -60;
 dir.shadow.mapSize.set(2048, 2048);
@@ -371,15 +371,15 @@ scene.add(dir);
 
 // ── Floor ─────────────────────────────────────────────────────────────────
 const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(220, 100),
+    new THREE.PlaneGeometry(42, 70),
     new THREE.MeshLambertMaterial({ color: 0x111827 })
 );
 floor.rotation.x = -Math.PI / 2;
-floor.position.set(50, -0.02, 2);
+floor.position.set(13, -0.02, -19);
 floor.receiveShadow = true;
 scene.add(floor);
-const gridHelper = new THREE.GridHelper(220, 55, 0x1e293b, 0x1e293b);
-gridHelper.position.set(50, 0.001, 2);
+const gridHelper = new THREE.GridHelper(70, 35, 0x1e293b, 0x1e293b);
+gridHelper.position.set(13, 0.001, -19);
 scene.add(gridHelper);
 
 // ── Text Sprite ───────────────────────────────────────────────────────────
@@ -402,20 +402,22 @@ function makeSprite(text, size, color) {
 }
 
 // ── Zone Floor Marker ─────────────────────────────────────────────────────
+// Draws a full-width horizontal strip covering the Z extent of all racks
+// in the zone — matches the horizontal-band look of the physical floor plan.
 function addZoneMarker(absX, absZ, racks, colorHex) {
     if (!racks.length) return;
-    const xs  = racks.map(r => absX + r.pos_x);
-    const minX = Math.min(...xs) - CW / 2;
-    const maxX = Math.max(...xs) + CW / 2;
-    const cx = (minX + maxX) / 2;
-    const w  = maxX - minX + 1.5;
+    const zs   = racks.map(r => absZ + r.pos_z);
+    const minZ = Math.min(...zs) - 2.5;
+    const maxZ = Math.max(...zs) + 2.5;
+    const cz   = (minZ + maxZ) / 2;
+    const d    = maxZ - minZ;
 
     const m = new THREE.Mesh(
-        new THREE.PlaneGeometry(w, CD + 3.5),
-        new THREE.MeshLambertMaterial({ color: colorHex, transparent: true, opacity: 0.22 })
+        new THREE.PlaneGeometry(40, d),   // 40 = full warehouse width
+        new THREE.MeshLambertMaterial({ color: colorHex, transparent: true, opacity: 0.18 })
     );
     m.rotation.x = -Math.PI / 2;
-    m.position.set(cx, 0.01, absZ);
+    m.position.set(13, 0.01, cz);   // 13 = warehouse X centre
     scene.add(m);
 }
 
@@ -450,13 +452,13 @@ function buildWarehouse(zones) {
 
         addZoneMarker(absX, absZ, zone.racks, ZONE_FLOOR[zc] ?? 0x1a2332);
 
-        // Zone label
+        // Zone label — centred on the bounding box of the zone's racks
         if (zone.racks.length) {
-            const xs = zone.racks.map(r => absX + r.pos_x);
-            const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+            const zs = zone.racks.map(r => absZ + r.pos_z);
+            const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
             const sp = makeSprite(zone.zone_name, 22, ZONE_LABEL[zc] ?? '#94a3b8');
-            sp.scale.set(9, 2.2, 1);
-            sp.position.set(cx, 0.1, absZ - 4.2);
+            sp.scale.set(10, 2.4, 1);
+            sp.position.set(-3, 0.1, cz);   // left-edge label, outside the rack area
             scene.add(sp);
         }
 
