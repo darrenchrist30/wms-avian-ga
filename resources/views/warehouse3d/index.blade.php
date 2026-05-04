@@ -202,7 +202,7 @@
     {{-- Legend --}}
     <div id="threeLegend">
         <div style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#94a3b8;margin-bottom:7px">LEGENDA CELL</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#2e7d32"></div> Kosong</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#00897b"></div> Kosong</div>
         <div class="leg-item"><div class="leg-dot" style="background:#f57f17"></div> Terisi Sebagian</div>
         <div class="leg-item"><div class="leg-dot" style="background:#b71c1c"></div> Penuh</div>
         <div class="leg-item"><div class="leg-dot" style="background:#37474f"></div> Diblokir</div>
@@ -296,24 +296,37 @@ $('#btnClearHighlight').on('click', function () { clearHighlight(); });
 const CW  = 2.0;   // cell width  (X)
 const CH  = 1.3;   // cell height (Y)
 const CD  = 1.8;   // cell depth  (Z)
-const CG  = 0.09;  // gap between cells
 
 const ZONE_FLOOR = { A: 0x0a2744, B: 0x2d1500, C: 0x2d0a0a };
 const ZONE_LABEL = { A: '#4fc3f7', B: '#ffb74d', C: '#ef9a9a' };
 
 function cellHex(cell) {
     if (cell.status === 'blocked')  return 0x37474f;
-    if (cell.status === 'reserved') return 0x4a148c;
-    if (cell.status === 'full')     return 0xb71c1c;
+    if (cell.status === 'reserved') return 0x7b1fa2;
+    if (cell.status === 'full')     return 0xd32f2f;
     if (cell.utilization > 0)       return 0xf57f17;
-    return 0x2e7d32;
+    return 0x00897b;   // teal-green: empty slot
 }
 function cellEmissive(cell) {
     if (cell.status === 'blocked')  return 0x050a0c;
-    if (cell.status === 'reserved') return 0x150026;
-    if (cell.status === 'full')     return 0x2d0000;
+    if (cell.status === 'reserved') return 0x220030;
+    if (cell.status === 'full')     return 0x400000;
     if (cell.utilization > 0)       return 0x3d1f00;
-    return 0x072207;
+    return 0x002d28;
+}
+function cellOpacity(cell) {
+    if (cell.status === 'blocked')  return 0.65;
+    if (cell.status === 'reserved') return 0.50;
+    if (cell.status === 'full')     return 0.55;   // items are primary visual; panel = glow
+    if (cell.utilization > 0)       return 0.42;
+    return 0.28;   // empty — very faint, rack frame shows through
+}
+
+// Deterministic hash from cell code string → integer 0–65535
+function hashCell(code) {
+    let h = 0;
+    for (let i = 0; i < code.length; i++) h = (h * 31 + code.charCodeAt(i)) & 0xffff;
+    return h;
 }
 
 // ── Scene ─────────────────────────────────────────────────────────────────
@@ -323,7 +336,7 @@ const tooltip   = document.getElementById('threeTooltip');
 
 const scene    = new THREE.Scene();
 scene.background = new THREE.Color(0x0d1117);
-scene.fog        = new THREE.FogExp2(0x0d1117, 0.006);
+scene.fog        = new THREE.FogExp2(0x0d1117, 0.004);
 
 const camera = new THREE.PerspectiveCamera(48, wrap.clientWidth / wrap.clientHeight, 0.1, 600);
 camera.position.set(13, 42, 25);
@@ -353,8 +366,8 @@ document.getElementById('btnResetCam').addEventListener('click', function () {
 });
 
 // ── Lights ────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0xffffff, 0.38));
-scene.add(new THREE.HemisphereLight(0x334466, 0x1a1a2e, 0.35));
+scene.add(new THREE.AmbientLight(0xffffff, 0.48));
+scene.add(new THREE.HemisphereLight(0x4466aa, 0x1a1a2e, 0.40));
 
 const dir = new THREE.DirectionalLight(0xffffff, 0.85);
 dir.position.set(25, 70, 20);
@@ -369,18 +382,15 @@ dir.shadow.camera.bottom = -60;
 dir.shadow.mapSize.set(2048, 2048);
 scene.add(dir);
 
-// ── Floor ─────────────────────────────────────────────────────────────────
+// ── Floor (concrete grey) ────────────────────────────────────────────────
 const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(42, 70),
-    new THREE.MeshLambertMaterial({ color: 0x111827 })
+    new THREE.PlaneGeometry(32, 66),
+    new THREE.MeshLambertMaterial({ color: 0x484848 })
 );
 floor.rotation.x = -Math.PI / 2;
-floor.position.set(13, -0.02, -19);
+floor.position.set(13, -0.01, -21);
 floor.receiveShadow = true;
 scene.add(floor);
-const gridHelper = new THREE.GridHelper(70, 35, 0x1e293b, 0x1e293b);
-gridHelper.position.set(13, 0.001, -19);
-scene.add(gridHelper);
 
 // ── Text Sprite ───────────────────────────────────────────────────────────
 function makeSprite(text, size, color) {
@@ -421,13 +431,113 @@ function addZoneMarker(absX, absZ, racks, colorHex) {
     scene.add(m);
 }
 
-// ── Shared geometries ─────────────────────────────────────────────────────
-const cellGeo = new THREE.BoxGeometry(CW - CG*2, CH - CG*2, CD - CG*2);
-const postMat = new THREE.MeshLambertMaterial({ color: 0x334155 });
-const barMat  = new THREE.MeshLambertMaterial({ color: 0x475569 });
+// ── Environment: walls, aisle markings, ceiling neons ────────────────────
+// Static warehouse shell — called once at init, persists across loadScene calls.
+// Layout: X[−1 .. 27], Z[−52 .. 10], height 12.5 m.
+// Front (Z=10) is left open as a loading-bay entrance so the top-down camera
+// can see into the building without a ceiling obstructing the view.
+function buildEnvironment() {
+    const wX0 = -1,  wX1 = 27;     // warehouse X extents
+    const wZ0 = -52, wZ1 = 10;     // warehouse Z extents
+    const wW  = wX1 - wX0;         // 28 m wide
+    const wD  = wZ1 - wZ0;         // 62 m deep
+    const cX  = (wX0 + wX1) / 2;   // 13  (centre X)
+    const cZ  = (wZ0 + wZ1) / 2;   // −21 (centre Z)
+    const wH  = 12.5;               // wall height (racks are 7 × 1.3 = 9.1 m)
+
+    // ── Left / Right / Back walls (DoubleSide so interior face always renders) ──
+    const wallMat = new THREE.MeshLambertMaterial({ color: 0xcdd0d4, side: THREE.DoubleSide });
+    const addWall = (w, h, d, px, pz) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+        m.position.set(px, h / 2, pz);
+        m.receiveShadow = true;
+        scene.add(m);
+    };
+    addWall(0.3, wH, wD,         wX0, cZ);   // left wall
+    addWall(0.3, wH, wD,         wX1, cZ);   // right wall
+    addWall(wW + 0.6, wH, 0.3,   cX, wZ0);  // back wall
+
+    // ── Yellow aisle safety lines on floor ────────────────────────────────
+    // Four longitudinal stripes marking the two main walking corridors:
+    //   left corridor  : between wall racks (X≈2) and centre racks (X≈13)  → X 3.5 & 11.5
+    //   right corridor : between centre racks (X≈13) and right racks (X≈20+) → X 14.5 & 21.5
+    const laneMat = new THREE.MeshBasicMaterial({ color: 0xffc107 });
+    const laneGeo = new THREE.PlaneGeometry(0.22, wD - 4);
+    [3.5, 11.5, 14.5, 21.5].forEach(lx => {
+        const ln = new THREE.Mesh(laneGeo, laneMat);
+        ln.rotation.x = -Math.PI / 2;
+        ln.position.set(lx, 0.03, cZ);
+        scene.add(ln);
+    });
+
+    // ── Neon ceiling light strips ─────────────────────────────────────────
+    // Three rows of 7.5 m tubes at Y ≈ wH, over both aisles and rack centre.
+    // MeshBasicMaterial → always bright regardless of scene lighting.
+    const neonMat = new THREE.MeshBasicMaterial({ color: 0xe8f4ff });
+    const neonY   = wH - 0.15;
+    const tubeLen = 7.5;
+    [7.5, 13, 17.5].forEach(nx => {
+        for (let nz = wZ1 - 4; nz > wZ0 + 3; nz -= 9) {
+            const t = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, tubeLen), neonMat);
+            t.position.set(nx, neonY, nz);
+            scene.add(t);
+        }
+    });
+
+    // Subtle cool-white point lights below each neon row (no shadows — cheap)
+    [7.5, 13, 17.5].forEach(nx => {
+        const pl = new THREE.PointLight(0xddeeff, 0.28, 65);
+        pl.position.set(nx, wH - 0.6, cZ);
+        scene.add(pl);
+    });
+}
+
+// ── Shared rack-structure materials & cell panel geometry ─────────────────
+// Rack colours: blue uprights + orange beams/shelves (industrial warehouse style)
+const postMat     = new THREE.MeshLambertMaterial({ color: 0x1565c0 });   // blue upright
+const beamMat     = new THREE.MeshLambertMaterial({ color: 0xe65100 });   // orange beam/shelf
+// Cell panel: slightly inset from post/beam edges so rack frame shows around it
+const cellPanelGeo = new THREE.BoxGeometry(CW - 0.22, CH - 0.14, CD - 0.28);
+
+// ── Shared low-poly item geometries & materials ───────────────────────────
+// 4 types: standard box · tall box · drum · flat/wide box
+// Shared across all cells to keep draw calls low.
+const ITEM_GEOS = [
+    new THREE.BoxGeometry(0.52, 0.42, 0.50),           // type 0 – standard cardboard box
+    new THREE.BoxGeometry(0.42, 0.66, 0.40),            // type 1 – tall box
+    new THREE.CylinderGeometry(0.21, 0.21, 0.46, 8),   // type 2 – drum / canister
+    new THREE.BoxGeometry(0.60, 0.32, 0.55),            // type 3 – flat/wide box
+];
+const ITEM_MATS = [
+    new THREE.MeshLambertMaterial({ color: 0xa07840 }),  // brown cardboard
+    new THREE.MeshLambertMaterial({ color: 0xd4a040 }),  // tan cardboard (tall)
+    new THREE.MeshLambertMaterial({ color: 0x546e7a }),  // steel-blue drum
+    new THREE.MeshLambertMaterial({ color: 0x8d6e63 }),  // muted brown (flat box)
+];
+const ITEM_H = [0.42, 0.66, 0.46, 0.32];   // item heights (must match ITEM_GEOS Y)
+
+// X/Z offsets relative to cell centre for 1–4 items per shelf slot
+const ITEM_LAYOUTS = [
+    [],                                                                              // 0 items
+    [[0, 0]],                                                                        // 1 item
+    [[-0.40,  0.10], [ 0.40, -0.10]],                                               // 2 items
+    [[-0.52, -0.22], [ 0.52, -0.22], [  0,    0.28]],                               // 3 items
+    [[-0.48, -0.28], [ 0.48, -0.28], [-0.48,  0.28], [ 0.48,  0.28]],              // 4 items
+];
+
+function itemCountForCell(cell) {
+    if (cell.status === 'blocked') return 0;    // blocked → no items shown
+    if (cell.utilization === 0)    return 0;    // empty   → no items
+    const u = cell.utilization || 0;
+    if (u < 25) return 1;
+    if (u < 55) return 2;
+    if (u < 80) return 3;
+    return 4;
+}
 
 // ── Build Scene ───────────────────────────────────────────────────────────
 const cellMeshes = [];
+const itemMeshes = [];   // non-interactive item models; cleared alongside cells
 let hoveredMesh = null, hoveredOrigMat = null;
 
 function clearScene() {
@@ -442,6 +552,8 @@ function clearScene() {
     }
     cellMeshes.forEach(m => { scene.remove(m); m.material.dispose(); });
     cellMeshes.length = 0;
+    itemMeshes.forEach(m => scene.remove(m));   // shared mats — don't dispose
+    itemMeshes.length = 0;
 }
 
 function buildWarehouse(zones) {
@@ -463,48 +575,105 @@ function buildWarehouse(zones) {
         }
 
         zone.racks.forEach(rack => {
-            const rx = absX + rack.pos_x;
-            const rz = absZ + rack.pos_z;
-            const rh = rack.total_levels * CH;
+            const rx   = absX + rack.pos_x;
+            const rz   = absZ + rack.pos_z;
+            const rh   = rack.total_levels * CH;
+            const pOff = 0.045;   // inset so posts sit at column corners
 
-            // Vertical posts
-            [-CW / 2 + 0.06, CW / 2 - 0.06].forEach(ox => {
-                const post = new THREE.Mesh(new THREE.BoxGeometry(0.07, rh + 0.2, 0.07), postMat);
-                post.position.set(rx + ox, rh / 2, rz);
-                scene.add(post);
+            // ── 4 Blue Corner Uprights ──────────────────────────────────────
+            const postGeo = new THREE.BoxGeometry(0.085, rh + 0.40, 0.085);
+            [
+                [rx - CW/2 + pOff, rz - CD/2 + pOff],
+                [rx + CW/2 - pOff, rz - CD/2 + pOff],
+                [rx - CW/2 + pOff, rz + CD/2 - pOff],
+                [rx + CW/2 - pOff, rz + CD/2 - pOff],
+            ].forEach(([px, pz]) => {
+                const p = new THREE.Mesh(postGeo, postMat);
+                p.position.set(px, rh / 2, pz);
+                p.castShadow = true;
+                scene.add(p);
             });
 
-            // Horizontal shelf bars
-            for (let lv = 0; lv <= rack.total_levels; lv++) {
-                const bar = new THREE.Mesh(new THREE.BoxGeometry(CW + 0.04, 0.05, 0.07), barMat);
-                bar.position.set(rx, lv * CH, rz);
-                scene.add(bar);
+            // ── Blue X Cross-Bracing on left & right upright frames ────────
+            // Two equal-height X segments per side → clear "×" silhouette
+            // Braces run in the Y-Z plane (side face) between front & back posts
+            {
+                const xFZ  = rz - CD/2 + pOff;   // front post Z
+                const xBZ  = rz + CD/2 - pOff;   // back post Z
+                const xDZ  = xBZ - xFZ;           // depth span ≈ 1.71
+                const xMZ  = (xFZ + xBZ) / 2;    // Z midpoint of frame
+                const half = rh / 2;
+
+                [0, half].forEach(y0 => {
+                    const y1   = y0 + half;
+                    const dY   = y1 - y0;
+                    const len  = Math.sqrt(dY * dY + xDZ * xDZ);
+                    const ang  = Math.atan2(xDZ, dY);   // tilt from vertical (≈ 20°)
+                    const mY   = (y0 + y1) / 2;
+                    const brGeo = new THREE.BoxGeometry(0.040, len, 0.040);
+
+                    [rx - CW/2 + pOff, rx + CW/2 - pOff].forEach(xPost => {
+                        // Diagonal A: bottom-front → top-back
+                        const da = new THREE.Mesh(brGeo, postMat);
+                        da.position.set(xPost, mY, xMZ);
+                        da.rotation.x = ang;
+                        scene.add(da);
+                        // Diagonal B: bottom-back → top-front  (together = X shape)
+                        const db = new THREE.Mesh(brGeo, postMat);
+                        db.position.set(xPost, mY, xMZ);
+                        db.rotation.x = -ang;
+                        scene.add(db);
+                    });
+                });
             }
 
-            // Rack label
+            // ── Orange Load Beams: front + back edge, every level ───────────
+            const bGeo = new THREE.BoxGeometry(CW + 0.10, 0.075, 0.060);
+            const bFZ  = rz - CD/2 + 0.058;
+            const bBZ  = rz + CD/2 - 0.058;
+            for (let lv = 0; lv <= rack.total_levels; lv++) {
+                [bFZ, bBZ].forEach(bz => {
+                    const b = new THREE.Mesh(bGeo, beamMat);
+                    b.position.set(rx, lv * CH, bz);
+                    scene.add(b);
+                });
+            }
+
+            // ── Orange Shelf Deck: flat surface at each level ───────────────
+            const sfGeo = new THREE.BoxGeometry(CW - 0.10, 0.042, CD - 0.15);
+            for (let lv = 0; lv < rack.total_levels; lv++) {
+                const sf = new THREE.Mesh(sfGeo, beamMat);
+                sf.position.set(rx, lv * CH + 0.024, rz);
+                scene.add(sf);
+            }
+
+            // ── Rack Number Label ───────────────────────────────────────────
             const lbl = makeSprite('R' + rack.rack_code, 36, '#94a3b8');
             lbl.scale.set(2.2, 0.55, 1);
             lbl.position.set(rx, rh + 1.4, rz);
             scene.add(lbl);
 
-            // Cells
+            // ── Cell Status Panels (semi-transparent, WMS colour by status) ─
             rack.cells.forEach(cell => {
                 const col = (cell.column ?? 1) - 1;
                 const lvl = (cell.level  ?? 1) - 1;
 
                 const mat = new THREE.MeshLambertMaterial({
-                    color:    cellHex(cell),
-                    emissive: new THREE.Color(cellEmissive(cell)),
+                    color:       cellHex(cell),
+                    emissive:    new THREE.Color(cellEmissive(cell)),
+                    transparent: true,
+                    opacity:     cellOpacity(cell),
+                    side:        THREE.DoubleSide,
+                    depthWrite:  false,
                 });
 
-                const mesh = new THREE.Mesh(cellGeo, mat);
+                const mesh = new THREE.Mesh(cellPanelGeo, mat);
+                mesh.renderOrder = 1;
                 mesh.position.set(
                     rx + col * CW,
                     lvl * CH + CH / 2,
                     rz
                 );
-                mesh.castShadow    = true;
-                mesh.receiveShadow = true;
                 mesh.userData = {
                     cellId:   cell.cell_id,
                     cellCode: cell.code,
@@ -513,6 +682,32 @@ function buildWarehouse(zones) {
                 };
                 scene.add(mesh);
                 cellMeshes.push(mesh);
+
+                // ── Low-poly shelf items based on utilization ───────────────
+                // Items sit ON the shelf deck surface; panel glow shows status.
+                // Geometry & materials are shared (defined above) — no GC churn.
+                const nItems = itemCountForCell(cell);
+                if (nItems > 0) {
+                    const h      = hashCell(cell.code);
+                    // Shelf deck top surface Y for this level
+                    const shelfY = lvl * CH + 0.066;  // shelf center(0.024) + half-thick(0.021) + pad(0.021)
+                    const slots  = ITEM_LAYOUTS[nItems];
+                    slots.forEach(([xOff, zOff], si) => {
+                        const iType = (h + si * 7) % ITEM_GEOS.length;
+                        const ih    = ITEM_H[iType];
+                        const im    = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
+                        im.position.set(
+                            rx + col * CW + xOff,
+                            shelfY + ih / 2,
+                            rz + zOff
+                        );
+                        // Deterministic Y-rotation so items don't all face the same way
+                        im.rotation.y = ((h * 13 + si * 97) % 628) / 100;
+                        im.castShadow = true;
+                        scene.add(im);
+                        itemMeshes.push(im);
+                    });
+                }
             });
         });
     });
@@ -550,12 +745,14 @@ function applyHighlight(ids, reason, label) {
     cellMeshes.forEach(mesh => {
         if (!ids.has(mesh.userData.cellId)) return;
 
-        mesh.userData._savedMat   = mesh.material;
-        mesh.userData._savedScale = mesh.scale.y;
+        mesh.userData._savedMat = mesh.material;
 
-        const mat = new THREE.MeshLambertMaterial({ color, emissive: emBase.clone() });
+        const mat = new THREE.MeshLambertMaterial({
+            color, emissive: emBase.clone(),
+            transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false,
+        });
         mesh.material = mat;
-        mesh.scale.y  = 1.25;
+        mesh.renderOrder = 2;   // above non-highlighted panels
 
         highlightMats.push(mat);
         highlightedMeshes.push(mesh);
@@ -591,10 +788,9 @@ function applyHighlight(ids, reason, label) {
 function clearHighlight() {
     highlightedMeshes.forEach(mesh => {
         if (mesh.userData._savedMat) {
-            mesh.material      = mesh.userData._savedMat;
-            mesh.scale.y       = mesh.userData._savedScale ?? 1;
+            mesh.material    = mesh.userData._savedMat;
+            mesh.renderOrder = 1;
             delete mesh.userData._savedMat;
-            delete mesh.userData._savedScale;
         }
     });
     highlightedMeshes = [];
@@ -611,6 +807,7 @@ function flyToCell(mesh) {
     controls.update();
 }
 
+buildEnvironment();
 loadScene({{ $selectedWarehouse->id }});
 
 // ── Raycaster ─────────────────────────────────────────────────────────────
@@ -637,7 +834,10 @@ renderer.domElement.addEventListener('mousemove', function (e) {
         const m  = hits[0].object;
         hoveredOrigMat = m.material;
         hoveredMesh    = m;
-        m.material     = new THREE.MeshLambertMaterial({ color: 0xfbbf24, emissive: new THREE.Color(0x664400) });
+        m.material     = new THREE.MeshLambertMaterial({
+            color: 0xfbbf24, emissive: new THREE.Color(0x3d1500),
+            transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false,
+        });
 
         tooltip.style.display = 'block';
         tooltip.style.left    = (e.offsetX + 16) + 'px';
@@ -744,10 +944,13 @@ window.addEventListener('resize', function () {
     requestAnimationFrame(animate);
     controls.update();
 
-    // Pulse emissive untuk highlighted cells (range [0.1 – 1.0])
+    // Pulse emissive + opacity untuk highlighted panels
     if (highlightMats.length) {
         const pulse = 0.55 + 0.45 * Math.sin(Date.now() * 0.003);
-        highlightMats.forEach(mat => mat.emissiveIntensity = pulse);
+        highlightMats.forEach(mat => {
+            mat.emissiveIntensity = pulse;
+            mat.opacity = 0.52 + 0.42 * pulse;
+        });
     }
 
     renderer.render(scene, camera);

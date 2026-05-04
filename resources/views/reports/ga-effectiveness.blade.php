@@ -127,6 +127,111 @@
     </div>
 </div>
 
+{{-- ── Perbandingan Skenario Pengujian ──────────────────────────────────── --}}
+<div class="d-flex align-items-center mb-2 mt-1">
+    <span class="font-weight-bold text-dark" style="font-size:13px">
+        <i class="fas fa-table mr-1" style="color:#6f42c1"></i>Perbandingan Skenario Pengujian
+    </span>
+    <span class="text-muted ml-2" style="font-size:11px">— evaluasi tiga skenario penempatan barang</span>
+</div>
+<div class="card mb-4">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0" id="tblScenario" style="font-size:13px;">
+                <thead class="thead-light">
+                    <tr>
+                        <th style="width:200px;">Skenario</th>
+                        <th class="text-center" style="width:140px;">Split Location <br><small class="font-weight-normal text-muted">item di &gt;1 cell</small></th>
+                        <th class="text-center" style="width:160px;">Rata-rata Lokasi/SKU <br><small class="font-weight-normal text-muted">cell per item</small></th>
+                        <th class="text-center" style="width:150px;">Utilisasi Rak <br><small class="font-weight-normal text-muted">kapasitas terpakai</small></th>
+                        <th class="text-center" style="width:170px;">Est. Waktu Put-Away <br><small class="font-weight-normal text-muted">avg. order selesai</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($scenarioComparison as $sc)
+                    @php
+                        $isGa      = $sc['is_ga'];
+                        $isSim     = $sc['is_simulated'];
+                        $rowBg     = $isGa ? 'rgba(40,167,69,.06)' : ($isSim ? 'rgba(220,53,69,.04)' : '');
+                        $noData    = !$isGa && !$isSim && $sc['putaway_min'] == 0 && $sc['split_count'] == 0;
+                    @endphp
+                    <tr style="background:{{ $rowBg }}">
+                        <td class="align-middle">
+                            <span class="badge badge-{{ $sc['badge'] }} mr-1">{{ $sc['label'] }}</span>
+                            <div class="text-muted mt-1" style="font-size:11px;">{{ $sc['desc'] }}</div>
+                            @if($isSim)
+                            <div class="mt-1"><span class="badge badge-light border" style="font-size:10px;"><i class="fas fa-flask mr-1"></i>Simulasi Teori</span></div>
+                            @endif
+                        </td>
+                        {{-- Split Location --}}
+                        <td class="text-center align-middle">
+                            @if($isGa && $sc['split_count'] == 0 && $sc['avg_loc'] == 0)
+                                <span class="text-muted">—</span><br><small class="text-muted" style="font-size:10px;">Data belum cukup</small>
+                            @else
+                                @php
+                                    $aktual = $scenarioComparison[0]['split_count'];
+                                    $diff   = $aktual - $sc['split_count'];
+                                @endphp
+                                <span class="h5 font-weight-bold mb-0 d-block {{ $isGa ? 'text-success' : ($isSim ? 'text-danger' : 'text-secondary') }}">
+                                    {{ number_format($sc['split_count']) }}
+                                </span>
+                                @if(!$isSim && $isGa && $diff > 0)
+                                <small class="text-success"><i class="fas fa-arrow-down"></i> {{ $diff }} lebih sedikit</small>
+                                @elseif($isSim && $diff < 0)
+                                <small class="text-danger"><i class="fas fa-arrow-up"></i> {{ abs($diff) }} lebih banyak</small>
+                                @endif
+                            @endif
+                        </td>
+                        {{-- Avg Lokasi / SKU --}}
+                        <td class="text-center align-middle">
+                            @if($isGa && $sc['avg_loc'] == 0)
+                                <span class="text-muted">—</span>
+                            @else
+                                <span class="h5 font-weight-bold mb-0 d-block {{ $isGa ? 'text-success' : ($isSim ? 'text-danger' : 'text-secondary') }}">
+                                    {{ $sc['avg_loc'] }}
+                                </span>
+                                @if($isGa)<small class="text-muted">idealnya 1.00</small>@endif
+                            @endif
+                        </td>
+                        {{-- Utilisasi Rak --}}
+                        <td class="text-center align-middle">
+                            <span class="h5 font-weight-bold mb-0 d-block text-secondary">{{ $sc['utilization'] }}%</span>
+                            <div class="progress mt-1" style="height:4px;width:80px;margin:0 auto;">
+                                <div class="progress-bar bg-success" style="width:{{ $sc['utilization'] }}%"></div>
+                            </div>
+                            @if($isSim)<small class="text-muted" style="font-size:10px;">sama (input identik)</small>@endif
+                        </td>
+                        {{-- Est. Waktu Put-Away --}}
+                        <td class="text-center align-middle">
+                            @if($sc['putaway_min'] == 0)
+                                <span class="text-muted">—</span><br>
+                                <small class="text-muted" style="font-size:10px;">{{ $isGa ? 'Data belum cukup' : 'Belum ada order selesai' }}</small>
+                            @else
+                                @php $mnt = $sc['putaway_min']; @endphp
+                                <span class="h5 font-weight-bold mb-0 d-block {{ $isGa ? 'text-success' : ($isSim ? 'text-danger' : 'text-secondary') }}">
+                                    @if($mnt >= 60){{ round($mnt/60,1) }} jam
+                                    @else{{ $mnt }} mnt
+                                    @endif
+                                </span>
+                                @if($isSim)
+                                <small class="text-muted" style="font-size:10px;">estimasi +20% vs aktual</small>
+                                @endif
+                            @endif
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+        <div class="px-3 py-2 border-top" style="background:#f8f9fa;font-size:11px;color:#6c757d;">
+            <i class="fas fa-info-circle mr-1"></i>
+            <strong>Kondisi Aktual</strong>: snapshot stok gudang saat ini ({{ number_format($itemPutCounts->count()) }} SKU aktif, {{ number_format($totalActiveCells) }} sel tersedia).&nbsp;
+            <strong>Penempatan Acak</strong>: simulasi probabilistik (occupancy model) — T<sub>i</sub> record stok per SKU ditempatkan ke sel acak tanpa konsolidasi; angka mendekati aktual karena kondisi saat ini merefleksikan penempatan belum teroptimasi.&nbsp;
+            <strong>Rekomendasi GA</strong>: dihitung dari {{ number_format($gaFollowedCount) }} konfirmasi put-away yang mengikuti saran GA (tahun {{ $year }}). Semakin banyak order diikuti, perbedaan akan semakin signifikan.
+        </div>
+    </div>
+</div>
+
 @if($summary['total_ga'] == 0)
 {{-- Empty state --}}
 <div class="card">

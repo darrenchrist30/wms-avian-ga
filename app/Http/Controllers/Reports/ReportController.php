@@ -363,6 +363,95 @@ class ReportController extends Controller
                 ->value('avg_min') ?? 0
         );
 
+        // ── Perbandingan Skenario Pengujian ───────────────────────────────────
+        // Skenario 2: Simulasi Acak — distribusi probabilistik ke seluruh sel aktif
+        $totalActiveCells = max(DB::table('cells')->where('is_active', true)->count(), 1);
+
+        // Basis simulasi: distribusi record per item di stok aktif (T_i = jumlah record)
+        $itemPutCounts = DB::table('stock_records')
+            ->where('status', 'available')
+            ->groupBy('item_id')
+            ->select('item_id', DB::raw('COUNT(*) as put_count'))
+            ->get();
+
+        $C = $totalActiveCells;
+        $randomSplitSum   = 0.0;
+        $randomLocSum     = 0.0;
+        foreach ($itemPutCounts as $row) {
+            $T = max((int) $row->put_count, 1);
+            // P(split | random) = 1 − (1/C)^(T−1): P(all T placements land in same cell)
+            $randomSplitSum += $T > 1 ? (1 - pow(1 / $C, $T - 1)) : 0;
+            // E[distinct cells] = C × (1 − (1 − 1/C)^T)  [occupancy / birthday-problem]
+            $randomLocSum += $C * (1 - pow(1 - 1 / $C, $T));
+        }
+        $randomSplitCount     = (int) round($randomSplitSum);
+        $randomAvgLocPerSku   = $itemPutCounts->count() > 0
+            ? round($randomLocSum / $itemPutCounts->count(), 2) : 0;
+        $randomPutAwayMinutes = $avgPutAwayMinutes > 0
+            ? (int) round($avgPutAwayMinutes * 1.20) : 0;
+
+        // Skenario 3: Rekomendasi GA — hanya dari confirmasi yang follow_recommendation = 1
+        $gaFollowedCount = DB::table('put_away_confirmations')
+            ->where('follow_recommendation', 1)
+            ->whereYear('created_at', $year)
+            ->count();
+
+        $gaFollowedLocs = DB::table('put_away_confirmations as pac')
+            ->join('inbound_details as id2', 'id2.id', '=', 'pac.inbound_order_item_id')
+            ->where('pac.follow_recommendation', 1)
+            ->groupBy('id2.item_id')
+            ->select('id2.item_id', DB::raw('COUNT(DISTINCT pac.cell_id) as cell_count'))
+            ->get();
+
+        $gaScenarioSplit  = $gaFollowedLocs->where('cell_count', '>', 1)->count();
+        $gaScenarioAvgLoc = $gaFollowedLocs->count() > 0
+            ? round($gaFollowedLocs->avg('cell_count'), 2) : 0;
+        $gaScenarioMinutes = (int) round(
+            DB::table('inbound_transactions as it')
+                ->join('ga_recommendations as gar', 'gar.inbound_order_id', '=', 'it.id')
+                ->where('it.status', 'completed')
+                ->whereIn('gar.status', ['accepted', 'pending_review'])
+                ->whereYear('it.created_at', $year)
+                ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, it.created_at, it.updated_at)) as avg_min')
+                ->value('avg_min') ?? 0
+        );
+
+        $scenarioComparison = [
+            [
+                'label'         => 'Kondisi Aktual',
+                'desc'          => 'Snapshot stok gudang saat ini',
+                'badge'         => 'secondary',
+                'split_count'   => $splitLocationCount,
+                'avg_loc'       => $avgLocationsPerSku,
+                'utilization'   => $rackUtilization,
+                'putaway_min'   => $avgPutAwayMinutes,
+                'is_simulated'  => false,
+                'is_ga'         => false,
+            ],
+            [
+                'label'         => 'Penempatan Acak',
+                'desc'          => 'Simulasi tanpa optimasi (probabilistik)',
+                'badge'         => 'danger',
+                'split_count'   => $randomSplitCount,
+                'avg_loc'       => $randomAvgLocPerSku,
+                'utilization'   => $rackUtilization,
+                'putaway_min'   => $randomPutAwayMinutes,
+                'is_simulated'  => true,
+                'is_ga'         => false,
+            ],
+            [
+                'label'         => 'Rekomendasi GA',
+                'desc'          => 'Konfirmasi yang mengikuti saran GA',
+                'badge'         => 'success',
+                'split_count'   => $gaScenarioSplit,
+                'avg_loc'       => $gaScenarioAvgLoc,
+                'utilization'   => $rackUtilization,
+                'putaway_min'   => $gaScenarioMinutes,
+                'is_simulated'  => false,
+                'is_ga'         => true,
+            ],
+        ];
+
         // Available years
         $years = DB::table('ga_recommendations')
             ->selectRaw('YEAR(created_at) as yr')
@@ -423,7 +512,8 @@ class ReportController extends Controller
 
         return view('reports.ga-effectiveness', compact(
             'summary', 'compliance', 'compliancePct', 'fitnessDistribution', 'gaRecords',
-            'chartAvgFit', 'chartMaxFit', 'chartExecMs', 'year', 'years'
+            'chartAvgFit', 'chartMaxFit', 'chartExecMs', 'year', 'years',
+            'scenarioComparison', 'totalActiveCells', 'itemPutCounts', 'gaFollowedCount'
         ));
     }
 
