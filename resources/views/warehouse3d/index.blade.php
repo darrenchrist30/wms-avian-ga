@@ -100,6 +100,21 @@
     50%       { opacity: 0.35; }
 }
 .leg-dot-pulse { animation: dot-pulse 1.4s ease-in-out infinite; }
+
+/* GA highlight banner star pulse */
+@keyframes ga-star-beat {
+    0%, 100% { transform: scale(1);   color: #856404; }
+    50%       { transform: scale(1.4); color: #ffd700; }
+}
+.ga-star { display:inline-block; animation: ga-star-beat 1.2s ease-in-out infinite; margin-right:6px; }
+
+/* GA banner — stronger visual weight */
+.alert-ga {
+    background: linear-gradient(90deg, #332200 0%, #1a1200 100%);
+    border: 2px solid #ffd700;
+    color: #ffe57f;
+    border-radius: 8px;
+}
 </style>
 @endpush
 
@@ -541,15 +556,8 @@ const itemMeshes = [];   // non-interactive item models; cleared alongside cells
 let hoveredMesh = null, hoveredOrigMat = null;
 
 function clearScene() {
-    // Wipe highlight state before disposing meshes (avoids stale material refs)
-    if (typeof highlightedMeshes !== 'undefined') {
-        highlightedMeshes = [];
-        highlightMats     = [];
-        const b = document.getElementById('highlightBanner');
-        if (b) b.style.display = 'none';
-        const l = document.querySelector('.leg-highlight');
-        if (l) l.style.display = 'none';
-    }
+    // clearHighlight() is a function declaration — safe to call before its source line
+    if (typeof clearHighlight === 'function') clearHighlight();
     cellMeshes.forEach(m => { scene.remove(m); m.material.dispose(); });
     cellMeshes.length = 0;
     itemMeshes.forEach(m => scene.remove(m));   // shared mats — don't dispose
@@ -733,13 +741,18 @@ function loadScene(wid) {
 const INIT_HIGHLIGHT_ID  = {{ $highlightCellId ?: 'null' }};
 let highlightedMeshes    = [];
 let highlightMats        = [];
+let highlightOutlines    = [];   // BackSide gold shells for GA outlines
+
+// Geometry for the GA outline shell: same shape as cellPanelGeo but 0.22 m larger all-round
+// = effectively full-cell-width box so the gold border is clearly visible
+const GA_OUTLINE_GEO = new THREE.BoxGeometry(CW, CH + 0.08, CD - 0.06);
 
 function applyHighlight(ids, reason, label) {
     clearHighlight();
 
     const isGa   = (reason === 'ga');
-    const color   = isGa ? 0xffd700 : 0x00e5ff;   // gold for GA, cyan for search
-    const emBase  = isGa ? new THREE.Color(0.4, 0.28, 0) : new THREE.Color(0, 0.35, 0.5);
+    const color  = isGa ? 0xffd700 : 0x00e5ff;
+    const emBase = isGa ? new THREE.Color(0.55, 0.38, 0) : new THREE.Color(0, 0.38, 0.55);
 
     let firstMesh = null;
     cellMeshes.forEach(mesh => {
@@ -749,34 +762,56 @@ function applyHighlight(ids, reason, label) {
 
         const mat = new THREE.MeshLambertMaterial({
             color, emissive: emBase.clone(),
-            transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false,
+            transparent: true, opacity: 0.92,
+            side: THREE.DoubleSide, depthWrite: false,
         });
-        mesh.material = mat;
-        mesh.renderOrder = 2;   // above non-highlighted panels
+        mesh.material    = mat;
+        mesh.renderOrder = 2;
 
         highlightMats.push(mat);
         highlightedMeshes.push(mesh);
+
+        // ── GA: solid gold outline shell (BackSide = border only, no fill) ───
+        // The shell is slightly larger than the cell panel; BackSide culls front
+        // faces so only the outer border ring is visible around the panel.
+        if (isGa) {
+            const outlineMat = new THREE.MeshBasicMaterial({
+                color: 0xffd700,
+                side: THREE.BackSide,
+            });
+            const outline = new THREE.Mesh(GA_OUTLINE_GEO, outlineMat);
+            outline.position.copy(mesh.position);
+            outline.renderOrder = 1;   // render behind panel but above normal cells
+            scene.add(outline);
+            highlightOutlines.push(outline);
+        }
+
         if (!firstMesh) firstMesh = mesh;
     });
 
     if (firstMesh) flyToCell(firstMesh);
 
-    // Banner
-    const bannerEl = document.getElementById('highlightBanner');
-    const bannerTx = document.getElementById('highlightBannerText');
+    // ── Banner ────────────────────────────────────────────────────────────────
+    const bannerEl  = document.getElementById('highlightBanner');
+    const bannerTx  = document.getElementById('highlightBannerText');
     const bannerBtn = document.getElementById('btnClearHighlight');
     if (isGa) {
-        bannerEl.className = 'alert alert-warning py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
-        bannerBtn.className = 'btn btn-sm btn-outline-warning ml-3';
-        bannerTx.innerHTML  = '<i class="fas fa-star mr-2" style="color:#856404"></i>' + (label || 'Cell rekomendasi GA disorot');
+        bannerEl.className = 'alert alert-ga py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
+        bannerBtn.className = 'btn btn-sm ml-3';
+        bannerBtn.style.cssText = 'border:1px solid #ffd700;color:#ffd700;background:transparent;white-space:nowrap';
+        bannerTx.innerHTML = `
+            <i class="fas fa-star ga-star"></i>
+            <strong style="font-size:14px;letter-spacing:.4px;color:#ffd700">CELL REKOMENDASI GA</strong>
+            <span style="opacity:.75;font-size:12px;margin-left:8px">${label || ''}</span>`;
     } else {
         bannerEl.className = 'alert alert-info py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
         bannerBtn.className = 'btn btn-sm btn-outline-info ml-3';
-        bannerTx.innerHTML  = '<i class="fas fa-search mr-2"></i>' + (label || 'Cell hasil pencarian disorot');
+        bannerBtn.style.cssText = '';
+        bannerTx.innerHTML = '<i class="fas fa-search mr-2"></i>' + (label || 'Cell hasil pencarian disorot');
     }
     bannerEl.style.display = 'flex';
 
-    // Legend
+    // ── Legend ────────────────────────────────────────────────────────────────
     const legItem = document.querySelector('.leg-highlight');
     const legDot  = document.getElementById('legHighlightDot');
     const legLbl  = document.getElementById('legHighlightLabel');
@@ -796,8 +831,14 @@ function clearHighlight() {
     highlightedMeshes = [];
     highlightMats     = [];
 
-    document.getElementById('highlightBanner').style.display = 'none';
-    document.querySelector('.leg-highlight').style.display    = 'none';
+    // Remove GA outline shells
+    highlightOutlines.forEach(m => { scene.remove(m); m.material.dispose(); });
+    highlightOutlines = [];
+
+    const bannerEl = document.getElementById('highlightBanner');
+    if (bannerEl) bannerEl.style.display = 'none';
+    const legItem = document.querySelector('.leg-highlight');
+    if (legItem) legItem.style.display = 'none';
 }
 
 function flyToCell(mesh) {
@@ -949,8 +990,11 @@ window.addEventListener('resize', function () {
         const pulse = 0.55 + 0.45 * Math.sin(Date.now() * 0.003);
         highlightMats.forEach(mat => {
             mat.emissiveIntensity = pulse;
-            mat.opacity = 0.52 + 0.42 * pulse;
+            mat.opacity = 0.60 + 0.35 * pulse;
         });
+        // Breathe the GA outline shell scale (± 6%) in sync with panel pulse
+        const outlineScale = 1.0 + 0.06 * Math.sin(Date.now() * 0.003);
+        highlightOutlines.forEach(m => m.scale.setScalar(outlineScale));
     }
 
     renderer.render(scene, camera);
