@@ -381,48 +381,48 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
     """
     AEX - Alternating Edges Crossover (Kordos et al. 2020)
     Implementation dari Kordos et al. (2020), Section 4.3, page 6-7
-    
+
     "AEX creates the child from two parents by starting from the value,
     which is at the first position in the first parent. Then it adds
     this value, from the second parent, which in the second parent
     follows the value just taken from the first parent. Then again
     a value from the first parent that follows the value just selected
     from the second parent and so on."
-    
+
     Args:
         parent1, parent2: Chromosomes (list of cell IDs)
         skus, cells: Not used, kept for API compatibility
-    
+
     Returns:
         child1, child2: Two new chromosomes
     """
     n = len(parent1)
-    
+
     # Validate
     if n == 0 or len(parent2) != n:
         return parent1.copy(), parent2.copy()
-    
+
     # Create child 1
     child1 = []
     used1 = set()
-    
+
     # Step 1: Start from first position of parent1
     current_value = parent1[0]
     child1.append(current_value)
     used1.add(current_value)
-    
+
     # Alternating flag
     use_parent2 = True  # Next we look in parent2
-    
+
     # Step 2: Build child alternating between parents
     while len(child1) < n:
-        
+
         # Select which parent to look in
         if use_parent2:
             parent = parent2
         else:
             parent = parent1
-        
+
         # Validate parent length
         if len(parent) != n:
             unused = [v for v in parent1 if v not in used1]
@@ -431,22 +431,22 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
                 used1.add(child1[-1])
             use_parent2 = not use_parent2
             continue
-        
+
         # Find current value in parent
         try:
             idx = parent.index(current_value)
-            
+
             # Get next value (circular)
             next_idx = (idx + 1) % n
             next_value = parent[next_idx]
-            
+
             # If already used, find next unused value in this parent
             attempts = 0
             while next_value in used1 and attempts < n:
                 next_idx = (next_idx + 1) % n
                 next_value = parent[next_idx]
                 attempts += 1
-            
+
             if next_value not in used1:
                 child1.append(next_value)
                 used1.add(next_value)
@@ -461,7 +461,7 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
                     current_value = random_value
                 else:
                     break
-                    
+
         except ValueError:
             # Current value not in parent (shouldn't happen)
             # Select random unused
@@ -473,27 +473,27 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
                 current_value = random_value
             else:
                 break
-        
+
         # Alternate to other parent
         use_parent2 = not use_parent2
-    
+
     # Create child 2 (swap parents)
     child2 = []
     used2 = set()
-    
+
     current_value = parent2[0]
     child2.append(current_value)
     used2.add(current_value)
-    
+
     use_parent1 = True
-    
+
     while len(child2) < n:
-        
+
         if use_parent1:
             parent = parent1
         else:
             parent = parent2
-        
+
         if len(parent) != n:
             unused = [v for v in parent2 if v not in used2]
             if unused:
@@ -501,19 +501,19 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
                 used2.add(child2[-1])
             use_parent1 = not use_parent1
             continue
-        
+
         try:
             idx = parent.index(current_value)
-            
+
             next_idx = (idx + 1) % n
             next_value = parent[next_idx]
-            
+
             attempts = 0
             while next_value in used2 and attempts < n:
                 next_idx = (next_idx + 1) % n
                 next_value = parent[next_idx]
                 attempts += 1
-            
+
             if next_value not in used2:
                 child2.append(next_value)
                 used2.add(next_value)
@@ -527,7 +527,7 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
                     current_value = random_value
                 else:
                     break
-                    
+
         except ValueError:
             unused = [v for v in parent2 if v not in used2]
             if unused:
@@ -537,9 +537,9 @@ def crossover_aex(parent1: List[str], parent2: List[str], skus: List[SKU], cells
                 current_value = random_value
             else:
                 break
-        
+
         use_parent1 = not use_parent1
-    
+
     return child1, child2
 
 def crossover_ox(parent1: List[str], parent2: List[str]) -> Tuple[List[str], List[str]]:
@@ -609,41 +609,41 @@ def mutation_rsm(chromosome: List[str], mutation_rate: float, cells: List[Cell],
     """
     RSM - Reverse Sequence Mutation (Kordos et al. 2020, Otman et al. 2012)
     CORRECT implementation: Reverse a random segment
-    
+
     "Select random segment and reverse it"
     - Kordos et al. 2020, Section 5.2
-    
+
     Better than swap - preserves adjacent relationships
     """
     mutated = chromosome.copy()
-    
+
     if random.random() < mutation_rate:
         n = len(mutated)
         if n < 2:
             return mutated
-        
+
         # Select two cut points
         point1, point2 = sorted(random.sample(range(n), 2))
-        
+
         # Reverse segment between points
         mutated[point1:point2+1] = list(reversed(mutated[point1:point2+1]))
-    
+
     return mutated
 
 def mutation_rsm_psm_hybrid(chromosome: List[str], mutation_rate: float, cells: List[Cell], skus: List[SKU]) -> List[str]:
     """
     RSM + PSM Hybrid (Kordos et al. 2020)
-    
+
     "We use two different mutation operators—Reverse Sequence Mutation (RSM)
     and Partial Shuffle Mutation (PSM) with the probability of applying RSM
     being three times higher."
     - Kordos et al. 2020, Section 5.2
-    
+
     Ratio: RSM 75% : PSM 25%
     """
     if random.random() > mutation_rate:
         return chromosome  # No mutation
-    
+
     # Choose operator: RSM 3x more likely (75% vs 25%)
     if random.random() < 0.75:
         # RSM: Reverse Sequence Mutation
@@ -655,54 +655,54 @@ def mutation_rsm_psm_hybrid(chromosome: List[str], mutation_rate: float, cells: 
 def mutation_psm(chromosome: List[str], mutation_rate: float, cells: List[Cell], skus: List[SKU]) -> List[str]:
     """
     PSM - Partial Shuffle Mutation (Kordos et al. 2020)
-    
+
     "Select random segment and shuffle it"
     - Kordos et al. 2020, Section 5.2
     """
     mutated = chromosome.copy()
-    
+
     if random.random() < mutation_rate:
         n = len(mutated)
         if n < 2:
             return mutated
-        
+
         # Select two cut points
         point1, point2 = sorted(random.sample(range(n), 2))
-        
+
         # Extract segment
         segment = mutated[point1:point2+1]
-        
+
         # Shuffle segment
         random.shuffle(segment)
-        
+
         # Put back
         mutated[point1:point2+1] = segment
-    
+
     return mutated
 
-def calculate_dynamic_mutation_rate(generation: int, iter_no_improvement: int, 
+def calculate_dynamic_mutation_rate(generation: int, iter_no_improvement: int,
                                    fitness: float, max_fitness: float,
-                                   c_i: float = 0.00001, c_n: float = 0.00001, 
+                                   c_i: float = 0.00001, c_n: float = 0.00001,
                                    c_f: float = 0.3) -> float:
     """
     Dynamic Mutation Probability (Kordos et al. 2020, Equation 4)
-    
+
     mutationProb(i) = (c_i * √iter + c_n * iter_NBI) * (F_max / F_i + c_f)
-    
+
     "We use dynamic mutation probability... which increases gradually
     during the optimization. Also the probability of mutation is higher
     for the individuals with lower fitness."
     - Kordos et al. 2020, page 14
     """
     import math
-    
+
     prob = (c_i * math.sqrt(generation + 1) + c_n * iter_no_improvement)
-    
+
     if fitness > 0:
         prob *= (max_fitness / fitness + c_f)
     else:
         prob *= (1 + c_f)
-    
+
     # Clamp to reasonable range [0.01, 0.5]
     return min(max(prob, 0.01), 0.5)# ============================================================================
 # MAIN GENETIC ALGORITHM
@@ -748,7 +748,7 @@ def run_ga(
             iter_no_improvement = 0
         else:
             iter_no_improvement += 1
-        
+
         # Early stopping (Kordos 2020)
         if iter_no_improvement >= early_stopping:
             print(f"Early stopping at generation {generation} (no improvement for {early_stopping} iterations)")
@@ -793,7 +793,7 @@ def run_ga(
                 )
             else:
                 current_mut_rate = mutation_rate
-            
+
             # Apply mutation
             if mutation_method == "swap":
                 offspring[i] = mutation_swap(offspring[i], current_mut_rate, cells)

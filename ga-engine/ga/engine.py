@@ -70,7 +70,8 @@ class GeneticAlgorithmEngine:
         }
         self.cell_ids: List[int] = [c.cell_id for c in request.cells]
 
-        # Seed untuk reproducibility (penting untuk skripsi — hasil konsisten)
+        # Seed opsional: jika diisi, hasil GA reproducible untuk eksperimen skripsi.
+        # Default None → tiap run menghasilkan variasi berbeda (perilaku operasional normal).
         if self.params.seed is not None:
             random.seed(self.params.seed)
 
@@ -118,9 +119,9 @@ class GeneticAlgorithmEngine:
                 # Crossover: Uniform Crossover (Syswerda, 1989)
                 child1, child2 = uniform_crossover(parent1, parent2, p.crossover_rate)
 
-                # Mutasi: Random Reset Mutation (Michalewicz, 1996)
-                child1 = random_reset_mutation(child1, self.cell_ids, p.mutation_rate)
-                child2 = random_reset_mutation(child2, self.cell_ids, p.mutation_rate)
+                # Mutasi: Random Reset Mutation — capacity-aware (Michalewicz, 1996)
+                child1 = random_reset_mutation(child1, self.cell_ids, p.mutation_rate, self.items, self.cells_dict)
+                child2 = random_reset_mutation(child2, self.cell_ids, p.mutation_rate, self.items, self.cells_dict)
 
                 fit1, _ = evaluate_chromosome(child1, self.items, self.cells_dict, self.aff_map)
                 fit2, _ = evaluate_chromosome(child2, self.items, self.cells_dict, self.aff_map)

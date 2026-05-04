@@ -596,7 +596,7 @@
      ACTION REQUIRED — Hanya tampil jika ada yang pending
 ══════════════════════════════════════════════════════ --}}
     @php
-        $totalPending = $pendingQtyConfirm + $pendingGaRun + $pendingGaAccept + $pendingPutAway;
+        $totalPending = $inboundHariIni + $pendingQtyConfirm + $pendingGaRun + $pendingGaAccept + $pendingPutAway;
     @endphp
     @if ($totalPending > 0)
         <div class="alert mb-3 py-2 px-3 d-flex align-items-center justify-content-between flex-wrap"
@@ -608,6 +608,40 @@
             </div>
         </div>
         <div class="row mb-3">
+            @if ($inboundHariIni > 0)
+                <div class="col-6 col-md-3 mb-2">
+                    <a href="{{ route('inbound.orders.index', ['status' => 'draft']) }}"
+                        class="d-block text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100"
+                            style="border-left:4px solid #e53e3e!important;border-radius:10px;cursor:pointer;transition:transform .15s"
+                            onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                            <div class="card-body py-3 px-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div
+                                        style="width:36px;height:36px;border-radius:50%;background:#fff5f5;
+                                        display:flex;align-items:center;justify-content:center;margin-right:10px">
+                                        <i class="fas fa-truck-loading" style="color:#e53e3e;font-size:15px"></i>
+                                    </div>
+                                    <div>
+                                        <div class="font-weight-bold" style="font-size:22px;color:#c53030;line-height:1">
+                                            {{ $inboundHariIni }}
+                                        </div>
+                                        <small class="text-muted" style="font-size:10px;line-height:1">DO</small>
+                                    </div>
+                                </div>
+                                <div style="font-size:12px;font-weight:600;color:#c53030">Inbound Datang Hari Ini</div>
+                                <div style="font-size:11px;color:#6c757d;margin-top:2px">Surat jalan tiba, belum diproses</div>
+                                <div class="mt-2">
+                                    <span class="badge" style="font-size:10px;background:#e53e3e;color:#fff">
+                                        <i class="fas fa-arrow-right mr-1"></i>Lihat DO
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @endif
+
             @if ($pendingQtyConfirm > 0)
                 <div class="col-6 col-md-3 mb-2">
                     <a href="{{ route('inbound.orders.index', ['status' => 'draft']) }}"

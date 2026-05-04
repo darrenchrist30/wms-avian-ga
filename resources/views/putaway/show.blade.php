@@ -347,6 +347,21 @@
                                     <span style="font-size:9px;opacity:.75">/ 100</span>
                                 </span>
                                 <div class="text-muted mt-1" style="font-size:10px">Fitness score</div>
+                                {{-- Termination info: bukti eksperimen Bab 4 --}}
+                                <div class="mt-2" style="font-size:10px;line-height:1.6;color:#6c757d;text-align:right">
+                                    <span title="Jumlah generasi yang dijalankan GA hingga terminasi">
+                                        <i class="fas fa-dna mr-1"></i>{{ $gaRecommendation->generations_run ?? '—' }} generasi
+                                    </span><br>
+                                    <span title="Waktu eksekusi GA engine (Python)">
+                                        <i class="fas fa-clock mr-1"></i>{{ number_format($gaRecommendation->execution_time_ms ?? 0) }} ms
+                                    </span>
+                                    @if($gaRecommendation->parameters_json)
+                                        @php $p = is_array($gaRecommendation->parameters_json) ? $gaRecommendation->parameters_json : json_decode($gaRecommendation->parameters_json, true); @endphp
+                                        <br><span title="Parameter GA: pop={{ $p['population'] ?? '—' }}, mut={{ $p['mutation_rate'] ?? '—' }}, stop={{ $p['early_stopping'] ?? '—' }}">
+                                            <i class="fas fa-sliders-h mr-1"></i>pop={{ $p['population'] ?? '—' }}
+                                        </span>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                         @if ($pendingCount > 0)

@@ -16,7 +16,7 @@ Referensi:
 
 from __future__ import annotations
 import random
-from typing import List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from schemas import CellInput, ItemInput
 
@@ -89,9 +89,16 @@ def initialize_population(
 
     half = pop_size // 2
 
-    # ── a) Random ─────────────────────────────────────────────────────────
+    # ── a) Random (capacity-aware) ────────────────────────────────────────
+    # Untuk setiap item, pilih hanya dari cell yang sisa kapasitasnya ≥ qty item.
+    # Fallback ke semua cell jika tidak ada yang feasible (mencegah dead-end).
     for _ in range(half):
-        population.append([random.choice(cell_ids) for _ in range(n_items)])
+        chromosome: List[int] = []
+        for item in items:
+            feasible = [c.cell_id for c in cells if c.capacity_remaining >= item.quantity]
+            pool = feasible if feasible else cell_ids
+            chromosome.append(random.choice(pool))
+        population.append(chromosome)
 
     # ── b) Greedy ──────────────────────────────────────────────────────────
     sorted_cells  = sorted(cells, key=lambda c: c.capacity_remaining, reverse=True)
@@ -218,32 +225,51 @@ def random_reset_mutation(
     chromosome:    List[int],
     cell_ids:      List[int],
     mutation_rate: float = 0.15,
+    items:         Optional[List[ItemInput]]          = None,
+    cells_dict:    Optional[Dict[int, CellInput]]     = None,
 ) -> List[int]:
     """
-    Random Reset Mutation (Michalewicz, 1996):
+    Random Reset Mutation — Capacity-Aware (Michalewicz, 1996):
 
     Algoritma:
         Untuk setiap gen i:
             Dengan probabilitas `mutation_rate`:
-                chromosome[i] ← pilih cell_id baru secara acak dari domain valid
+                Jika items + cells_dict tersedia:
+                    pool = cell yang capacity_remaining ≥ item.quantity
+                    Fallback ke semua cell jika pool kosong
+                Else:
+                    pool = semua cell_ids
+                chromosome[i] ← pilih acak dari pool
 
-    Berbeda dengan Bit-Flip Mutation (hanya untuk binary encoding).
-    Untuk integer encoding, reset ke nilai lain dalam domain yang valid.
+    Keunggulan dibanding pure random reset:
+        - Menghindari assignment yang jelas infeasible (capacity overflow) sejak mutasi
+        - GA tidak membuang generasi untuk memperbaiki solusi yang trivially buruk
+        - FC_CAP tetap aktif sebagai penalti lunak; constraint ini hanya mempersempit domain
 
-    Fungsi:
-        - Menjaga keberagaman populasi
-        - Mencegah konvergensi prematur ke local optimum
-        - mutation_rate = 0.15 → sekitar 15% gen akan dimutasi per individu
+    Pool feasible dihitung sekali di awal (O(n_cells)) untuk efisiensi.
 
-    Kompleksitas: O(n)
+    Kompleksitas: O(n_items × n_cells) pre-compute + O(n_items) mutasi
 
     Referensi: Michalewicz, Z. (1996). Genetic Algorithms + Data Structures
                = Evolution Programs. 3rd ed. Springer-Verlag, Berlin.
     """
+    # Pre-compute feasible cell pool per item (snapshot kapasitas awal order)
+    if items and cells_dict:
+        feasible_pools: List[List[int]] = [
+            [cid for cid, cell in cells_dict.items() if cell.capacity_remaining >= item.quantity]
+            for item in items
+        ]
+    else:
+        feasible_pools = []
+
     mutated = chromosome.copy()
     for i in range(len(mutated)):
         if random.random() < mutation_rate:
-            mutated[i] = random.choice(cell_ids)
+            if feasible_pools:
+                pool = feasible_pools[i] if feasible_pools[i] else cell_ids
+            else:
+                pool = cell_ids
+            mutated[i] = random.choice(pool)
     return mutated
 
 

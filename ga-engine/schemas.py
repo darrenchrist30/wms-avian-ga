@@ -45,7 +45,7 @@ class GAParameters(BaseModel):
     crossover_rate:  float = 0.80
     elitism:         int   = 3
     early_stopping:  int   = 20
-    seed:            Optional[int] = 42   # reproducibility untuk skripsi
+    seed:            Optional[int] = None  # None = random tiap run; set integer untuk reproducibility
 
 
 class GARequest(BaseModel):

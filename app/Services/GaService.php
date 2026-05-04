@@ -62,8 +62,8 @@ class GaService
         $gaResult = $this->callPythonEngine($payload);
 
         // 3. Simpan hasil ke database dalam satu transaksi
-        return DB::transaction(function () use ($order, $userId, $gaResult) {
-            return $this->persistResult($order, $userId, $gaResult);
+        return DB::transaction(function () use ($order, $userId, $gaResult, $payload) {
+            return $this->persistResult($order, $userId, $gaResult, $payload['parameters']);
         });
     }
 
@@ -270,7 +270,7 @@ class GaService
     // PRIVATE: Persist Result
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function persistResult(InboundOrder $order, int $userId, array $gaResult): GaRecommendation
+    private function persistResult(InboundOrder $order, int $userId, array $gaResult, array $parameters): GaRecommendation
     {
         // Simpan header GA run
         $recommendation = GaRecommendation::create([
@@ -280,7 +280,7 @@ class GaService
             'fitness_score'     => $gaResult['fitness_score'],
             'generations_run'   => $gaResult['generations_run'] ?? 0,
             'execution_time_ms' => $gaResult['execution_time_ms'] ?? null,
-            'parameters_json'   => $gaResult['parameters'] ?? null,
+            'parameters_json'   => $parameters,
             'generated_at'      => now(),
             'status'            => 'pending',
         ]);
@@ -357,9 +357,8 @@ class GaService
             'generations_run'   => 0,
             'execution_time_ms' => 0,
             'chromosome'        => $chromosome,
-            'parameters'        => $payload['parameters'],
         ];
 
-        return DB::transaction(fn() => $this->persistResult($order, $userId, $mockResult));
+        return DB::transaction(fn() => $this->persistResult($order, $userId, $mockResult, $payload['parameters']));
     }
 }

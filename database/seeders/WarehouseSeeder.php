@@ -116,10 +116,11 @@ class WarehouseSeeder extends Seeder
                     $cellCode = $rackNo . '-' . $letter;
                     Cell::create([
                         'rack_id'              => $rack->id,
-                        'dominant_category_id' => $catId,  // sel ikut kategori raknya
+                        'dominant_category_id' => $catId,   // sel ikut kategori raknya
+                        'zone_category'        => $zd['code'], // 'A', 'B', atau 'C' — dipakai FC_CAT GA
                         'code'                 => $cellCode,
-                        'qr_code'              => $cellCode, // QR code = cell code (scannable)
-                        'level'                => $idx + 1, // 1=A, 2=B, ..., 7=G
+                        'qr_code'              => $cellCode,  // QR code = cell code (scannable)
+                        'level'                => $idx + 1,   // 1=A, 2=B, ..., 7=G
                         'column'               => 1,
                         'capacity_max'         => 50,
                         'capacity_used'        => 0,

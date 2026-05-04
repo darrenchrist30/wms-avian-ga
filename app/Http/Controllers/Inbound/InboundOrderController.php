@@ -52,7 +52,13 @@ class InboundOrderController extends Controller
 
         return DataTables::of($query)
             ->addIndexColumn()
-            ->editColumn('do_date', fn($row) => $row->do_date?->format('d M Y') ?? '-')
+            ->editColumn('do_date', function ($row) {
+                $formatted = $row->do_date?->format('d M Y') ?? '-';
+                if ($row->do_date && $row->do_date->isToday()) {
+                    $formatted .= ' <span class="badge badge-danger" style="font-size:9px;vertical-align:middle">Hari Ini</span>';
+                }
+                return $formatted;
+            })
             ->addColumn('status_badge', function ($row) {
                 $map = [
                     'draft'       => ['badge-secondary', 'Draft'],
@@ -75,7 +81,7 @@ class InboundOrderController extends Controller
                 }
                 return $html;
             })
-            ->rawColumns(['status_badge', 'action'])
+            ->rawColumns(['do_date', 'status_badge', 'action'])
             ->make(true);
     }
 
@@ -419,7 +425,7 @@ class InboundOrderController extends Controller
         // Load relasi cell secara fresh agar kondisi aktual terbaca (bukan cache saat GA run)
         $recommendation->load('details.cell');
 
-        // 3. Setiap gene harus memiliki cell yang valid, aktif, dan kapasitas cukup
+        // 3. Validasi per-item: cell harus valid, aktif, dan quantity > 0
         foreach ($recommendation->details as $detail) {
             if (empty($detail->cell_id)) {
                 return [false, 'Terdapat item tanpa sel penempatan yang ditentukan.'];
@@ -433,14 +439,40 @@ class InboundOrderController extends Controller
             if (!$detail->cell || !in_array($detail->cell->status, ['available', 'partial'])) {
                 return [false, 'Terdapat rekomendasi cell yang tidak tersedia (cell ' . ($detail->cell?->code ?? $detail->cell_id) . ').'];
             }
+        }
 
-            $remainingCapacity = $detail->cell->capacity_max - $detail->cell->capacity_used;
-            if ($remainingCapacity < $detail->quantity) {
-                return [false, 'Kapasitas cell ' . ($detail->cell->code ?? $detail->cell_id) . ' tidak mencukupi (sisa ' . $remainingCapacity . ', dibutuhkan ' . $detail->quantity . ').'];
+        // 4. Validasi kapasitas secara AGREGAT per cell.
+        //    GA bisa merekomendasikan beberapa item ke cell yang sama; total qty-nya
+        //    harus tidak melebihi sisa kapasitas, bukan hanya qty per-item.
+        //    Contoh bug lama: cell sisa=100, item A qty=70 dan item B qty=70 →
+        //    keduanya lolos cek per-item (70≤100), padahal total 140>100.
+        $grouped = $recommendation->details
+            ->groupBy('cell_id')
+            ->map(fn($rows) => [
+                'cell'      => $rows->first()->cell,
+                'total_qty' => $rows->sum('quantity'),
+            ]);
+
+        foreach ($grouped as $cellId => $row) {
+            $cell     = $row['cell'];
+            $totalQty = $row['total_qty'];
+
+            if (!$cell || !in_array($cell->status, ['available', 'partial'])) {
+                return [false, 'Terdapat rekomendasi cell yang tidak tersedia (cell ' . ($cell?->code ?? $cellId) . ').'];
+            }
+
+            $remainingCapacity = $cell->capacity_max - $cell->capacity_used;
+
+            if ($totalQty > $remainingCapacity) {
+                return [false,
+                    'Total rekomendasi ke cell ' . ($cell->code ?? $cellId) .
+                    ' melebihi kapasitas. Sisa ' . $remainingCapacity .
+                    ', dibutuhkan ' . $totalQty . '.',
+                ];
             }
         }
 
-        // 4. Fitness score di bawah threshold → minta konfirmasi supervisor
+        // 5. Fitness score di bawah threshold → minta konfirmasi supervisor
         if ($recommendation->fitness_score < 50) {
             return [false, 'Fitness score terlalu rendah (' . round($recommendation->fitness_score, 2) . '/100 < 50). Supervisor perlu meninjau.'];
         }

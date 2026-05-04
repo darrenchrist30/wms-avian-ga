@@ -165,23 +165,34 @@ def fc_affinity(
     """
     FC_AFF (maks 20 poin):
 
-    Mengukur seberapa baik item-item yang memiliki afinitas tinggi
-    (sering diambil bersama / satu order) ditempatkan dalam cell yang sama.
+    Mendorong penempatan item-item yang berelasi (sering muncul bersama dalam
+    satu order / memiliki co-occurrence tinggi) pada cell atau rack yang sama
+    secara logis, berdasarkan dua sumber informasi:
+
+      1. Co-location dalam kromosom saat ini:
+         Jika item lain dengan afinitas tinggi dialokasikan ke cell yang sama,
+         skor dihitung dari rata-rata affinity_score pasangan tersebut.
+         fc_aff = 20 × mean(affinity_score pasangan se-cell)
+
+      2. Kontinuitas stok existing (jika item sendirian di cell):
+         Menggunakan histori stok yang sudah tersimpan di warehouse sebagai
+         tie-breaker — mendorong konsistensi lokasi antar-inbound order.
+         - Item yang sama sudah ada di cell ini      → 20 (kontinuitas sempurna)
+         - Item yang sama ada di rack yang sama      → 16
+         - Item yang sama ada di rack lain           →  8 (penalti ringan)
+         - Belum ada histori item di warehouse       → 10 (netral)
+
+    Catatan implementasi:
+        FC_AFF tidak menghitung jarak fisik antar-cell berdasarkan koordinat
+        level/column. Kedekatan yang dimaksud adalah kedekatan LOGIS:
+        berada dalam cell yang sama atau rack yang sama. Pendekatan ini
+        konsisten dengan data yang tersedia (item_affinities dari co-occurrence
+        inbound) dan cukup untuk memodelkan kemudahan picking order.
 
     Referensi: Henn, S. & Wäscher, G. (2012). Metaheuristics for order batching
                in warehouses. Computers & Industrial Engineering, 58(2), 270-280.
 
-    Rumus inti:
-        colocated = item lain yang berada di cell yang sama
-        Jika colocated ada:
-            fc_aff = 20 × mean(affinity_score untuk setiap pasangan)
-        Jika sendirian di cell, pakai konteks stok existing:
-            - item yang sama sudah ada di cell ini      -> 20 (best continuity)
-            - item yang sama ada di rack yang sama      -> 16
-            - item yang sama ada di rack lain           -> 8  (penalti ringan)
-            - belum ada histori item di warehouse       -> 10 (netral)
-
-    Catatan: affinity_score ∈ [0, 1] (sudah dinormalisasi dari tabel item_affinities)
+    affinity_score ∈ [0, 1] (dinormalisasi dari tabel item_affinities).
     """
     cell_id = chromosome[gene_idx]
     item    = items[gene_idx]
