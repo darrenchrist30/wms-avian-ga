@@ -58,6 +58,14 @@ class GaService
         // 1. Siapkan payload untuk Python
         $payload = $this->buildPayload($order);
 
+        Log::info('[GA PAYLOAD DEBUG]', [
+            'items' => $payload['items'],
+            'cells_with_existing_items' => collect($payload['cells'])
+                ->filter(fn($c) => !empty($c['existing_item_ids']))
+                ->values()
+                ->toArray(),
+        ]);
+
         // 2. Panggil Python FastAPI
         $gaResult = $this->callPythonEngine($payload);
 
@@ -199,8 +207,10 @@ class GaService
                 'population'       => 100,
                 'max_generations'  => 150,
                 'mutation_rate'    => 0.15,
+                'crossover_rate'   => 0.8,
                 'elitism'          => 3,
                 'early_stopping'   => 20,
+                'seed' => null,
             ],
         ];
     }
@@ -270,8 +280,12 @@ class GaService
     // PRIVATE: Persist Result
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function persistResult(InboundOrder $order, int $userId, array $gaResult, array $parameters): GaRecommendation
-    {
+    private function persistResult(
+        InboundOrder $order,
+        int $userId,
+        array $gaResult,
+        ?array $parameters = null
+    ): GaRecommendation {
         // Simpan header GA run
         $recommendation = GaRecommendation::create([
             'inbound_order_id'  => $order->id,
@@ -280,7 +294,7 @@ class GaService
             'fitness_score'     => $gaResult['fitness_score'],
             'generations_run'   => $gaResult['generations_run'] ?? 0,
             'execution_time_ms' => $gaResult['execution_time_ms'] ?? null,
-            'parameters_json'   => $parameters,
+            'parameters_json'   => $parameters ?? ($gaResult['parameters'] ?? null),
             'generated_at'      => now(),
             'status'            => 'pending',
         ]);
@@ -359,6 +373,11 @@ class GaService
             'chromosome'        => $chromosome,
         ];
 
-        return DB::transaction(fn() => $this->persistResult($order, $userId, $mockResult, $payload['parameters']));
+        return DB::transaction(fn() => $this->persistResult(
+            $order,
+            $userId,
+            $mockResult,
+            $payload['parameters']
+        ));
     }
 }

@@ -435,7 +435,6 @@ class InboundOrderController extends Controller
                 return [false, 'Terdapat penempatan dengan quantity 0 atau negatif.'];
             }
 
-            // Validasi kondisi cell saat ini (bisa berubah sejak GA dikalkulasi)
             if (!$detail->cell || !in_array($detail->cell->status, ['available', 'partial'])) {
                 return [false, 'Terdapat rekomendasi cell yang tidak tersedia (cell ' . ($detail->cell?->code ?? $detail->cell_id) . ').'];
             }
@@ -446,28 +445,24 @@ class InboundOrderController extends Controller
         //    harus tidak melebihi sisa kapasitas, bukan hanya qty per-item.
         //    Contoh bug lama: cell sisa=100, item A qty=70 dan item B qty=70 →
         //    keduanya lolos cek per-item (70≤100), padahal total 140>100.
-        $grouped = $recommendation->details
-            ->groupBy('cell_id')
-            ->map(fn($rows) => [
-                'cell'      => $rows->first()->cell,
-                'total_qty' => $rows->sum('quantity'),
-            ]);
+        $groupedByCell = $recommendation->details->groupBy('cell_id');
 
-        foreach ($grouped as $cellId => $row) {
-            $cell     = $row['cell'];
-            $totalQty = $row['total_qty'];
+        foreach ($groupedByCell as $cellId => $rows) {
+            $cell = $rows->first()->cell;
+            $totalRecommendedQty = $rows->sum('quantity');
 
-            if (!$cell || !in_array($cell->status, ['available', 'partial'])) {
-                return [false, 'Terdapat rekomendasi cell yang tidak tersedia (cell ' . ($cell?->code ?? $cellId) . ').'];
+            if (!$cell) {
+                return [false, 'Terdapat rekomendasi ke cell yang tidak ditemukan.'];
             }
 
             $remainingCapacity = $cell->capacity_max - $cell->capacity_used;
 
-            if ($totalQty > $remainingCapacity) {
-                return [false,
+            if ($totalRecommendedQty > $remainingCapacity) {
+                return [
+                    false,
                     'Total rekomendasi ke cell ' . ($cell->code ?? $cellId) .
-                    ' melebihi kapasitas. Sisa ' . $remainingCapacity .
-                    ', dibutuhkan ' . $totalQty . '.',
+                        ' melebihi kapasitas. Sisa ' . $remainingCapacity .
+                        ', dibutuhkan ' . $totalRecommendedQty . '.'
                 ];
             }
         }

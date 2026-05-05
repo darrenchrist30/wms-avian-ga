@@ -58,6 +58,22 @@ def build_item_rack_map(cells_dict: Dict[int, CellInput]) -> Dict[int, set[str]]
             racks.add(cell.rack_code)
     return item_racks
 
+def build_item_cell_map(cells_dict: Dict[int, CellInput]) -> Dict[int, set[int]]:
+    """
+    Bangun map item_id -> set cell_id berdasarkan stok existing per cell.
+
+    Digunakan untuk mengetahui apakah rekomendasi GA menambah lokasi baru
+    untuk SKU yang sebenarnya sudah tersimpan di cell tertentu.
+    """
+    item_cells: Dict[int, set[int]] = {}
+
+    for cell_id, cell in cells_dict.items():
+        for item_id in cell.existing_item_ids:
+            cells = item_cells.setdefault(item_id, set())
+            cells.add(cell_id)
+
+    return item_cells
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Pemetaan movement_type → kode zona
@@ -123,17 +139,15 @@ def fc_category(item: ItemInput, cell: CellInput) -> float:
     FC_CAT (maks 30 poin):
 
     Mengukur kesesuaian kategori item dengan kategori dominan cell / zona.
-    Prinsip: barang yang sejenis disimpan di area yang sama (slotting policy).
-
-    Referensi: Malmborg, C.J. (1996). An evaluation of the cycle time performance
-               of automated storage and retrieval systems. European Journal of
-               Operational Research, 90(3), 598-612.
-
-    Skor:
-        item.category_id == cell.dominant_category_id  → 30 (perfect match)
-        movement_type cocok dengan zona cell            → 15 (zone match)
-        Tidak cocok                                     →  0
+    Jika cell sudah menyimpan item yang sama, cell dianggap cocok secara kategori
+    karena sudah menjadi lokasi existing untuk item tersebut.
     """
+
+    # Existing same-item continuity: jika cell sudah menyimpan item yang sama,
+    # maka cell dianggap sangat sesuai untuk item tersebut.
+    if item.item_id in cell.existing_item_ids:
+        return 30.0
+
     # Perfect match: kategori item = kategori dominan cell
     if (
         item.category_id is not None
@@ -149,7 +163,6 @@ def fc_category(item: ItemInput, cell: CellInput) -> float:
 
     return 0.0
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # FC_AFF — Fitness Afinitas (maks 20)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -161,6 +174,7 @@ def fc_affinity(
     cells_dict: Dict[int, CellInput],
     aff_map:    AffinityMap,
     item_racks: Dict[int, set[str]],
+    item_cells: Dict[int, set[int]],
 ) -> float:
     """
     FC_AFF (maks 20 poin):
@@ -197,37 +211,49 @@ def fc_affinity(
     cell_id = chromosome[gene_idx]
     item    = items[gene_idx]
     cell    = cells_dict.get(cell_id)
+
     if cell is None:
         return 0.0
 
+    # Prioritas tertinggi: item yang sama sudah ada di cell ini.
+    if item.item_id in cell.existing_item_ids:
+        return 20.0
+
+    # Hitung skor co-location dengan item lain dalam kromosom yang sama.
     colocated_idx = [
         j for j in range(len(chromosome))
         if chromosome[j] == cell_id and j != gene_idx
     ]
 
+    coloc_score = 0.0
     if colocated_idx:
         total_score = sum(
             get_affinity(item.item_id, items[j].item_id, aff_map)
             for j in colocated_idx
         )
-        avg_score = total_score / len(colocated_idx)   # 0.0 – 1.0
-        # Jika belum ada data afinitas (avg=0), kembalikan netral 10.0
-        # agar tidak menghukum colocation — konsisten dengan fc_split
-        if avg_score == 0.0:
-            return 10.0
-        return round(20.0 * avg_score, 6)
+        avg_score = total_score / len(colocated_idx)
 
-    # Item sendirian di cell: gunakan histori stok existing untuk tie-break
-    if item.item_id in cell.existing_item_ids:
-        return 20.0
+        if avg_score > 0.0:
+            coloc_score = 20.0 * avg_score
 
+    # Kontinuitas berdasarkan lokasi existing.
+    seen_cells = item_cells.get(item.item_id, set())
     seen_racks = item_racks.get(item.item_id, set())
+
     if seen_racks:
         if cell.rack_code and cell.rack_code in seen_racks:
-            return 16.0
-        return 8.0
+            continuity_score = 16.0
+        else:
+            # Item sudah ada di warehouse, tetapi dipilihkan rack/cell baru.
+            # Nilainya dibuat rendah agar GA tidak mudah menambah split location.
+            continuity_score = 2.0
+    elif seen_cells:
+        continuity_score = 2.0
+    else:
+        # Item benar-benar baru, belum ada histori lokasi.
+        continuity_score = 10.0
 
-    return 10.0  # Netral: item baru, belum ada histori cell/rack
+    return round(max(coloc_score, continuity_score), 6)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -238,6 +264,7 @@ def fc_split(
     gene_idx:   int,
     chromosome: List[int],
     items:      List[ItemInput],
+    item_cells: Dict[int, set[int]],
 ) -> float:
     """
     FC_SPLIT (maks 10 poin):
@@ -258,12 +285,24 @@ def fc_split(
         k ≥ 4 → ≤ 2.5
     """
     item = items[gene_idx]
-    cells_used = {
+
+    recommended_cells = {
         chromosome[j]
         for j in range(len(chromosome))
         if items[j].item_id == item.item_id
     }
-    k = len(cells_used)
+
+    existing_cells = item_cells.get(item.item_id, set())
+
+    # Jika item sudah punya lokasi existing, ukur apakah rekomendasi menambah lokasi baru.
+    if existing_cells:
+        added_cells = recommended_cells - existing_cells
+        added_count = len(added_cells)
+
+        return round(10.0 / (1 + added_count), 6)
+
+    # Jika item benar-benar baru, gunakan logika split dalam inbound order.
+    k = len(recommended_cells)
     return round(10.0 / k, 6) if k > 0 else 10.0
 
 
@@ -293,6 +332,7 @@ def evaluate_chromosome(
 
     gene_details: List[dict] = []
     item_racks = build_item_rack_map(cells_dict)
+    item_cells = build_item_cell_map(cells_dict)
 
     for i in range(n):
         cell = cells_dict.get(chromosome[i])
@@ -304,8 +344,8 @@ def evaluate_chromosome(
 
         cap   = fc_capacity(i, chromosome, items, cells_dict)
         cat   = fc_category(items[i], cell)
-        aff   = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks)
-        split = fc_split(i, chromosome, items)
+        aff = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks, item_cells)
+        split = fc_split(i, chromosome, items, item_cells)
 
         gene_fit = cap + cat + aff + split   # maks 40+30+20+10 = 100
         gene_details.append({
