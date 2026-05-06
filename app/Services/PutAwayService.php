@@ -113,20 +113,40 @@ class PutAwayService
             );
         }
 
-        // Validasi: qty yang ditempatkan harus sama dengan qty yang diterima di dock
-        if ($quantityStored !== $detail->quantity_received) {
+        // Validasi partial put-away:
+        // Qty boleh disimpan bertahap, tetapi total tidak boleh melebihi qty diterima.
+        $alreadyStored = (int) $detail->putAwayConfirmations()->sum('quantity_stored');
+        $remainingQty  = (int) $detail->quantity_received - $alreadyStored;
+
+        if ($remainingQty <= 0) {
+            throw new \Exception("Item '{$detail->item->name}' sudah tersimpan seluruhnya.");
+        }
+
+        if ($quantityStored > $remainingQty) {
             throw new \Exception(
-                "Qty yang ditempatkan ({$quantityStored}) harus sama dengan qty yang diterima ({$detail->quantity_received}). " .
-                "Gunakan cell yang cukup kapasitasnya."
+                "Qty yang ditempatkan ({$quantityStored}) melebihi sisa qty item ({$remainingQty})."
             );
+        }
+
+        // Jika konfirmasi mengikuti detail rekomendasi GA tertentu,
+        // qty harus sesuai dengan qty pada detail rekomendasi tersebut.
+        if ($gaDetail && $quantityStored !== (int) $gaDetail->quantity) {
+            throw new \Exception(
+                "Qty yang ditempatkan ({$quantityStored}) harus sesuai dengan qty rekomendasi GA ({$gaDetail->quantity})."
+            );
+        }
+
+        // Cegah detail rekomendasi GA yang sama dikonfirmasi dua kali
+        if ($gaDetail && PutAwayConfirmation::where('ga_recommendation_detail_id', $gaDetail->id)->exists()) {
+            throw new \Exception("Rekomendasi ke sel {$gaDetail->cell?->code} sudah pernah dikonfirmasi.");
         }
 
         // Validasi: cell harus berada di warehouse yang sama dengan inbound order
         $cell->loadMissing('rack.zone');
         $orderWarehouseId = $detail->inboundOrder->warehouse_id;
         $cellWarehouseId  = $cell->rack?->zone?->warehouse_id
-                         ?? $cell->rack?->warehouse_id
-                         ?? null;
+            ?? $cell->rack?->warehouse_id
+            ?? null;
         if ($cellWarehouseId !== $orderWarehouseId) {
             throw new \Exception(
                 "Sel {$cell->code} tidak berada di gudang yang sama dengan order ini. Scan sel dari gudang yang benar."
@@ -139,8 +159,14 @@ class PutAwayService
             : false;
 
         return DB::transaction(function () use (
-            $detail, $cell, $quantityStored, $userId,
-            $gaDetail, $followRecommendation, $notes
+            $detail,
+            $cell,
+            $quantityStored,
+            $userId,
+            $gaDetail,
+            $followRecommendation,
+            $notes,
+            $alreadyStored
         ) {
             // a) Catat konfirmasi
             $confirmation = PutAwayConfirmation::create([
@@ -178,8 +204,14 @@ class PutAwayService
             $cell->update(['capacity_used' => $newUsed]);
             $cell->updateStatus(); // auto-update status (available/partial/full)
 
-            // e) Tandai item ini selesai
-            $detail->update(['status' => 'put_away']);
+            // e) Update status item berdasarkan total qty yang sudah disimpan
+            $totalStoredAfter = $alreadyStored + $quantityStored;
+
+            $detail->update([
+                'status' => $totalStoredAfter >= $detail->quantity_received
+                    ? 'put_away'
+                    : 'partial_put_away',
+            ]);
 
             // f) Cek apakah seluruh order sudah selesai
             $this->checkAndCompleteOrder($detail->inboundOrder);
@@ -200,10 +232,10 @@ class PutAwayService
     public function resolveCellByQr(string $qrCode): Cell
     {
         $cell = Cell::where(function ($q) use ($qrCode) {
-                $q->where('qr_code', $qrCode)
-                  ->orWhere('code', $qrCode)
-                  ->orWhere('label', $qrCode);
-            })
+            $q->where('qr_code', $qrCode)
+                ->orWhere('code', $qrCode)
+                ->orWhere('label', $qrCode);
+        })
             ->where('is_active', true)
             ->with('rack.zone')
             ->first();

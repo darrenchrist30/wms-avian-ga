@@ -74,13 +74,13 @@ class PutAwayController extends Controller
             'details.inboundOrderItem.item',
             'generatedBy',
         ])
-        ->where('inbound_order_id', $orderId)
-        ->where('status', 'accepted')
-        ->latest()
-        ->firstOrFail();
+            ->where('inbound_order_id', $orderId)
+            ->where('status', 'accepted')
+            ->latest()
+            ->firstOrFail();
 
         // Buat map: inbound_detail_id → ga_detail (untuk tampil di view)
-        $gaDetailMap = $gaRecommendation->details->keyBy('inbound_order_item_id');
+        $gaDetailMap = $gaRecommendation->details->groupBy('inbound_order_item_id');
 
         // Progress: berapa item sudah selesai
         $totalItems    = $order->items->count();
@@ -88,8 +88,12 @@ class PutAwayController extends Controller
         $progressPct   = $totalItems > 0 ? round($doneItems / $totalItems * 100) : 0;
 
         return view('putaway.show', compact(
-            'order', 'gaRecommendation', 'gaDetailMap',
-            'totalItems', 'doneItems', 'progressPct'
+            'order',
+            'gaRecommendation',
+            'gaDetailMap',
+            'totalItems',
+            'doneItems',
+            'progressPct'
         ));
     }
 
@@ -134,6 +138,7 @@ class PutAwayController extends Controller
         $request->validate([
             'cell_id'          => 'required|exists:cells,id',
             'quantity_stored'  => 'required|integer|min:1',
+            'ga_detail_id'     => 'nullable|exists:ga_recommendation_details,id',
             'notes'            => 'nullable|string|max:255',
         ]);
 
@@ -143,21 +148,35 @@ class PutAwayController extends Controller
         $cell   = Cell::findOrFail($request->cell_id);
 
         // Cari GA detail yang jadi acuan (jika ada)
-        $gaDetail = GaRecommendationDetail::whereHas(
-            'gaRecommendation',
-            fn($q) => $q->where('inbound_order_id', $orderId)->where('status', 'accepted')
-        )
-        ->where('inbound_order_item_id', $detailId)
-        ->first();
+        $gaDetail = null;
+
+        if ($request->filled('ga_detail_id')) {
+            $gaDetail = GaRecommendationDetail::whereHas(
+                'gaRecommendation',
+                fn($q) => $q->where('inbound_order_id', $orderId)
+                    ->where('status', 'accepted')
+            )
+                ->where('id', $request->ga_detail_id)
+                ->where('inbound_order_item_id', $detailId)
+                ->firstOrFail();
+        } else {
+            $gaDetail = GaRecommendationDetail::whereHas(
+                'gaRecommendation',
+                fn($q) => $q->where('inbound_order_id', $orderId)
+                    ->where('status', 'accepted')
+            )
+                ->where('inbound_order_item_id', $detailId)
+                ->first();
+        }
 
         try {
             $confirmation = $this->putAwayService->confirmPlacement(
-                detail:         $detail,
-                cell:           $cell,
+                detail: $detail,
+                cell: $cell,
                 quantityStored: $request->quantity_stored,
-                userId:         auth()->id(),
-                gaDetail:       $gaDetail,
-                notes:          $request->notes,
+                userId: auth()->id(),
+                gaDetail: $gaDetail,
+                notes: $request->notes,
             );
 
             $order->refresh();
@@ -205,7 +224,7 @@ class PutAwayController extends Controller
             ->whereRaw('(capacity_max - capacity_used) > 0')
             ->where(function ($q) use ($order) {
                 $q->whereHas('rack', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id))
-                  ->orWhereHas('rack.zone', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id));
+                    ->orWhereHas('rack.zone', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id));
             })
             ->get()
             ->sortByDesc(function (Cell $cell) use ($zoneId, $qty) {
@@ -267,12 +286,12 @@ class PutAwayController extends Controller
         try {
             // Override = confirm tanpa ga_detail (follow_recommendation akan false)
             $this->putAwayService->confirmPlacement(
-                detail:         $detail,
-                cell:           $cell,
+                detail: $detail,
+                cell: $cell,
                 quantityStored: $request->quantity_stored,
-                userId:         auth()->id(),
-                gaDetail:       null,
-                notes:          '[OVERRIDE] ' . ($request->notes ?? ''),
+                userId: auth()->id(),
+                gaDetail: null,
+                notes: '[OVERRIDE] ' . ($request->notes ?? ''),
             );
 
             $order->refresh();

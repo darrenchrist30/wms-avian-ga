@@ -271,22 +271,13 @@ def fc_split(
     """
     FC_SPLIT (maks 10 poin):
 
-    Penalti jika satu SKU (item_id yang sama) dipecah ke lebih dari satu cell.
-    Konsolidasi SKU memudahkan picking dan meminimalkan order travel time.
-
-    Referensi: Van den Berg, J.P. (1999). A literature survey on planning and
-               control of warehousing systems. IIE Transactions, 31(8), 751-762.
-
-    Rumus:
-        k = jumlah cell unik yang menampung item dengan item_id ini
-        fc_split = 10 / k
-
-        k = 1 → 10 (tidak dipecah, sempurna)
-        k = 2 → 5
-        k = 3 → 3.33
-        k ≥ 4 → ≤ 2.5
+    Untuk partial allocation:
+    - Jika gene ditempatkan ke existing cell item tersebut, skor tetap 10.
+    - Jika gene ditempatkan ke cell baru, skor turun sesuai jumlah cell baru
+      yang ditambahkan oleh rekomendasi GA.
     """
     item = items[gene_idx]
+    current_cell = chromosome[gene_idx]
 
     recommended_cells = {
         chromosome[j]
@@ -296,14 +287,15 @@ def fc_split(
 
     existing_cells = item_cells.get(item.item_id, set())
 
-    # Jika item sudah punya lokasi existing, ukur apakah rekomendasi menambah lokasi baru.
     if existing_cells:
+        if current_cell in existing_cells:
+            return 10.0
+
         added_cells = recommended_cells - existing_cells
         added_count = len(added_cells)
 
         return round(10.0 / (1 + added_count), 6)
 
-    # Jika item benar-benar baru, gunakan logika split dalam inbound order.
     k = len(recommended_cells)
     return round(10.0 / k, 6) if k > 0 else 10.0
 

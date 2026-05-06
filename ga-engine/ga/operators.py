@@ -93,25 +93,37 @@ def initialize_population(
     # Untuk setiap item, pilih hanya dari cell yang sisa kapasitasnya ≥ qty item.
     # Fallback ke semua cell jika tidak ada yang feasible (mencegah dead-end).
     for _ in range(half):
-        chromosome: List[int] = []
-        for item in items:
-            feasible = [c.cell_id for c in cells if c.capacity_remaining >= item.quantity]
-            pool = feasible if feasible else cell_ids
-            chromosome.append(random.choice(pool))
-        population.append(chromosome)
+    chromosome: List[int] = []
+
+    for item in items:
+        if item.preferred_cell_id is not None:
+            chromosome.append(item.preferred_cell_id)
+            continue
+
+        feasible = [c.cell_id for c in cells if c.capacity_remaining >= item.quantity]
+        pool = feasible if feasible else cell_ids
+        chromosome.append(random.choice(pool))
+
+    population.append(chromosome)
 
     # ── b) Greedy ──────────────────────────────────────────────────────────
     sorted_cells  = sorted(cells, key=lambda c: c.capacity_remaining, reverse=True)
     top_cell_ids  = [c.cell_id for c in sorted_cells[:max(1, len(sorted_cells) // 2)]]
 
     for _ in range(pop_size - half):
-        chromosome: List[int] = []
-        for item in items:
-            if item.quantity <= sorted_cells[0].capacity_remaining:
-                chromosome.append(random.choice(top_cell_ids))
-            else:
-                chromosome.append(random.choice(cell_ids))
-        population.append(chromosome)
+    chromosome: List[int] = []
+
+    for item in items:
+        if item.preferred_cell_id is not None:
+            chromosome.append(item.preferred_cell_id)
+            continue
+
+        if item.quantity <= sorted_cells[0].capacity_remaining:
+            chromosome.append(random.choice(top_cell_ids))
+        else:
+            chromosome.append(random.choice(cell_ids))
+
+    population.append(chromosome)
 
     return population
 
@@ -263,13 +275,20 @@ def random_reset_mutation(
         feasible_pools = []
 
     mutated = chromosome.copy()
+
     for i in range(len(mutated)):
+        if items and items[i].preferred_cell_id is not None:
+            mutated[i] = items[i].preferred_cell_id
+            continue
+
         if random.random() < mutation_rate:
             if feasible_pools:
                 pool = feasible_pools[i] if feasible_pools[i] else cell_ids
             else:
                 pool = cell_ids
+
             mutated[i] = random.choice(pool)
+
     return mutated
 
 

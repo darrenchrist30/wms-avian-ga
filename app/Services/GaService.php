@@ -107,24 +107,15 @@ class GaService
     private function buildPayload(InboundOrder $order): array
     {
         // Item-item yang akan diproses (hanya yang belum put_away)
-        $items = $order->items()
+        // Ambil detail item mentah dulu.
+        // Quantity akan dipecah setelah sistem mengetahui existing cell dan kapasitasnya.
+        $rawDetails = $order->items()
             ->with('item.category')
-            ->whereIn('status', ['pending', 'recommended'])
+            ->whereIn('status', ['pending', 'recommended', 'partial_put_away'])
             ->where('quantity_received', '>', 0)
-            ->get()
-            ->map(fn(InboundOrderItem $detail) => [
-                'inbound_detail_id' => $detail->id,
-                'item_id'           => $detail->item_id,
-                'sku'               => $detail->item->sku,
-                'category_id'       => $detail->item->category_id,
-                'quantity'          => $detail->quantity_received,
-                'item_size'         => $detail->item->item_size ?? 'medium',
-                'movement_type'     => $detail->item->movement_type ?? 'slow_moving',
-            ])
-            ->values()
-            ->toArray();
+            ->get();
 
-        if (empty($items)) {
+        if ($rawDetails->isEmpty()) {
             throw new \Exception(
                 'Tidak ada item dengan quantity_received > 0. '
                     . 'Konfirmasi penerimaan fisik barang terlebih dahulu sebelum menjalankan GA.'
@@ -151,6 +142,91 @@ class GaService
             ->whereIn('status', ['available', 'reserved'])
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
+
+        // ─────────────────────────────────────────────────────────────
+        // Partial allocation:
+        // Isi existing cell yang sudah menyimpan item tersebut terlebih dahulu.
+        // Jika masih ada sisa quantity, sisanya dikirim ke GA sebagai chunk bebas.
+        // Contoh: SP-BRG-001 qty 35, cell 1-D sisa 10
+        // → chunk 10 dikunci ke 1-D, sisa 25 bebas dicari GA.
+        // ─────────────────────────────────────────────────────────────
+        $items = [];
+
+        foreach ($rawDetails as $detail) {
+            $remainingQty = (int) $detail->quantity_received;
+
+            // Cari cell existing yang sudah menyimpan item yang sama dan masih punya sisa kapasitas.
+            $existingCells = $cellsCollection
+                ->filter(function (Cell $cell) use ($detail, $existingItemIdsByCell) {
+                    $itemIdsRaw = $existingItemIdsByCell->get($cell->id);
+
+                    $existingIds = $itemIdsRaw
+                        ? array_values(array_map('intval', explode(',', (string) $itemIdsRaw)))
+                        : [];
+
+                    return in_array((int) $detail->item_id, $existingIds, true)
+                        && (($cell->capacity_max - $cell->capacity_used) > 0);
+                })
+                ->sortBy(function (Cell $cell) {
+                    return sprintf(
+                        '%05d-%s',
+                        (int) ($cell->rack?->code ?? 9999),
+                        $cell->code
+                    );
+                })
+                ->values();
+
+            // 1) Buat chunk locked untuk existing cell terlebih dahulu
+            foreach ($existingCells as $cell) {
+                if ($remainingQty <= 0) {
+                    break;
+                }
+
+                $cellRemaining = (int) ($cell->capacity_max - $cell->capacity_used);
+                $chunkQty = min($remainingQty, $cellRemaining);
+
+                if ($chunkQty <= 0) {
+                    continue;
+                }
+
+                $items[] = [
+                    'inbound_detail_id' => $detail->id,
+                    'item_id'           => $detail->item_id,
+                    'sku'               => $detail->item->sku,
+                    'category_id'       => $detail->item->category_id,
+                    'quantity'          => $chunkQty,
+                    'item_size'         => $detail->item->item_size ?? 'medium',
+                    'movement_type'     => $detail->item->movement_type ?? 'slow_moving',
+
+                    // Ini yang membuat chunk ini wajib ke cell existing tersebut.
+                    'preferred_cell_id' => $cell->id,
+                ];
+
+                $remainingQty -= $chunkQty;
+            }
+
+            // 2) Jika masih ada sisa, kirim sebagai chunk bebas ke GA
+            if ($remainingQty > 0) {
+                $items[] = [
+                    'inbound_detail_id' => $detail->id,
+                    'item_id'           => $detail->item_id,
+                    'sku'               => $detail->item->sku,
+                    'category_id'       => $detail->item->category_id,
+                    'quantity'          => $remainingQty,
+                    'item_size'         => $detail->item->item_size ?? 'medium',
+                    'movement_type'     => $detail->item->movement_type ?? 'slow_moving',
+
+                    // Null berarti GA bebas memilih cell terbaik.
+                    'preferred_cell_id' => null,
+                ];
+            }
+        }
+
+        if (empty($items)) {
+            throw new \Exception(
+                'Tidak ada item yang dapat diproses GA setelah partial allocation.'
+            );
+        }
 
         $cells = $cellsCollection
             ->map(function (Cell $cell) use ($existingItemIdsByCell) {

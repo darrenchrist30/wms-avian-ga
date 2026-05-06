@@ -6,15 +6,39 @@
     <style>
         /* ── Camera scanner ── */
         @keyframes scanMove {
-            0%   { top: 8%;  opacity: 1; }
-            45%  { top: 82%; opacity: .7; }
-            55%  { top: 82%; opacity: .7; }
-            100% { top: 8%;  opacity: 1; }
+            0% {
+                top: 8%;
+                opacity: 1;
+            }
+
+            45% {
+                top: 82%;
+                opacity: .7;
+            }
+
+            55% {
+                top: 82%;
+                opacity: .7;
+            }
+
+            100% {
+                top: 8%;
+                opacity: 1;
+            }
         }
+
         @keyframes scanPulse {
-            0%, 100% { box-shadow: 0 0 4px #0d8564, 0 0 12px #0d856440; }
-            50%       { box-shadow: 0 0 8px #0d8564, 0 0 24px #0d856480; }
+
+            0%,
+            100% {
+                box-shadow: 0 0 4px #0d8564, 0 0 12px #0d856440;
+            }
+
+            50% {
+                box-shadow: 0 0 8px #0d8564, 0 0 24px #0d856480;
+            }
         }
+
         #cameraViewport {
             position: relative;
             border-radius: 10px;
@@ -22,42 +46,82 @@
             background: #000;
             min-height: 200px;
         }
+
         /* html5-qrcode injects its own video element — normalize it */
         #qrCameraReader video {
             width: 100% !important;
             height: auto !important;
             display: block;
         }
-        #qrCameraReader img { display: none; } /* hide default icon */
+
+        #qrCameraReader img {
+            display: none;
+        }
+
+        /* hide default icon */
         #scanLine {
             position: absolute;
-            left: 8%; width: 84%;
+            left: 8%;
+            width: 84%;
             height: 2px;
             background: linear-gradient(90deg, transparent, #0d8564 40%, #38c172, #0d8564 60%, transparent);
             animation: scanMove 2s ease-in-out infinite, scanPulse 2s ease-in-out infinite;
             z-index: 10;
             pointer-events: none;
         }
+
         .cam-corner {
             position: absolute;
-            width: 28px; height: 28px;
+            width: 28px;
+            height: 28px;
             border-color: #0d8564;
             border-style: solid;
             z-index: 9;
             pointer-events: none;
         }
-        #camCornTL { top: 10%; left: 8%;  border-width: 3px 0 0 3px; border-radius: 3px 0 0 0; }
-        #camCornTR { top: 10%; right: 8%; border-width: 3px 3px 0 0; border-radius: 0 3px 0 0; }
-        #camCornBL { bottom: 10%; left: 8%;  border-width: 0 0 3px 3px; border-radius: 0 0 0 3px; }
-        #camCornBR { bottom: 10%; right: 8%; border-width: 0 3px 3px 0; border-radius: 0 0 3px 0; }
+
+        #camCornTL {
+            top: 10%;
+            left: 8%;
+            border-width: 3px 0 0 3px;
+            border-radius: 3px 0 0 0;
+        }
+
+        #camCornTR {
+            top: 10%;
+            right: 8%;
+            border-width: 3px 3px 0 0;
+            border-radius: 0 3px 0 0;
+        }
+
+        #camCornBL {
+            bottom: 10%;
+            left: 8%;
+            border-width: 0 0 3px 3px;
+            border-radius: 0 0 0 3px;
+        }
+
+        #camCornBR {
+            bottom: 10%;
+            right: 8%;
+            border-width: 0 3px 3px 0;
+            border-radius: 0 0 3px 0;
+        }
+
         #cameraScanSuccess {
             display: none;
-            position: absolute; inset: 0;
+            position: absolute;
+            inset: 0;
             background: rgba(13, 133, 100, .38);
-            align-items: center; justify-content: center;
-            z-index: 12; border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            z-index: 12;
+            border-radius: 10px;
         }
-        #cameraScanSuccess.visible { display: flex; }
+
+        #cameraScanSuccess.visible {
+            display: flex;
+        }
 
         /* ── Send To box ── */
         .send-to-cell {
@@ -169,10 +233,19 @@
 
         /* ── Row save flash ── */
         @keyframes rowSaveFlash {
-            0%   { background: #b8f0ca; }
-            70%  { background: #c6f8d5; }
-            100% { background: #f1fff5; }
+            0% {
+                background: #b8f0ca;
+            }
+
+            70% {
+                background: #c6f8d5;
+            }
+
+            100% {
+                background: #f1fff5;
+            }
         }
+
         tr.row-save-flash td {
             animation: rowSaveFlash 1s ease-out forwards;
         }
@@ -185,28 +258,36 @@
         @php
             /* ── Kapasitas per cell ──────────────────────────────────── */
             $cellCapInfo = [];
+
             foreach ($order->items as $detail) {
                 if ($detail->status === 'put_away') {
                     continue;
                 }
-                $gd = $gaDetailMap[$detail->id] ?? null;
-                if (!$gd || !$gd->cell) {
-                    continue;
+
+                $gdList = $gaDetailMap->get($detail->id, collect());
+
+                foreach ($gdList as $gd) {
+                    if (!$gd || !$gd->cell) {
+                        continue;
+                    }
+
+                    $cid = $gd->cell_id;
+
+                    if (!isset($cellCapInfo[$cid])) {
+                        $cellCapInfo[$cid] = [
+                            'code' => $gd->cell->code,
+                            'zone' => $gd->cell->zone_category ?? '-',
+                            'rack' => $gd->cell->rack->code ?? '-',
+                            'remaining' => $gd->cell->capacity_remaining,
+                            'max' => $gd->cell->capacity_max,
+                            'item_count' => 0,
+                            'total_qty' => 0,
+                        ];
+                    }
+
+                    $cellCapInfo[$cid]['item_count']++;
+                    $cellCapInfo[$cid]['total_qty'] += $gd->quantity;
                 }
-                $cid = $gd->cell_id;
-                if (!isset($cellCapInfo[$cid])) {
-                    $cellCapInfo[$cid] = [
-                        'code' => $gd->cell->code,
-                        'zone' => $gd->cell->zone_category ?? '-',
-                        'rack' => $gd->cell->rack->code ?? '-',
-                        'remaining' => $gd->cell->capacity_remaining,
-                        'max' => $gd->cell->capacity_max,
-                        'item_count' => 0,
-                        'total_qty' => 0,
-                    ];
-                }
-                $cellCapInfo[$cid]['item_count']++;
-                $cellCapInfo[$cid]['total_qty'] += $detail->quantity_received;
             }
             $hasOverflow = collect($cellCapInfo)->contains(fn($c) => $c['total_qty'] > $c['remaining']);
             $doneCount = $order->items->where('status', 'put_away')->count();
@@ -313,9 +394,10 @@
                 @php
                     $pendingItems = $order->items->where('status', '!=', 'put_away');
                     $pendingCount = $pendingItems->count();
-                    $pendingQty   = $pendingItems->sum('quantity_received');
+                    $pendingQty = $pendingItems->sum('quantity_received');
                 @endphp
-                <div class="card h-100 mb-0" style="border:2px solid {{ $pendingCount === 0 ? '#28a745' : '#fd7e14' }};border-radius:8px">
+                <div class="card h-100 mb-0"
+                    style="border:2px solid {{ $pendingCount === 0 ? '#28a745' : '#fd7e14' }};border-radius:8px">
                     <div class="card-body py-3">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
@@ -340,9 +422,10 @@
                             </div>
                             <div class="text-right">
                                 <div class="text-muted mb-1" style="font-size:10px;letter-spacing:.3px">SKOR GA</div>
-                                <span class="badge badge-{{ $gaRecommendation->fitness_score >= 70 ? 'success' : ($gaRecommendation->fitness_score >= 50 ? 'warning' : 'danger') }}"
-                                      style="font-size:14px;padding:5px 9px"
-                                      title="Fitness score algoritma GA — makin tinggi makin optimal penempatan">
+                                <span
+                                    class="badge badge-{{ $gaRecommendation->fitness_score >= 70 ? 'success' : ($gaRecommendation->fitness_score >= 50 ? 'warning' : 'danger') }}"
+                                    style="font-size:14px;padding:5px 9px"
+                                    title="Fitness score algoritma GA — makin tinggi makin optimal penempatan">
                                     {{ number_format($gaRecommendation->fitness_score, 1) }}
                                     <span style="font-size:9px;opacity:.75">/ 100</span>
                                 </span>
@@ -350,14 +433,18 @@
                                 {{-- Termination info: bukti eksperimen Bab 4 --}}
                                 <div class="mt-2" style="font-size:10px;line-height:1.6;color:#6c757d;text-align:right">
                                     <span title="Jumlah generasi yang dijalankan GA hingga terminasi">
-                                        <i class="fas fa-dna mr-1"></i>{{ $gaRecommendation->generations_run ?? '—' }} generasi
+                                        <i class="fas fa-dna mr-1"></i>{{ $gaRecommendation->generations_run ?? '—' }}
+                                        generasi
                                     </span><br>
                                     <span title="Waktu eksekusi GA engine (Python)">
-                                        <i class="fas fa-clock mr-1"></i>{{ number_format($gaRecommendation->execution_time_ms ?? 0) }} ms
+                                        <i
+                                            class="fas fa-clock mr-1"></i>{{ number_format($gaRecommendation->execution_time_ms ?? 0) }}
+                                        ms
                                     </span>
-                                    @if($gaRecommendation->parameters_json)
+                                    @if ($gaRecommendation->parameters_json)
                                         @php $p = is_array($gaRecommendation->parameters_json) ? $gaRecommendation->parameters_json : json_decode($gaRecommendation->parameters_json, true); @endphp
-                                        <br><span title="Parameter GA: pop={{ $p['population'] ?? '—' }}, mut={{ $p['mutation_rate'] ?? '—' }}, stop={{ $p['early_stopping'] ?? '—' }}">
+                                        <br><span
+                                            title="Parameter GA: pop={{ $p['population'] ?? '—' }}, mut={{ $p['mutation_rate'] ?? '—' }}, stop={{ $p['early_stopping'] ?? '—' }}">
                                             <i class="fas fa-sliders-h mr-1"></i>pop={{ $p['population'] ?? '—' }}
                                         </span>
                                     @endif
@@ -365,7 +452,8 @@
                             </div>
                         </div>
                         @if ($pendingCount > 0)
-                            <div class="mt-2 px-2 py-1 rounded" style="background:#fff8f0;border:1px solid #ffd4a8;font-size:11px">
+                            <div class="mt-2 px-2 py-1 rounded"
+                                style="background:#fff8f0;border:1px solid #ffd4a8;font-size:11px">
                                 <i class="fas fa-lightbulb mr-1 text-warning"></i>
                                 <strong>Tips:</strong> Scan QR di rak fisik → jika cocok GA, tersimpan
                                 <strong>otomatis</strong> tanpa tombol tambahan.
@@ -404,13 +492,14 @@
                 <div class="col-md-12">
                     <div class="callout callout-info mb-0 py-2">
                         <h6 class="mb-0">
-                            <a data-toggle="collapse" href="#panduanCollapse" role="button"
-                               aria-expanded="false" aria-controls="panduanCollapse"
-                               style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:6px">
+                            <a data-toggle="collapse" href="#panduanCollapse" role="button" aria-expanded="false"
+                                aria-controls="panduanCollapse"
+                                style="color:inherit;text-decoration:none;display:flex;align-items:center;gap:6px">
                                 <i class="fas fa-route"></i>
                                 <span>Panduan Alur Put-Away</span>
                                 <small class="text-muted font-weight-normal">(klik untuk lihat / sembunyikan)</small>
-                                <i class="fas fa-chevron-down ml-auto" style="font-size:10px;transition:transform .2s"></i>
+                                <i class="fas fa-chevron-down ml-auto"
+                                    style="font-size:10px;transition:transform .2s"></i>
                             </a>
                         </h6>
                         <div class="collapse" id="panduanCollapse">
@@ -497,7 +586,8 @@
                                         <div class="d-flex justify-content-between" style="font-size:11px">
                                             <span>{{ $cap['item_count'] }} item · {{ $cap['total_qty'] }} unit
                                                 order</span>
-                                            <span class="{{ $isCapOver ? 'text-danger font-weight-bold' : 'text-muted' }}">
+                                            <span
+                                                class="{{ $isCapOver ? 'text-danger font-weight-bold' : 'text-muted' }}">
                                                 Sisa: {{ $cap['remaining'] }}/{{ $cap['max'] }}
                                             </span>
                                         </div>
@@ -685,17 +775,20 @@
                                             $capMax > 0 ? min(100 - $usedPct, round(($orderQty / $capMax) * 100)) : 0;
                                         $rowClass = $isDone ? 'row-done' : ($isOver ? 'row-overflow' : 'row-pending');
                                         $isNext = !$isDone && !$firstPendingShown && $order->status !== 'completed';
-                                        if ($isNext) $firstPendingShown = true;
+                                        if ($isNext) {
+                                            $firstPendingShown = true;
+                                        }
                                     @endphp
                                     <tr class="{{ $rowClass }}" id="row-{{ $detail->id }}"
-                                        @if($isNext) style="outline:2px solid #28a745;outline-offset:-1px" @endif>
+                                        @if ($isNext) style="outline:2px solid #28a745;outline-offset:-1px" @endif>
 
                                         {{-- No. --}}
                                         <td class="text-center align-middle font-weight-bold text-muted">
                                             {{ $i + 1 }}
                                             @if ($isNext)
                                                 <div class="mt-1">
-                                                    <span class="badge badge-success" style="font-size:9px;white-space:nowrap">
+                                                    <span class="badge badge-success"
+                                                        style="font-size:9px;white-space:nowrap">
                                                         <i class="fas fa-arrow-right mr-1"></i>Berikutnya
                                                     </span>
                                                 </div>
@@ -776,7 +869,8 @@
                                                             @endif
                                                         </small>
                                                     @endif
-                                                    <small class="text-muted d-block mt-1" style="font-size:10px;border-top:1px solid #d4edda;padding-top:4px">
+                                                    <small class="text-muted d-block mt-1"
+                                                        style="font-size:10px;border-top:1px solid #d4edda;padding-top:4px">
                                                         <i class="fas fa-user-check mr-1"></i>
                                                         <strong>{{ $confirm->user?->name ?? '-' }}</strong>
                                                         &middot;
@@ -798,10 +892,9 @@
                                                                 GA Suggest
                                                             </span>
                                                             <a href="{{ route('warehouse3d.index', ['highlight_cell_id' => $gaDetail->cell_id]) }}"
-                                                               target="_blank"
-                                                               title="Lihat posisi cell ini di denah 3D"
-                                                               class="badge badge-dark"
-                                                               style="font-size:9px;text-decoration:none">
+                                                                target="_blank" title="Lihat posisi cell ini di denah 3D"
+                                                                class="badge badge-dark"
+                                                                style="font-size:9px;text-decoration:none">
                                                                 <i class="fas fa-cube mr-1"></i>3D
                                                             </a>
                                                         </div>
@@ -841,7 +934,8 @@
                                                                 <span class="text-danger">
                                                                     <i class="fas fa-times-circle"></i>
                                                                     Kelebihan
-                                                                    {{ $capInfo['total_qty'] - $capInfo['remaining'] }} unit
+                                                                    {{ $capInfo['total_qty'] - $capInfo['remaining'] }}
+                                                                    unit
                                                                 </span>
                                                             @else
                                                                 <span class="text-success">
@@ -1023,7 +1117,8 @@
 
                 {{-- ── Saving overlay (tampil saat AJAX berlangsung) ── --}}
                 <div id="modalSavingOverlay" style="display:none">
-                    <div style="background:#fff;border-radius:10px;
+                    <div
+                        style="background:#fff;border-radius:10px;
                                 padding:2.2em 3em;text-align:center;
                                 box-shadow:0 0 0 1px rgba(0,0,0,.06),0 8px 28px rgba(0,0,0,.18);
                                 min-width:260px">
@@ -1048,7 +1143,7 @@
 
                 {{-- ── Item info strip ── --}}
                 <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom"
-                     style="background:#f8f9fa">
+                    style="background:#f8f9fa">
                     <div style="font-size:13px">
                         <span class="text-muted">Item: </span>
                         <strong id="confirmItemName">-</strong>
@@ -1078,7 +1173,7 @@
                                 {{-- Flash sukses ─ hijau sebentar saat terdeteksi --}}
                                 <div id="cameraScanSuccess">
                                     <i class="fas fa-check-circle"
-                                       style="color:#fff;font-size:52px;
+                                        style="color:#fff;font-size:52px;
                                               text-shadow:0 2px 12px rgba(0,0,0,.4);
                                               animation:none"></i>
                                 </div>
@@ -1086,15 +1181,13 @@
                             {{-- Controls: pilih kamera + torch + tutup --}}
                             <div class="d-flex align-items-center mt-2" style="gap:6px">
                                 <select id="cameraSelect" class="form-control form-control-sm"
-                                        style="flex:1;font-size:12px"></select>
-                                <button type="button" id="btnTorch"
-                                        class="btn btn-sm btn-outline-secondary"
-                                        style="display:none;flex-shrink:0" title="Flash/Torch">
+                                    style="flex:1;font-size:12px"></select>
+                                <button type="button" id="btnTorch" class="btn btn-sm btn-outline-secondary"
+                                    style="display:none;flex-shrink:0" title="Flash/Torch">
                                     <i class="fas fa-bolt"></i>
                                 </button>
-                                <button type="button" id="btnCloseCamera"
-                                        class="btn btn-sm btn-outline-danger"
-                                        style="flex-shrink:0">
+                                <button type="button" id="btnCloseCamera" class="btn btn-sm btn-outline-danger"
+                                    style="flex-shrink:0">
                                     <i class="fas fa-times mr-1"></i>Tutup
                                 </button>
                             </div>
@@ -1105,11 +1198,12 @@
 
                         {{-- ── TOMBOL BUKA KAMERA ── --}}
                         <button type="button" id="btnOpenCamera" class="btn btn-block mb-3"
-                                style="background:#1a2332;color:#fff;border:none;border-radius:8px;
+                            style="background:#1a2332;color:#fff;border:none;border-radius:8px;
                                        padding:11px 16px;font-size:14px;font-weight:600;
                                        box-shadow:0 3px 10px rgba(0,0,0,.18)">
                             <i class="fas fa-camera mr-2"></i>Scan dengan Kamera
-                            <span style="font-size:10px;background:rgba(255,255,255,.15);
+                            <span
+                                style="font-size:10px;background:rgba(255,255,255,.15);
                                          padding:2px 8px;border-radius:10px;margin-left:6px">
                                 QR &amp; Barcode 1D/2D
                             </span>
@@ -1127,20 +1221,17 @@
                         {{-- ── INPUT MANUAL (fisik scanner / keyboard) ── --}}
                         <div class="input-group mb-2" style="box-shadow:0 2px 8px rgba(0,0,0,.08)">
                             <div class="input-group-prepend">
-                                <span class="input-group-text"
-                                      style="background:#1a2332;border-color:#1a2332">
+                                <span class="input-group-text" style="background:#1a2332;border-color:#1a2332">
                                     <i class="fas fa-qrcode text-white" style="font-size:16px"></i>
                                 </span>
                             </div>
-                            <input type="text" id="modalQrInput"
-                                   class="form-control"
-                                   placeholder="Scan pistol / ketik kode cell…"
-                                   autocomplete="off"
-                                   style="font-size:16px;font-weight:600;
+                            <input type="text" id="modalQrInput" class="form-control"
+                                placeholder="Scan pistol / ketik kode cell…" autocomplete="off"
+                                style="font-size:16px;font-weight:600;
                                           letter-spacing:.5px;border-color:#dee2e6">
                             <div class="input-group-append">
                                 <button class="btn" type="button" id="btnModalScanQr"
-                                        style="background:#1a2332;color:#fff;
+                                    style="background:#1a2332;color:#fff;
                                                border-color:#1a2332;font-size:13px">
                                     <i class="fas fa-search mr-1"></i>Cari
                                 </button>
@@ -1162,13 +1253,11 @@
                             <span class="text-muted px-2" style="font-size:11px;white-space:nowrap">atau</span>
                             <hr style="flex:1;margin:0">
                         </div>
-                        <button type="button" id="btnSkipScan"
-                                class="btn btn-outline-secondary btn-block"
-                                style="font-size:13px">
+                        <button type="button" id="btnSkipScan" class="btn btn-outline-secondary btn-block"
+                            style="font-size:13px">
                             <i class="fas fa-forward mr-1"></i>
                             Lanjut tanpa scan — pakai rekomendasi GA
-                            <span class="badge badge-primary ml-1" id="skipGaCellCode"
-                                  style="font-size:11px"></span>
+                            <span class="badge badge-primary ml-1" id="skipGaCellCode" style="font-size:11px"></span>
                         </button>
                         <small class="text-muted d-block text-center mt-2" style="font-size:11px">
                             Pilih ini jika QR belum tersedia di rak fisik
@@ -1182,11 +1271,11 @@
 
                         {{-- Cell result card --}}
                         <div id="cellResultCard" class="mx-3 mt-3 mb-2 p-3 rounded"
-                             style="border:2px solid #28a745;background:#f0fff4">
+                            style="border:2px solid #28a745;background:#f0fff4">
                             <div class="d-flex align-items-center justify-content-between">
                                 <div>
                                     <div style="font-size:28px;font-weight:800;letter-spacing:1px;line-height:1"
-                                         id="resultCellCode">—</div>
+                                        id="resultCellCode">—</div>
                                     <div class="text-muted mt-1" style="font-size:12px" id="resultCellMeta"></div>
                                 </div>
                                 <div class="text-right">
@@ -1204,15 +1293,21 @@
 
                         {{-- Perbandingan Rekomendasi GA vs Cell yang Dipilih --}}
                         <div id="gaComparePanel" class="mx-3 mt-2 mb-0 p-2 rounded"
-                             style="display:none;background:#f8f9fa;border:1px solid #dee2e6;font-size:12px">
+                            style="display:none;background:#f8f9fa;border:1px solid #dee2e6;font-size:12px">
                             <div class="row no-gutters mb-1">
                                 <div class="col-6 pr-1">
-                                    <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Rekomendasi GA</span>
-                                    <span class="font-weight-bold" id="gaCompareGaCell" style="font-size:15px;color:#0056b3">—</span>
+                                    <span class="text-muted d-block"
+                                        style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Rekomendasi
+                                        GA</span>
+                                    <span class="font-weight-bold" id="gaCompareGaCell"
+                                        style="font-size:15px;color:#0056b3">—</span>
                                 </div>
                                 <div class="col-6 pl-1">
-                                    <span class="text-muted d-block" style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Cell Dipilih</span>
-                                    <span class="font-weight-bold" id="gaCompareScannedCell" style="font-size:15px;color:#155724">—</span>
+                                    <span class="text-muted d-block"
+                                        style="font-size:10px;text-transform:uppercase;letter-spacing:.4px">Cell
+                                        Dipilih</span>
+                                    <span class="font-weight-bold" id="gaCompareScannedCell"
+                                        style="font-size:15px;color:#155724">—</span>
                                 </div>
                             </div>
                             <div id="gaCompareStatus"></div>
@@ -1220,7 +1315,7 @@
 
                         {{-- Warning kapasitas --}}
                         <div id="resultCapWarning" class="alert alert-warning mx-3 py-2 mb-0"
-                             style="display:none;font-size:12px">
+                            style="display:none;font-size:12px">
                             <i class="fas fa-exclamation-triangle mr-1"></i>
                             <span id="resultCapWarningText"></span>
                         </div>
@@ -1234,11 +1329,11 @@
                                 </label>
                             </div>
                             <div id="qtyDisplay"
-                                 style="font-size:32px;font-weight:800;text-align:center;
+                                style="font-size:32px;font-weight:800;text-align:center;
                                         color:#0d8564;line-height:1.1;padding:6px 0"
-                                 id="qtyDisplayNum">-</div>
-                            <input type="number" id="confirmQty" class="form-control"
-                                   min="1" style="display:none;font-size:22px;font-weight:700;
+                                id="qtyDisplayNum">-</div>
+                            <input type="number" id="confirmQty" class="form-control" min="1"
+                                style="display:none;font-size:22px;font-weight:700;
                                    text-align:center;border:2px solid #0d8564">
                             <div class="text-muted text-center" style="font-size:11px" id="qtyUnitLabel"></div>
                         </div>
@@ -1246,7 +1341,7 @@
                         {{-- Catatan --}}
                         <div class="px-3 pb-2">
                             <input type="text" id="confirmNotes" class="form-control form-control-sm"
-                                   placeholder="Catatan opsional…">
+                                placeholder="Catatan opsional…">
                         </div>
 
                         {{-- Tombol scan ulang --}}
@@ -1267,7 +1362,7 @@
                     {{-- Phase 1: tombol ini tersembunyi --}}
                     {{-- Phase 2: tombol utama besar --}}
                     <button type="button" class="btn btn-success" id="btnDoConfirm"
-                            style="display:none;font-size:15px;padding:8px 28px;font-weight:700;
+                        style="display:none;font-size:15px;padding:8px 28px;font-weight:700;
                                    box-shadow:0 3px 10px rgba(40,167,69,.35)">
                         <i class="fas fa-check-circle mr-2"></i>Konfirmasi Sekarang
                     </button>
@@ -1282,46 +1377,55 @@
     {{-- html5-qrcode: support QR Code, Code128, Code39, EAN, DataMatrix, dll --}}
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>
-        const orderId    = {{ $order->id }};
-        const scanQrUrl  = "{{ route('putaway.scan-qr') }}";
+        const orderId = {{ $order->id }};
+        const scanQrUrl = "{{ route('putaway.scan-qr') }}";
         const altCellUrl = "{{ route('putaway.alternative-cells', $order->id) }}";
-        const csrfToken  = $('meta[name="csrf-token"]').attr('content');
+        const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
         // ── State ─────────────────────────────────────────────────────────────────────
-        let selectedCellMap = {};   // cell dipilih dari modal alternatif, per item
+        let selectedCellMap = {}; // cell dipilih dari modal alternatif, per item
         let currentDetailId = null;
-        let isOverride      = false;
-        let modalCell       = null; // cell aktif di phase 2
-        let modalGaCell     = null; // referensi GA (untuk match indicator)
-        let modalQty        = 0;    // qty inbound item saat ini
-        let qtyEditing      = false;
+        let isOverride = false;
+        let modalCell = null; // cell aktif di phase 2
+        let modalGaCell = null; // referensi GA (untuk match indicator)
+        let modalQty = 0; // qty inbound item saat ini
+        let qtyEditing = false;
 
         // ── QR SCAN (panel atas — opsional global) ───────────────────────────────────
         function doScanQr(code) {
             if (!code) return;
             $.ajax({
-                url: scanQrUrl, method: 'POST',
-                data: { _token: csrfToken, qr_code: code },
+                url: scanQrUrl,
+                method: 'POST',
+                data: {
+                    _token: csrfToken,
+                    qr_code: code
+                },
                 success: function(res) {
                     const c = res.cell;
                     const rem = c.capacity_remaining || 0;
                     const max = c.capacity_max || 0;
                     const pct = max > 0 ? Math.min(100, Math.round((max - rem) / max * 100)) : 0;
                     $('#qrCellCode').text(c.code);
-                    $('#qrCellMeta').text('Zone ' + (c.zone_category || '-') + ' · Rack ' + (c.rack_code || '-'));
+                    $('#qrCellMeta').text('Zone ' + (c.zone_category || '-') + ' · Rack ' + (c.rack_code ||
+                        '-'));
                     $('#qrCellCap').text(rem + ' / ' + max + ' unit');
                     $('#qrCapBar').css('width', pct + '%');
                     $('#qrResultPanel').show();
                     $('#qrInput').val('');
                 },
                 error: function(xhr) {
-                    Swal.fire('Cell Tidak Ditemukan', xhr.responseJSON?.message || 'Kode tidak dikenali.', 'error');
+                    Swal.fire('Cell Tidak Ditemukan', xhr.responseJSON?.message || 'Kode tidak dikenali.',
+                        'error');
                 }
             });
         }
         $('#btnScanQr').on('click', () => doScanQr($('#qrInput').val().trim()));
         $('#qrInput').on('keydown', function(e) {
-            if (e.key === 'Enter') { doScanQr($(this).val().trim()); e.preventDefault(); }
+            if (e.key === 'Enter') {
+                doScanQr($(this).val().trim());
+                e.preventDefault();
+            }
         });
         $('#btnClearQr').on('click', function() {
             $('#qrResultPanel').hide();
@@ -1439,7 +1543,7 @@
                 .addClass('badge-success').text('Dipilih Alternatif');
             $('#sendToMeta-' + currentDetailId)
                 .html(
-                '<span class="text-success"><i class="fas fa-check-circle mr-1"></i>Siap dikonfirmasi</span>');
+                    '<span class="text-success"><i class="fas fa-check-circle mr-1"></i>Siap dikonfirmasi</span>');
             $('#sendToCapStatus-' + currentDetailId).html(
                 fits ?
                 '<span class="text-success"><i class="fas fa-check-circle"></i> Muat semua</span>' :
@@ -1481,16 +1585,25 @@
             $('#modalConfirm').data('cell-id', cell.id);
 
             // ── Card cell ──
-            const isMatch   = modalGaCell && cell.id === modalGaCell.id;
-            const isDiff    = modalGaCell && cell.id !== modalGaCell.id;
-            const isGaSkip  = cell.source === 'ga';
+            const isMatch = modalGaCell && cell.id === modalGaCell.id;
+            const isDiff = modalGaCell && cell.id !== modalGaCell.id;
+            const isGaSkip = cell.source === 'ga';
 
             // Warna card: scan-match=hijau, scan-beda=oranye, ga-skip=biru
-            let cardBorder = '#28a745', cardBg = '#f0fff4';
-            if (isGaSkip)       { cardBorder = '#007bff'; cardBg = '#f0f7ff'; }
-            else if (isDiff)    { cardBorder = '#fd7e14'; cardBg = '#fff8f0'; }
+            let cardBorder = '#28a745',
+                cardBg = '#f0fff4';
+            if (isGaSkip) {
+                cardBorder = '#007bff';
+                cardBg = '#f0f7ff';
+            } else if (isDiff) {
+                cardBorder = '#fd7e14';
+                cardBg = '#fff8f0';
+            }
 
-            $('#cellResultCard').css({ borderColor: cardBorder, background: cardBg });
+            $('#cellResultCard').css({
+                borderColor: cardBorder,
+                background: cardBg
+            });
             $('#resultCellCode').text(cell.code);
             $('#resultCellMeta').text(
                 (cell.zone_category ? 'Zone ' + cell.zone_category + ' · ' : '') +
@@ -1502,9 +1615,12 @@
             if (isGaSkip) {
                 badgeHtml = '<span class="badge badge-primary"><i class="fas fa-dna mr-1"></i>Rekomendasi GA</span>';
             } else if (isMatch) {
-                badgeHtml = '<span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Cocok dengan GA ✓</span>';
+                badgeHtml =
+                    '<span class="badge badge-success"><i class="fas fa-check-circle mr-1"></i>Cocok dengan GA ✓</span>';
             } else if (isDiff) {
-                badgeHtml = '<span class="badge badge-warning text-dark"><i class="fas fa-exclamation-triangle mr-1"></i>Beda dari GA (' + modalGaCell.code + ')</span>';
+                badgeHtml =
+                    '<span class="badge badge-warning text-dark"><i class="fas fa-exclamation-triangle mr-1"></i>Beda dari GA (' +
+                    modalGaCell.code + ')</span>';
             } else {
                 badgeHtml = '<span class="badge badge-secondary">Scan QR</span>';
             }
@@ -1527,7 +1643,8 @@
                     capOk = false;
                 } else if (modalQty > rem) {
                     $('#resultCapWarningText').html(
-                        'Kapasitas tidak cukup: butuh <strong>' + modalQty + '</strong> unit, tersedia <strong>' + rem + '</strong> unit. ' +
+                        'Kapasitas tidak cukup: butuh <strong>' + modalQty + '</strong> unit, tersedia <strong>' + rem +
+                        '</strong> unit. ' +
                         'Scan atau pilih cell lain yang muat.'
                     );
                     $('#resultCapWarning').show();
@@ -1585,9 +1702,9 @@
         const MIN_LOADER_MS = 800; // minimum durasi overlay terlihat
 
         function doSaveConfirm(cellId, qty, notes, cellCode) {
-            const url = isOverride
-                ? `/putaway/${orderId}/items/${currentDetailId}/override`
-                : `/putaway/${orderId}/items/${currentDetailId}/confirm`;
+            const url = isOverride ?
+                `/putaway/${orderId}/items/${currentDetailId}/override` :
+                `/putaway/${orderId}/items/${currentDetailId}/confirm`;
 
             // Catat waktu mulai — untuk hitung sisa minimum durasi
             const overlayStart = Date.now();
@@ -1600,14 +1717,20 @@
 
             // Helper: jalankan fn setelah minimum durasi overlay terpenuhi
             function afterMinLoader(fn) {
-                const elapsed  = Date.now() - overlayStart;
+                const elapsed = Date.now() - overlayStart;
                 const waitMore = Math.max(0, MIN_LOADER_MS - elapsed);
                 setTimeout(fn, waitMore);
             }
 
             $.ajax({
-                url, method: 'POST',
-                data: { _token: csrfToken, cell_id: cellId, quantity_stored: qty, notes: notes || '' },
+                url,
+                method: 'POST',
+                data: {
+                    _token: csrfToken,
+                    cell_id: cellId,
+                    quantity_stored: qty,
+                    notes: notes || ''
+                },
                 success: function(res) {
                     if (res.status !== 'success') return;
 
@@ -1618,7 +1741,8 @@
                         if (isComplete) {
                             // Semua item selesai → redirect ke daftar put-away
                             Swal.fire({
-                                icon: 'success', title: 'Order Selesai!',
+                                icon: 'success',
+                                title: 'Order Selesai!',
                                 text: 'Semua item berhasil di-put-away.',
                                 confirmButtonText: 'Kembali ke Daftar'
                             }).then(() => window.location.href = "{{ route('putaway.index') }}");
@@ -1663,21 +1787,26 @@
             $('#scanLoading').show();
 
             $.ajax({
-                url: scanQrUrl, method: 'POST',
-                data: { _token: csrfToken, qr_code: code },
+                url: scanQrUrl,
+                method: 'POST',
+                data: {
+                    _token: csrfToken,
+                    qr_code: code
+                },
                 success: function(res) {
-                    const c    = res.cell;
+                    const c = res.cell;
                     const cell = {
-                        id: c.id, code: c.code,
+                        id: c.id,
+                        code: c.code,
                         zone_category: c.zone_category,
-                        rack_code:     c.rack_code,
+                        rack_code: c.rack_code,
                         capacity_remaining: c.capacity_remaining,
-                        capacity_max:       c.capacity_max,
+                        capacity_max: c.capacity_max,
                         source: 'scan',
                     };
 
                     const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
-                    const capOk     = cell.capacity_remaining >= modalQty && modalQty > 0;
+                    const capOk = cell.capacity_remaining >= modalQty && modalQty > 0;
 
                     if (matchesGa && capOk) {
                         // ════ AUTO-CONFIRM ════════════════════════════════════════════
@@ -1691,7 +1820,8 @@
                             'border-radius:8px;padding:12px 16px;font-size:13px;text-align:center">' +
                             '<i class="fas fa-circle-notch fa-spin mr-2" style="color:#0d8564;font-size:18px"></i>' +
                             '<strong style="color:#0d8564">Cocok dengan GA ✓</strong>' +
-                            '<span class="text-muted ml-2">Menyimpan ke <strong>' + cell.code + '</strong>…</span>' +
+                            '<span class="text-muted ml-2">Menyimpan ke <strong>' + cell.code +
+                            '</strong>…</span>' +
                             '</div>'
                         ).show();
 
@@ -1707,8 +1837,11 @@
                 },
                 error: function(xhr) {
                     Swal.fire({
-                        icon: 'error', toast: true, position: 'top-end',
-                        showConfirmButton: false, timer: 3000,
+                        icon: 'error',
+                        toast: true,
+                        position: 'top-end',
+                        showConfirmButton: false,
+                        timer: 3000,
                         title: xhr.responseJSON?.message || 'QR tidak dikenali sistem.'
                     });
                     $('#modalQrInput').focus();
@@ -1722,7 +1855,10 @@
 
         $('#btnModalScanQr').on('click', () => doModalScanQr($('#modalQrInput').val().trim()));
         $('#modalQrInput').on('keydown', function(e) {
-            if (e.key === 'Enter') { doModalScanQr($(this).val().trim()); e.preventDefault(); }
+            if (e.key === 'Enter') {
+                doModalScanQr($(this).val().trim());
+                e.preventDefault();
+            }
         });
 
         // ── Skip scan — pakai GA langsung ────────────────────────────────────────────
@@ -1743,14 +1879,18 @@
         // ── Buka modal: selalu mulai dari Phase 1 ────────────────────────────────────
         function openConfirmModal(detailId, itemName, qty, gaCell, gaCellId, gaCapRemain, gaCapMax, overrideMode) {
             currentDetailId = detailId;
-            isOverride      = !!overrideMode;
-            modalQty        = qty;
-            modalCell       = null;
+            isOverride = !!overrideMode;
+            modalQty = qty;
+            modalCell = null;
 
             modalGaCell = gaCellId ? {
-                id: gaCellId, code: gaCell,
-                zone_category: '', rack_code: '',
-                capacity_remaining: gaCapRemain, capacity_max: gaCapMax, source: 'ga'
+                id: gaCellId,
+                code: gaCell,
+                zone_category: '',
+                rack_code: '',
+                capacity_remaining: gaCapRemain,
+                capacity_max: gaCapMax,
+                source: 'ga'
             } : null;
 
             // Header
@@ -1796,10 +1936,10 @@
         // ── Tombol "Konfirmasi Sekarang" (Phase 2 — manual confirm) ─────────────────
         $('#btnDoConfirm').on('click', function() {
             const cellId = $('#modalConfirm').data('cell-id');
-            const qty    = qtyEditing
-                ? (parseInt($('#confirmQty').val()) || 0)
-                : (parseInt($('#qtyDisplay').text()) || 0);
-            const notes  = $('#confirmNotes').val();
+            const qty = qtyEditing ?
+                (parseInt($('#confirmQty').val()) || 0) :
+                (parseInt($('#qtyDisplay').text()) || 0);
+            const notes = $('#confirmNotes').val();
 
             if (!cellId) {
                 Swal.fire('Cell Belum Dipilih', 'Scan QR cell terlebih dahulu.', 'warning');
@@ -1821,22 +1961,31 @@
         //  yang tidak direlease, lalu start() gagal karena kamera sudah terpakai.
         //  Fix: gunakan facingMode constraint langsung — tidak perlu getCameras().
         // ══════════════════════════════════════════════════════════════════════
-        let qrScanner    = null;
+        let qrScanner = null;
         let cameraActive = false;
-        let torchOn      = false;
+        let torchOn = false;
 
         // Opsi kamera: pakai facingMode, tidak ada getCameras()
-        const CAM_MODES = [
-            { label: 'Kamera Belakang / Default', constraint: { facingMode: 'environment' } },
-            { label: 'Kamera Depan',              constraint: { facingMode: 'user' } },
+        const CAM_MODES = [{
+                label: 'Kamera Belakang / Default',
+                constraint: {
+                    facingMode: 'environment'
+                }
+            },
+            {
+                label: 'Kamera Depan',
+                constraint: {
+                    facingMode: 'user'
+                }
+            },
         ];
-        let activeModeIdx = 0;  // index CAM_MODES yang sedang aktif
+        let activeModeIdx = 0; // index CAM_MODES yang sedang aktif
 
         // ── Beep ─────────────────────────────────────────────────────────────
         function playBeep() {
             try {
-                const ctx  = new (window.AudioContext || window.webkitAudioContext)();
-                const osc  = ctx.createOscillator();
+                const ctx = new(window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 osc.connect(gain);
                 gain.connect(ctx.destination);
@@ -1866,9 +2015,12 @@
                 const F = Html5QrcodeSupportedFormats;
                 return [F.QR_CODE, F.CODE_128, F.CODE_39, F.CODE_93,
                         F.EAN_13, F.EAN_8, F.UPC_A, F.UPC_E,
-                        F.DATA_MATRIX, F.AZTEC, F.PDF_417, F.ITF, F.CODABAR]
-                       .filter(f => f !== undefined);
-            } catch (e) { return []; }
+                        F.DATA_MATRIX, F.AZTEC, F.PDF_417, F.ITF, F.CODABAR
+                    ]
+                    .filter(f => f !== undefined);
+            } catch (e) {
+                return [];
+            }
         }
 
         // ── Start kamera dengan facingMode constraint ─────────────────────────
@@ -1878,7 +2030,9 @@
 
             // Buat instance baru jika belum ada (atau setelah stop)
             if (!qrScanner) {
-                qrScanner = new Html5Qrcode('qrCameraReader', { verbose: false });
+                qrScanner = new Html5Qrcode('qrCameraReader', {
+                    verbose: false
+                });
             }
 
             setStatus('<i class="fas fa-circle-notch fa-spin mr-1"></i>Mengaktifkan kamera…', '#6c757d');
@@ -1887,14 +2041,19 @@
             $('#cameraSelect').val(String(modeIdx));
 
             const formats = getSupportedFormats();
-            const config  = {
+            const config = {
                 fps: 15,
-                qrbox: function (w, h) {
+                qrbox: function(w, h) {
                     const s = Math.round(Math.min(w, h) * 0.72);
-                    return { width: s, height: s };
+                    return {
+                        width: s,
+                        height: s
+                    };
                 },
                 aspectRatio: 1.1,
-                ...(formats.length ? { formatsToSupport: formats } : {}),
+                ...(formats.length ? {
+                    formatsToSupport: formats
+                } : {}),
             };
 
             try {
@@ -1903,7 +2062,7 @@
                     mode.constraint,
                     config,
                     onCameraSuccess,
-                    () => {}    // error per-frame: normal, abaikan
+                    () => {} // error per-frame: normal, abaikan
                 );
                 cameraActive = true;
 
@@ -1934,8 +2093,11 @@
                 // Benar-benar gagal
                 await stopCamera();
                 Swal.fire({
-                    icon: 'error', toast: true, position: 'top-end',
-                    showConfirmButton: false, timer: 5000,
+                    icon: 'error',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 5000,
                     title: 'Gagal membuka kamera',
                     text: err.message || String(err),
                 });
@@ -1946,14 +2108,18 @@
         async function stopCamera() {
             if (qrScanner) {
                 if (cameraActive) {
-                    try { await qrScanner.stop(); } catch (e) {}
+                    try {
+                        await qrScanner.stop();
+                    } catch (e) {}
                 }
                 // Destroy agar tidak ada stream sisa
-                try { await qrScanner.clear(); } catch (e) {}
+                try {
+                    await qrScanner.clear();
+                } catch (e) {}
                 qrScanner = null;
             }
             cameraActive = false;
-            torchOn      = false;
+            torchOn = false;
             $('#btnTorch').removeClass('btn-warning').addClass('btn-outline-secondary').hide();
             $('#cameraSection').hide();
             $('#btnOpenCamera').show();
@@ -1964,51 +2130,61 @@
         }
 
         // ── Buka kamera ──────────────────────────────────────────────────────
-        $('#btnOpenCamera').on('click', function () {
+        $('#btnOpenCamera').on('click', function() {
             $(this).hide();
             // Isi dropdown pilihan kamera
             const $sel = $('#cameraSelect').empty();
             CAM_MODES.forEach((m, i) => $sel.append(`<option value="${i}">${m.label}</option>`));
             $('#cameraSection').show();
-            startCamera(0);     // mulai dari kamera belakang/default
+            startCamera(0); // mulai dari kamera belakang/default
         });
 
         // ── Tutup kamera ─────────────────────────────────────────────────────
         $('#btnCloseCamera').on('click', stopCamera);
 
         // ── Ganti kamera via dropdown ─────────────────────────────────────────
-        $('#cameraSelect').on('change', async function () {
+        $('#cameraSelect').on('change', async function() {
             if (qrScanner && cameraActive) {
-                try { await qrScanner.stop(); } catch (e) {}
-                try { await qrScanner.clear(); } catch (e) {}
-                qrScanner    = null;
+                try {
+                    await qrScanner.stop();
+                } catch (e) {}
+                try {
+                    await qrScanner.clear();
+                } catch (e) {}
+                qrScanner = null;
                 cameraActive = false;
             }
             startCamera(parseInt($(this).val()));
         });
 
         // ── Flash / Torch ─────────────────────────────────────────────────────
-        $('#btnTorch').on('click', async function () {
+        $('#btnTorch').on('click', async function() {
             if (!qrScanner || !cameraActive) return;
             torchOn = !torchOn;
             try {
-                await qrScanner.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+                await qrScanner.applyVideoConstraints({
+                    advanced: [{
+                        torch: torchOn
+                    }]
+                });
                 $(this).toggleClass('btn-outline-secondary btn-warning');
             } catch (e) {
                 torchOn = !torchOn;
                 Swal.fire({
-                    icon: 'info', toast: true, position: 'top-end',
-                    showConfirmButton: false, timer: 2000,
+                    icon: 'info',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
                     title: 'Flash tidak didukung perangkat ini',
                 });
             }
         });
 
         // ── Stop kamera & reset overlay saat modal ditutup ──────────────────────
-        $('#modalConfirm').on('hide.bs.modal', function () {
+        $('#modalConfirm').on('hide.bs.modal', function() {
             stopCamera();
             $('#modalSavingOverlay').hide();
         });
-
     </script>
 @endpush
