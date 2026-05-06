@@ -460,17 +460,12 @@ function buildEnvironment() {
     const cZ  = (wZ0 + wZ1) / 2;   // −21 (centre Z)
     const wH  = 12.5;               // wall height (racks are 7 × 1.3 = 9.1 m)
 
-    // ── Left / Right / Back walls (DoubleSide so interior face always renders) ──
+    // ── Back wall only — tembok samping dihilangkan ──────────────────────────
     const wallMat = new THREE.MeshLambertMaterial({ color: 0xcdd0d4, side: THREE.DoubleSide });
-    const addWall = (w, h, d, px, pz) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
-        m.position.set(px, h / 2, pz);
-        m.receiveShadow = true;
-        scene.add(m);
-    };
-    addWall(0.3, wH, wD,         wX0, cZ);   // left wall
-    addWall(0.3, wH, wD,         wX1, cZ);   // right wall
-    addWall(wW + 0.6, wH, 0.3,   cX, wZ0);  // back wall
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(wW + 0.6, wH, 0.3), wallMat);
+    backWall.position.set(cX, wH / 2, wZ0);
+    backWall.receiveShadow = true;
+    scene.add(backWall);
 
     // ── Yellow aisle safety lines on floor ────────────────────────────────
     // Four longitudinal stripes marking the two main walking corridors:
@@ -486,25 +481,8 @@ function buildEnvironment() {
     });
 
     // ── Neon ceiling light strips ─────────────────────────────────────────
-    // Three rows of 7.5 m tubes at Y ≈ wH, over both aisles and rack centre.
-    // MeshBasicMaterial → always bright regardless of scene lighting.
-    const neonMat = new THREE.MeshBasicMaterial({ color: 0xe8f4ff });
-    const neonY   = wH - 0.15;
-    const tubeLen = 7.5;
-    [7.5, 13, 17.5].forEach(nx => {
-        for (let nz = wZ1 - 4; nz > wZ0 + 3; nz -= 9) {
-            const t = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, tubeLen), neonMat);
-            t.position.set(nx, neonY, nz);
-            scene.add(t);
-        }
-    });
-
-    // Subtle cool-white point lights below each neon row (no shadows — cheap)
-    [7.5, 13, 17.5].forEach(nx => {
-        const pl = new THREE.PointLight(0xddeeff, 0.28, 65);
-        pl.position.set(nx, wH - 0.6, cZ);
-        scene.add(pl);
-    });
+    // Neon tubes & point lights dihapus — tanpa plafon/dinding tabung mengambang
+    // AmbientLight(0.48) + DirectionalLight(0.85) sudah cukup untuk pencahayaan scene.
 }
 
 // ── Shared rack-structure materials & cell panel geometry ─────────────────
@@ -580,6 +558,56 @@ function buildWarehouse(zones) {
             sp.scale.set(10, 2.4, 1);
             sp.position.set(-3, 0.1, cz);   // left-edge label, outside the rack area
             scene.add(sp);
+        }
+
+        // ── Bridge adjacent racks into one continuous shelf unit ──────────────
+        // Seeder positions racks side-by-side in X (all pos_z = 0), so group
+        // by Z and bridge in the X direction.  Only bridge gaps ≤ 2.5 m so
+        // real aisles between zones (≈ 10 m gap) are never spanned.
+        {
+            const rowMap = {};
+            zone.racks.forEach(r => {
+                const key = Math.round((absZ + r.pos_z) * 2); // group by Z
+                (rowMap[key] = rowMap[key] || []).push(r);
+            });
+
+            Object.values(rowMap).forEach(row => {
+                if (row.length < 2) return;
+                row.sort((a, b) => a.pos_x - b.pos_x); // left → right
+
+                for (let i = 0; i < row.length - 1; i++) {
+                    const rA = row[i], rB = row[i + 1];
+                    const rz  = absZ + rA.pos_z;
+                    const rh  = rA.total_levels * CH;
+
+                    // Right edge of A  →  left edge of B
+                    const xA1 = absX + rA.pos_x + CW / 2;
+                    const xB0 = absX + rB.pos_x - CW / 2;
+                    const gap = xB0 - xA1;
+                    if (gap <= 0.05) continue;   // touching
+                    if (gap > 2.5)   continue;   // aisle — don't bridge
+
+                    const gapCX = (xA1 + xB0) / 2;
+
+                    // — Shelf decks spanning the gap (continuous orange surface) —
+                    const sfG = new THREE.BoxGeometry(gap, 0.042, CD - 0.15);
+                    for (let lv = 0; lv < rA.total_levels; lv++) {
+                        const sf = new THREE.Mesh(sfG, beamMat);
+                        sf.position.set(gapCX, lv * CH + 0.024, rz);
+                        scene.add(sf);
+                    }
+
+                    // — Vertical junction beams at each shelf level (left + right edges) —
+                    const jbGeo = new THREE.BoxGeometry(0.060, 0.075, CD + 0.10);
+                    for (let lv = 0; lv <= rA.total_levels; lv++) {
+                        [xA1 + 0.030, xB0 - 0.030].forEach(bx => {
+                            const b = new THREE.Mesh(jbGeo, beamMat);
+                            b.position.set(bx, lv * CH, rz);
+                            scene.add(b);
+                        });
+                    }
+                }
+            });
         }
 
         zone.racks.forEach(rack => {

@@ -242,11 +242,13 @@ def fc_affinity(
 
     if seen_racks:
         if cell.rack_code and cell.rack_code in seen_racks:
-            continuity_score = 16.0
+            continuity_score = 20.0
         else:
-            # Item sudah ada di warehouse, tetapi dipilihkan rack/cell baru.
-            # Nilainya dibuat rendah agar GA tidak mudah menambah split location.
-            continuity_score = 2.0
+            # Item yang sama sudah ada di cell ini → 20
+            # Item yang sama ada di rack yang sama → 20
+            # Item sudah ada di gudang tetapi memilih rack baru → 0
+            # Belum ada histori item di warehouse → 10
+            continuity_score = 0.0
     elif seen_cells:
         continuity_score = 2.0
     else:
