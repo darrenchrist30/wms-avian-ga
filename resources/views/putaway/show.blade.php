@@ -755,280 +755,187 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @php $firstPendingShown = false; @endphp
+                                @php
+                                    $firstPendingShown = false;
+                                    $rowNo = 1;
+                                @endphp
+
                                 @foreach ($order->items as $i => $detail)
                                     @php
-                                        $gaDetail = $gaDetailMap[$detail->id] ?? null;
+                                        $gdList = $gaDetailMap->get($detail->id, collect());
                                         $isDone = $detail->status === 'put_away';
-                                        $confirm = $detail->putAwayConfirmations->first();
-                                        $capInfo =
-                                            $gaDetail && $gaDetail->cell_id
-                                                ? $cellCapInfo[$gaDetail->cell_id] ?? null
-                                                : null;
-                                        $isOver = !$isDone && $capInfo && $capInfo['total_qty'] > $capInfo['remaining'];
-                                        $capRemain = $gaDetail?->cell?->capacity_remaining ?? 0;
-                                        $capMax = $gaDetail?->cell?->capacity_max ?? 0;
-                                        $usedPct =
-                                            $capMax > 0 ? min(100, round((($capMax - $capRemain) / $capMax) * 100)) : 0;
-                                        $orderQty = $capInfo['total_qty'] ?? $detail->quantity_received;
-                                        $addPct =
-                                            $capMax > 0 ? min(100 - $usedPct, round(($orderQty / $capMax) * 100)) : 0;
-                                        $rowClass = $isDone ? 'row-done' : ($isOver ? 'row-overflow' : 'row-pending');
-                                        $isNext = !$isDone && !$firstPendingShown && $order->status !== 'completed';
-                                        if ($isNext) {
-                                            $firstPendingShown = true;
-                                        }
+                                        $confirmations = $detail->putAwayConfirmations ?? collect();
+                                        $storedQty = $confirmations->sum('quantity_stored');
+                                        $remainingDetailQty = max(0, $detail->quantity_received - $storedQty);
                                     @endphp
-                                    <tr class="{{ $rowClass }}" id="row-{{ $detail->id }}"
-                                        @if ($isNext) style="outline:2px solid #28a745;outline-offset:-1px" @endif>
 
-                                        {{-- No. --}}
-                                        <td class="text-center align-middle font-weight-bold text-muted">
-                                            {{ $i + 1 }}
-                                            @if ($isNext)
-                                                <div class="mt-1">
-                                                    <span class="badge badge-success"
-                                                        style="font-size:9px;white-space:nowrap">
-                                                        <i class="fas fa-arrow-right mr-1"></i>Berikutnya
-                                                    </span>
-                                                </div>
-                                            @endif
-                                        </td>
-
-                                        {{-- Deskripsi --}}
-                                        <td class="align-middle">
-                                            <div class="font-weight-bold">{{ $detail->item?->name ?? '-' }}</div>
-                                            <small class="text-muted">
-                                                <code>{{ $detail->item?->sku ?? '-' }}</code>
-                                                @if ($detail->item?->category)
-                                                    &middot; {{ $detail->item->category->name }}
-                                                @endif
-                                            </small>
-                                        </td>
-
-                                        {{-- Qty --}}
-                                        <td class="text-center align-middle">
-                                            <span class="font-weight-bold" style="font-size:16px">
-                                                {{ $detail->quantity_received }}
-                                            </span>
-                                            <br>
-                                            <small class="text-muted">{{ $detail->item?->unit?->name ?? 'unit' }}</small>
-                                        </td>
-
-                                        {{-- LPN --}}
-                                        @if ($hasLpn)
-                                            <td class="align-middle">
-                                                <code class="small">{{ $detail->lpn ?? '-' }}</code>
+                                    @if ($gdList->isEmpty())
+                                        <tr class="{{ $isDone ? 'row-done' : 'row-pending' }}">
+                                            <td class="text-center">{{ $rowNo++ }}</td>
+                                            <td>
+                                                <strong>{{ $detail->item->name ?? '-' }}</strong><br>
+                                                <small class="text-muted">{{ $detail->item->sku ?? '-' }}</small>
                                             </td>
-                                        @endif
+                                            <td class="text-center">{{ $detail->quantity_received }}</td>
+                                            @if ($hasLpn)
+                                                <td>{{ $detail->lpn ?? '-' }}</td>
+                                            @endif
+                                            <td colspan="4" class="text-muted">
+                                                Belum ada detail rekomendasi GA untuk item ini.
+                                            </td>
+                                        </tr>
+                                    @endif
 
-                                        {{-- ════ SEND TO ════ --}}
-                                        <td class="align-middle px-2 py-2">
-                                            @if ($isDone && $confirm)
-                                                @php
-                                                    $qtyStored = $confirm->quantity_stored ?? 0;
-                                                    $qtyOrdered = $detail->quantity_received;
-                                                    $isPartialStore = $qtyStored < $qtyOrdered;
-                                                    $unitName = $detail->item?->unit?->name ?? 'unit';
-                                                @endphp
-                                                <div class="send-to-cell done">
+                                    @foreach ($gdList as $gd)
+                                        @php
+                                            $alreadyConfirmedThisGa = $confirmations
+                                                ->where('ga_recommendation_detail_id', $gd->id)
+                                                ->isNotEmpty();
+
+                                            $isRowDone = $isDone || $alreadyConfirmedThisGa;
+
+                                            $capInfo = $gd && $gd->cell_id ? $cellCapInfo[$gd->cell_id] ?? null : null;
+
+                                            $isOver = !$isRowDone && $capInfo && $gd->quantity > $capInfo['remaining'];
+
+                                            $capRemain = $gd?->cell?->capacity_remaining ?? 0;
+                                            $capMax = $gd?->cell?->capacity_max ?? 0;
+
+                                            $usedPct =
+                                                $capMax > 0
+                                                    ? min(100, round((($capMax - $capRemain) / $capMax) * 100))
+                                                    : 0;
+
+                                            $orderQty = $gd->quantity;
+                                            $addPct =
+                                                $capMax > 0
+                                                    ? min(100 - $usedPct, round(($orderQty / $capMax) * 100))
+                                                    : 0;
+                                        @endphp
+
+                                        <tr class="{{ $isRowDone ? 'row-done' : ($isOver ? 'row-overflow' : 'row-pending') }}"
+                                            id="row-ga-{{ $gd->id }}" data-detail-id="{{ $detail->id }}"
+                                            data-ga-detail-id="{{ $gd->id }}" data-cell-id="{{ $gd->cell_id }}"
+                                            data-qty="{{ $gd->quantity }}">
+
+                                            <td class="text-center align-middle">
+                                                {{ $rowNo++ }}
+                                            </td>
+
+                                            <td class="align-middle">
+                                                <strong>{{ $detail->item->name ?? '-' }}</strong><br>
+                                                <small class="text-muted">
+                                                    {{ $detail->item->sku ?? '-' }}
+                                                    @if ($detail->item?->category)
+                                                        · {{ $detail->item->category->name }}
+                                                    @endif
+                                                </small>
+
+                                                @if ($gdList->count() > 1)
+                                                    <br>
+                                                    <span class="badge badge-info mt-1">
+                                                        Partial allocation {{ $loop->iteration }}/{{ $gdList->count() }}
+                                                    </span>
+                                                @endif
+
+                                                <br>
+                                                <small class="text-muted">
+                                                    Total diterima: {{ $detail->quantity_received }} ·
+                                                    Sudah tersimpan: {{ $storedQty }}
+                                                </small>
+                                            </td>
+
+                                            <td class="text-center align-middle">
+                                                <strong>{{ $gd->quantity }}</strong><br>
+                                                <small class="text-muted">unit</small>
+                                            </td>
+
+                                            @if ($hasLpn)
+                                                <td class="align-middle">
+                                                    {{ $detail->lpn ?? '-' }}
+                                                </td>
+                                            @endif
+
+                                            <td class="align-middle">
+                                                <div
+                                                    class="send-to-cell {{ $isRowDone ? 'done' : ($isOver ? 'overflow' : '') }}">
                                                     <div class="d-flex justify-content-between align-items-center">
-                                                        <span class="cell-code c-done">
-                                                            <i class="fas fa-check-circle mr-1"></i>
-                                                            {{ $confirm->cell?->code ?? '-' }}
+                                                        <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}">
+                                                            {{ $gd->cell?->code ?? '-' }}
                                                         </span>
-                                                        @if (!$confirm->follow_recommendation)
-                                                            <span class="badge badge-warning text-dark"
-                                                                style="font-size:9px;cursor:help"
-                                                                title="Item ditempatkan di luar rekomendasi GA — bisa karena kapasitas cell penuh atau keputusan supervisor.">
-                                                                <i class="fas fa-exchange-alt mr-1"></i>Override
-                                                            </span>
+
+                                                        @if ($isRowDone)
+                                                            <span class="badge badge-success">Done</span>
+                                                        @elseif($isOver)
+                                                            <span class="badge badge-warning text-dark">Capacity
+                                                                Risk</span>
                                                         @else
-                                                            <span class="badge badge-success" style="font-size:9px">
-                                                                <i class="fas fa-check mr-1"></i>Sesuai GA
-                                                            </span>
+                                                            <span class="badge badge-primary">GA Suggest</span>
                                                         @endif
                                                     </div>
+
                                                     <small class="text-muted">
-                                                        {{ $confirm->cell?->rack?->zone?->name ?? '-' }}
-                                                        &middot; Rack {{ $confirm->cell?->rack?->code ?? '-' }}
-                                                    </small>
-                                                    @if ($qtyStored)
-                                                        <small
-                                                            class="{{ $isPartialStore ? 'text-warning' : 'text-success' }} d-block mt-1">
-                                                            <i class="fas fa-box mr-1"></i>
-                                                            Qty Tersimpan:
-                                                            <strong>{{ $qtyStored }}</strong>
-                                                            dari {{ $qtyOrdered }} {{ $unitName }}
-                                                            @if ($isPartialStore)
-                                                                <span class="badge badge-warning text-dark ml-1"
-                                                                    style="font-size:9px"
-                                                                    title="Hanya sebagian qty yang disimpan di cell ini. Sisanya mungkin perlu konfirmasi ke cell lain.">
-                                                                    Parsial
-                                                                </span>
-                                                            @endif
-                                                        </small>
-                                                    @endif
-                                                    <small class="text-muted d-block mt-1"
-                                                        style="font-size:10px;border-top:1px solid #d4edda;padding-top:4px">
-                                                        <i class="fas fa-user-check mr-1"></i>
-                                                        <strong>{{ $confirm->user?->name ?? '-' }}</strong>
-                                                        &middot;
-                                                        {{ $confirm->confirmed_at?->format('d M Y H:i') ?? '-' }}
-                                                    </small>
-                                                </div>
-                                            @elseif ($gaDetail && $gaDetail->cell)
-                                                <div class="send-to-cell {{ $isOver ? 'overflow' : '' }}"
-                                                    id="sendToBox-{{ $detail->id }}">
-
-                                                    {{-- Cell code + badge --}}
-                                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                                        <span class="cell-code c-ga" id="sendToCode-{{ $detail->id }}">
-                                                            {{ $gaDetail->cell->code }}
-                                                        </span>
-                                                        <div class="d-flex align-items-center" style="gap:4px">
-                                                            <span class="badge badge-primary" style="font-size:9px"
-                                                                id="sendToBadge-{{ $detail->id }}">
-                                                                GA Suggest
-                                                            </span>
-                                                            <a href="{{ route('warehouse3d.index', ['highlight_cell_id' => $gaDetail->cell_id]) }}"
-                                                                target="_blank" title="Lihat posisi cell ini di denah 3D"
-                                                                class="badge badge-dark"
-                                                                style="font-size:9px;text-decoration:none">
-                                                                <i class="fas fa-cube mr-1"></i>3D
-                                                            </a>
-                                                        </div>
-                                                    </div>
-
-                                                    {{-- Lokasi --}}
-                                                    <small class="text-muted d-block"
-                                                        id="sendToMeta-{{ $detail->id }}">
-                                                        Zone {{ $gaDetail->cell->zone_category ?? '-' }}
-                                                        &middot; {{ $gaDetail->cell->rack?->zone?->name ?? '-' }}
-                                                        &middot; Rack {{ $gaDetail->cell->rack?->code ?? '-' }}
+                                                        Zone {{ $gd->cell?->zone_category ?? '-' }}
+                                                        · Rack {{ $gd->cell?->rack?->code ?? '-' }}
                                                     </small>
 
-                                                    {{-- Kapasitas bar --}}
-                                                    <div class="mt-2">
-                                                        <div class="d-flex justify-content-between"
-                                                            style="font-size:10px;margin-bottom:2px">
-                                                            <span
-                                                                class="{{ $isOver ? 'text-danger font-weight-bold' : 'text-muted' }}"
-                                                                id="sendToCapLabel-{{ $detail->id }}">
-                                                                Order ke sini: {{ $orderQty }} unit
-                                                            </span>
-                                                            <span class="text-muted"
-                                                                id="sendToCapRemain-{{ $detail->id }}">
-                                                                Sisa: {{ $capRemain }}/{{ $capMax }}
-                                                            </span>
-                                                        </div>
-                                                        <div class="cap-bar-wrap">
-                                                            <div class="cap-bar-fill bg-secondary"
-                                                                style="width:{{ $usedPct }}%"></div>
-                                                            <div class="cap-bar-fill {{ $isOver ? 'bg-danger' : 'bg-info' }}"
-                                                                style="width:{{ $addPct }}%;margin-top:-5px"></div>
-                                                        </div>
-                                                        <div style="font-size:10px;margin-top:2px"
-                                                            id="sendToCapStatus-{{ $detail->id }}">
-                                                            @if ($isOver)
-                                                                <span class="text-danger">
-                                                                    <i class="fas fa-times-circle"></i>
-                                                                    Kelebihan
-                                                                    {{ $capInfo['total_qty'] - $capInfo['remaining'] }}
-                                                                    unit
-                                                                </span>
-                                                            @else
-                                                                <span class="text-success">
-                                                                    <i class="fas fa-check-circle"></i>
-                                                                    Kapasitas mencukupi
-                                                                </span>
-                                                            @endif
-                                                        </div>
+                                                    <div class="mt-1" style="font-size:11px">
+                                                        Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
+                                                        Sisa cell:
+                                                        <strong>{{ $capRemain }}</strong>/{{ $capMax }}
                                                     </div>
 
-                                                    {{-- Tombol Ganti Cell --}}
-                                                    <div class="mt-2">
-                                                        <button
-                                                            class="btn btn-xs w-100
-                                                    {{ $isOver ? 'btn-warning' : 'btn-outline-secondary' }}
-                                                    btnPickAlt"
-                                                            data-detail-id="{{ $detail->id }}"
-                                                            data-item-name="{{ $detail->item?->name ?? '' }}"
-                                                            data-qty="{{ $detail->quantity_received }}"
-                                                            data-ga-cell-id="{{ $gaDetail->cell_id }}">
-                                                            <i
-                                                                class="fas fa-{{ $isOver ? 'magic' : 'exchange-alt' }} mr-1"></i>
-                                                            {{ $isOver ? 'Ganti Cell (Penuh!)' : 'Ganti Cell' }}
-                                                        </button>
+                                                    <div class="cap-bar-wrap mt-1">
+                                                        <div class="cap-bar-fill bg-secondary"
+                                                            style="width:{{ $usedPct }}%"></div>
+                                                        <div class="cap-bar-fill {{ $isOver ? 'bg-danger' : 'bg-info' }}"
+                                                            style="width:{{ $addPct }}%; margin-top:-5px"></div>
                                                     </div>
                                                 </div>
-                                            @else
-                                                <span class="text-muted small">Tidak ada rekomendasi</span>
-                                            @endif
-                                        </td>
+                                            </td>
 
-                                        {{-- Fitness --}}
-                                        <td class="text-center align-middle">
-                                            @if ($gaDetail)
-                                                @php $gf = $gaDetail->gene_fitness ?? 0; @endphp
-                                                <div class="font-weight-bold {{ $gf >= 70 ? 'text-success' : ($gf >= 50 ? 'text-warning' : 'text-danger') }}"
-                                                    style="font-size:18px"
-                                                    title="Skor fitness GA untuk item ini (maks 100). Menggabungkan: kapasitas cell, kesesuaian kategori, afinitas, dan anti-split.">
-                                                    {{ number_format($gf, 1) }}
-                                                </div>
-                                                <small class="text-muted" style="font-size:9px">/ 100</small>
-                                            @else
-                                                <span class="text-muted">—</span>
-                                            @endif
-                                        </td>
+                                            <td class="text-center align-middle">
+                                                <strong
+                                                    class="{{ ($gd->gene_fitness ?? 0) >= 70 ? 'text-success' : (($gd->gene_fitness ?? 0) >= 50 ? 'text-warning' : 'text-danger') }}">
+                                                    {{ number_format($gd->gene_fitness ?? 0, 1) }}
+                                                </strong>
+                                                <br>
+                                                <small class="text-muted">/100</small>
+                                            </td>
 
-                                        {{-- Status --}}
-                                        <td class="text-center align-middle" id="status-{{ $detail->id }}">
-                                            @if ($isDone)
-                                                <span class="badge badge-success px-2 py-1">
-                                                    <i class="fas fa-check mr-1"></i>Put Away
-                                                </span>
-                                            @else
-                                                <span class="badge badge-secondary px-2 py-1">
-                                                    <i class="fas fa-clock mr-1"></i>Menunggu
-                                                </span>
-                                            @endif
-                                        </td>
+                                            <td class="text-center align-middle">
+                                                @if ($isRowDone)
+                                                    <span class="badge badge-success">Put Away</span>
+                                                @elseif($detail->status === 'partial_put_away')
+                                                    <span class="badge badge-warning text-dark">Partial</span>
+                                                @else
+                                                    <span class="badge badge-secondary">Pending</span>
+                                                @endif
+                                            </td>
 
-                                        {{-- Aksi --}}
-                                        <td class="text-center align-middle" id="action-{{ $detail->id }}">
-                                            @if (!$isDone && $order->status !== 'completed')
-                                                <div class="d-flex flex-column" style="gap:4px">
-                                                    <button class="btn btn-sm btn-success btnConfirm"
+                                            <td class="text-center align-middle">
+                                                @if ($isRowDone)
+                                                    <button class="btn btn-sm btn-success" disabled>
+                                                        <i class="fas fa-check"></i> Done
+                                                    </button>
+                                                @else
+                                                    <button type="button" class="btn btn-sm btn-success btnConfirm"
                                                         data-detail-id="{{ $detail->id }}"
-                                                        data-item-name="{{ $detail->item?->name ?? '' }}"
-                                                        data-qty="{{ $detail->quantity_received }}"
-                                                        data-ga-cell="{{ $gaDetail?->cell?->code ?? '' }}"
-                                                        data-ga-cell-id="{{ $gaDetail?->cell_id ?? '' }}"
+                                                        data-ga-detail-id="{{ $gd->id }}"
+                                                        data-item-name="{{ $detail->item->name ?? '-' }}"
+                                                        data-ga-cell="{{ $gd->cell?->code }}"
+                                                        data-ga-cell-id="{{ $gd->cell_id }}"
+                                                        data-cell-id="{{ $gd->cell_id }}"
+                                                        data-cell-code="{{ $gd->cell?->code }}"
                                                         data-cap-remaining="{{ $capRemain }}"
                                                         data-cap-max="{{ $capMax }}"
-                                                        title="Klik untuk konfirmasi penempatan item ke cell tujuan">
-                                                        <i class="fas fa-check mr-1"></i>Konfirmasi
+                                                        data-qty="{{ $gd->quantity }}">
+                                                        <i class="fas fa-check"></i> Konfirmasi
                                                     </button>
-                                                    @if (auth()->user()->isAdmin() || auth()->user()->isSupervisor())
-                                                        <button class="btn btn-xs btn-outline-warning btnOverride"
-                                                            data-detail-id="{{ $detail->id }}"
-                                                            data-item-name="{{ $detail->item?->name ?? '' }}"
-                                                            data-qty="{{ $detail->quantity_received }}"
-                                                            title="Override: paksa penempatan ke cell berbeda dari rekomendasi GA. Hanya Admin/Supervisor.">
-                                                            <i class="fas fa-exchange-alt mr-1"></i>Override Lokasi
-                                                        </button>
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <div class="text-center">
-                                                    <i class="fas fa-check-double text-success fa-lg"></i>
-                                                    <div class="text-success" style="font-size:10px;margin-top:2px">
-                                                        Selesai</div>
-                                                </div>
-                                            @endif
-                                        </td>
-                                    </tr>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
                                 @endforeach
                             </tbody>
                         </table>
@@ -1385,6 +1292,7 @@
         // ── State ─────────────────────────────────────────────────────────────────────
         let selectedCellMap = {}; // cell dipilih dari modal alternatif, per item
         let currentDetailId = null;
+        let currentGaDetailId = null;
         let isOverride = false;
         let modalCell = null; // cell aktif di phase 2
         let modalGaCell = null; // referensi GA (untuk match indicator)
@@ -1399,7 +1307,10 @@
                 method: 'POST',
                 data: {
                     _token: csrfToken,
-                    qr_code: code
+                    cell_id: cellId,
+                    quantity_stored: qty,
+                    ga_detail_id: isOverride ? null : currentGaDetailId,
+                    notes: notes || ''
                 },
                 success: function(res) {
                     const c = res.cell;
@@ -1877,8 +1788,10 @@
         });
 
         // ── Buka modal: selalu mulai dari Phase 1 ────────────────────────────────────
-        function openConfirmModal(detailId, itemName, qty, gaCell, gaCellId, gaCapRemain, gaCapMax, overrideMode) {
+        function openConfirmModal(detailId, itemName, qty, gaCell, gaCellId, gaCapRemain, gaCapMax, overrideMode,
+            gaDetailId = null) {
             currentDetailId = detailId;
+            currentGaDetailId = gaDetailId;
             isOverride = !!overrideMode;
             modalQty = qty;
             modalCell = null;
@@ -1921,16 +1834,25 @@
 
         $(document).on('click', '.btnConfirm', function() {
             const b = $(this);
-            openConfirmModal(b.data('detail-id'), b.data('item-name'), parseInt(b.data('qty')),
-                b.data('ga-cell'), b.data('ga-cell-id'),
-                parseInt(b.data('cap-remaining')) || 0, parseInt(b.data('cap-max')) || 0, false);
+
+            openConfirmModal(
+                b.data('detail-id'),
+                b.data('item-name'),
+                parseInt(b.data('qty')),
+                b.data('ga-cell'),
+                b.data('ga-cell-id'),
+                parseInt(b.data('cap-remaining')) || 0,
+                parseInt(b.data('cap-max')) || 0,
+                false,
+                b.data('ga-detail-id')
+            );
         });
 
         $(document).on('click', '.btnOverride', function() {
             const b = $(this);
             openConfirmModal(b.data('detail-id'), b.data('item-name'), parseInt(b.data('qty')),
                 b.data('ga-cell') || '', b.data('ga-cell-id') || '',
-                parseInt(b.data('cap-remaining')) || 0, parseInt(b.data('cap-max')) || 0, true);
+                parseInt(b.data('cap-remaining')) || 0, parseInt(b.data('cap-max')) || 0, true, null);
         });
 
         // ── Tombol "Konfirmasi Sekarang" (Phase 2 — manual confirm) ─────────────────
