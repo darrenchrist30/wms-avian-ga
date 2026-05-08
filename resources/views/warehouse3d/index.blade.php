@@ -77,11 +77,16 @@
     z-index: 5;
 }
 
-/* Warehouse selector button */
-.btn-reset-cam {
+/* Camera control buttons (top-left of 3D canvas) */
+#camBtnGroup {
     position: absolute;
     top: 12px;
     left: 14px;
+    display: flex;
+    gap: 6px;
+    z-index: 5;
+}
+.btn-cam {
     background: rgba(13,17,23,.8);
     border: 1px solid #334155;
     color: #94a3b8;
@@ -89,10 +94,11 @@
     padding: 5px 10px;
     font-size: 11px;
     cursor: pointer;
-    z-index: 5;
-    transition: background .2s;
+    transition: background .2s, color .2s, border-color .2s;
+    white-space: nowrap;
 }
-.btn-reset-cam:hover { background: rgba(51,65,85,.9); color: #fff; }
+.btn-cam:hover { background: rgba(51,65,85,.9); color: #fff; }
+.btn-cam.active { background: rgba(20,50,90,.9); border-color: #4fc3f7; color: #4fc3f7; }
 
 /* Highlight legend dot pulse */
 @keyframes dot-pulse {
@@ -216,15 +222,40 @@
 
     {{-- Legend --}}
     <div id="threeLegend">
+        {{-- Section 1: Status cell --}}
         <div style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#94a3b8;margin-bottom:7px">LEGENDA CELL</div>
         <div class="leg-item"><div class="leg-dot" style="background:#00897b"></div> Kosong</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#f57f17"></div> Terisi Sebagian</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#fdd835"></div> Terisi Sebagian</div>
         <div class="leg-item"><div class="leg-dot" style="background:#b71c1c"></div> Penuh</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#37474f"></div> Diblokir</div>
-        <div class="leg-item"><div class="leg-dot" style="background:#4a148c"></div> Direservasi</div>
         <div class="leg-item leg-highlight" style="display:none">
             <div class="leg-dot leg-dot-pulse" id="legHighlightDot" style="background:#ffd700;border:1px solid #fff"></div>
             <span id="legHighlightLabel">Rekomendasi GA</span>
+        </div>
+
+        {{-- Divider --}}
+        <div style="border-top:1px solid #2d3748;margin:9px 0 8px"></div>
+
+        {{-- Section 2: Area fisik gudang --}}
+        <div style="font-size:10px;font-weight:700;letter-spacing:.5px;color:#94a3b8;margin-bottom:7px">LEGENDA AREA</div>
+        {{-- Rak: split oranye (beam) + biru (upright), keduanya dominan secara visual --}}
+        <div class="leg-item">
+            <div class="leg-dot" style="background:linear-gradient(135deg,#e65100 50%,#1565c0 50%);border-radius:50%"></div> Rak
+        </div>
+        {{-- Lemari: krem warm, sesuai platform 0xfff8e1 --}}
+        <div class="leg-item">
+            <div class="leg-dot" style="background:#bcaaa4;border-radius:50%"></div> Lemari
+        </div>
+        {{-- Oksigen & Argon: cyan, sesuai 0x80deea --}}
+        <div class="leg-item">
+            <div class="leg-dot" style="background:#4dd0e1;border-radius:50%"></div> Area Oksigen &amp; Argon
+        </div>
+        {{-- Rak Ban: amber kuning, readable ver. dari 0xfff176 --}}
+        <div class="leg-item">
+            <div class="leg-dot" style="background:#f9a825;border-radius:50%"></div> Rak Ban
+        </div>
+        {{-- V-Belt: exact match 0x90a4ae --}}
+        <div class="leg-item">
+            <div class="leg-dot" style="background:#90a4ae;border-radius:50%"></div> Area Gantungan V-Belt
         </div>
     </div>
 
@@ -234,10 +265,15 @@
         <i class="fas fa-search-plus mr-1"></i> Scroll: Zoom &nbsp;·&nbsp; Klik: Detail
     </div>
 
-    {{-- Reset camera button --}}
-    <button class="btn-reset-cam" id="btnResetCam">
-        <i class="fas fa-crosshairs mr-1"></i> Reset Kamera
-    </button>
+    {{-- Camera control buttons --}}
+    <div id="camBtnGroup">
+        <button class="btn-cam" id="btnResetCam">
+            <i class="fas fa-crosshairs mr-1"></i> Reset Kamera
+        </button>
+        <button class="btn-cam" id="btnTopView">
+            <i class="fas fa-arrows-alt mr-1"></i> Top View
+        </button>
+    </div>
 
     {{-- Tooltip --}}
     <div id="threeTooltip"></div>
@@ -308,33 +344,39 @@ $('#btnClearHighlight').on('click', function () { clearHighlight(); });
 
 @if($selectedWarehouse)
 // ── Constants ─────────────────────────────────────────────────────────────
-const CW  = 2.0;   // cell width  (X)
-const CH  = 1.3;   // cell height (Y)
+const CW  = 2.0;   // standard rack width (X)
+const WW  = 14.0;  // wide rack width — 14 m ÷ 7 kolom = 2.0 m/kolom
+const CH  = 1.4;   // cell height — 2.0 m lebar ÷ 1.4 m tinggi ≈ 1.43:1 landscape
 const CD  = 1.8;   // cell depth  (Z)
 
-const ZONE_FLOOR = { A: 0x0a2744, B: 0x2d1500, C: 0x2d0a0a };
+// Rak wide = rak utama 1–11 (tampak atas: batang horizontal panjang)
+const WIDE_RACK_CODES     = new Set(['1','2','3','4','5','6','7','8','9','10','11']);
+// Rak vertikal 12–15 = perpendicular ke rak utama, memanjang di arah Z (tampak atas: batang vertikal)
+const VERTICAL_RACK_CODES = new Set(['12','13','14','15']);
+const VW = 32.0; // panjang Z rak vertikal (sama dengan span rak 1–11: Z=0 s/d Z=32)
+
 const ZONE_LABEL = { A: '#4fc3f7', B: '#ffb74d', C: '#ef9a9a' };
 
 function cellHex(cell) {
     if (cell.status === 'blocked')  return 0x37474f;
     if (cell.status === 'reserved') return 0x7b1fa2;
     if (cell.status === 'full')     return 0xd32f2f;
-    if (cell.utilization > 0)       return 0xf57f17;
+    if (cell.utilization > 0)       return 0xfdd835;   // kuning terang — jelas beda dari oranye full
     return 0x00897b;   // teal-green: empty slot
 }
 function cellEmissive(cell) {
     if (cell.status === 'blocked')  return 0x050a0c;
-    if (cell.status === 'reserved') return 0x220030;
-    if (cell.status === 'full')     return 0x400000;
-    if (cell.utilization > 0)       return 0x3d1f00;
-    return 0x002d28;
+    if (cell.status === 'reserved') return 0x2a0040;
+    if (cell.status === 'full')     return 0x4a0000;
+    if (cell.utilization > 0)       return 0x3d3000;   // emissive kekuningan
+    return 0x000000;   // empty — no emissive glow, sepenuhnya pasif
 }
 function cellOpacity(cell) {
-    if (cell.status === 'blocked')  return 0.65;
-    if (cell.status === 'reserved') return 0.50;
-    if (cell.status === 'full')     return 0.55;   // items are primary visual; panel = glow
-    if (cell.utilization > 0)       return 0.42;
-    return 0.28;   // empty — very faint, rack frame shows through
+    if (cell.status === 'blocked')  return 0.55;
+    if (cell.status === 'reserved') return 0.72;
+    if (cell.status === 'full')     return 0.88;
+    if (cell.utilization > 0)       return 0.78;
+    return 0.07;   // empty — hampir transparan, struktur rak lebih dominan
 }
 
 // Deterministic hash from cell code string → integer 0–65535
@@ -354,7 +396,7 @@ scene.background = new THREE.Color(0x0d1117);
 scene.fog        = new THREE.FogExp2(0x0d1117, 0.004);
 
 const camera = new THREE.PerspectiveCamera(48, wrap.clientWidth / wrap.clientHeight, 0.1, 600);
-camera.position.set(13, 42, 25);
+camera.position.set(1, 55, -8);   // tampak atas saat load pertama
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -365,7 +407,7 @@ wrap.appendChild(renderer.domElement);
 
 // ── Controls ──────────────────────────────────────────────────────────────
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.target.set(13, 0, -20);
+controls.target.set(1, 0, 17);
 controls.enableDamping  = true;
 controls.dampingFactor  = 0.06;
 controls.minDistance    = 6;
@@ -373,11 +415,28 @@ controls.maxDistance    = 200;
 controls.maxPolarAngle  = Math.PI / 2 - 0.02;
 controls.update();
 
-const DEFAULT_CAM = { pos: new THREE.Vector3(13, 42, 25), target: new THREE.Vector3(13, 0, -20) };
-document.getElementById('btnResetCam').addEventListener('click', function () {
-    camera.position.copy(DEFAULT_CAM.pos);
-    controls.target.copy(DEFAULT_CAM.target);
+// Dua preset kamera
+const DEFAULT_CAM = { pos: new THREE.Vector3(1, 55, -8),  target: new THREE.Vector3(1, 0, 17) };
+// Z sedikit lebih besar dari target.Z=17 → azimuth terdefinisi (bukan singularitas)
+// → screen RIGHT = +X → rak 12-15 (X negatif) tampil di sisi KIRI sesuai denah
+const TOPVIEW_CAM = { pos: new THREE.Vector3(1, 65, 15),  target: new THREE.Vector3(1, 0, 17) };
+
+const btnReset   = document.getElementById('btnResetCam');
+const btnTopView = document.getElementById('btnTopView');
+
+function setCamPreset(preset, activeBtn) {
+    camera.position.copy(preset.pos);
+    controls.target.copy(preset.target);
     controls.update();
+    [btnReset, btnTopView].forEach(b => b.classList.remove('active'));
+    if (activeBtn) activeBtn.classList.add('active');
+}
+
+btnReset.addEventListener('click',   () => setCamPreset(DEFAULT_CAM, btnReset));
+btnTopView.addEventListener('click', () => setCamPreset(TOPVIEW_CAM, btnTopView));
+
+controls.addEventListener('start', () => {
+    [btnReset, btnTopView].forEach(b => b.classList.remove('active'));
 });
 
 // ── Lights ────────────────────────────────────────────────────────────────
@@ -399,15 +458,15 @@ scene.add(dir);
 
 // ── Floor (concrete grey) ────────────────────────────────────────────────
 const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(32, 66),
+    new THREE.PlaneGeometry(52, 64),
     new THREE.MeshLambertMaterial({ color: 0x484848 })
 );
 floor.rotation.x = -Math.PI / 2;
-floor.position.set(13, -0.01, -21);
+floor.position.set(7, -0.01, 22);
 floor.receiveShadow = true;
 scene.add(floor);
 
-// ── Text Sprite ───────────────────────────────────────────────────────────
+// ── Text Sprite (zone labels, small labels) ───────────────────────────────
 function makeSprite(text, size, color) {
     const cv = document.createElement('canvas');
     cv.width = 256; cv.height = 64;
@@ -426,71 +485,169 @@ function makeSprite(text, size, color) {
     return sp;
 }
 
-// ── Zone Floor Marker ─────────────────────────────────────────────────────
-// Draws a full-width horizontal strip covering the Z extent of all racks
-// in the zone — matches the horizontal-band look of the physical floor plan.
-function addZoneMarker(absX, absZ, racks, colorHex) {
-    if (!racks.length) return;
-    const zs   = racks.map(r => absZ + r.pos_z);
-    const minZ = Math.min(...zs) - 2.5;
-    const maxZ = Math.max(...zs) + 2.5;
-    const cz   = (minZ + maxZ) / 2;
-    const d    = maxZ - minZ;
+// ── Rack label — besar, selalu menghadap kamera (Sprite = billboard otomatis) ──
+function makeRackLabel(text) {
+    const W = 320, H = 128;
+    const cv = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
 
-    const m = new THREE.Mesh(
-        new THREE.PlaneGeometry(40, d),   // 40 = full warehouse width
-        new THREE.MeshLambertMaterial({ color: colorHex, transparent: true, opacity: 0.18 })
-    );
-    m.rotation.x = -Math.PI / 2;
-    m.position.set(13, 0.01, cz);   // 13 = warehouse X centre
-    scene.add(m);
+    // Background pill gelap
+    const r = 28;
+    ctx.beginPath();
+    ctx.moveTo(r, 0);
+    ctx.lineTo(W - r, 0);
+    ctx.quadraticCurveTo(W, 0, W, r);
+    ctx.lineTo(W, H - r);
+    ctx.quadraticCurveTo(W, H, W - r, H);
+    ctx.lineTo(r, H);
+    ctx.quadraticCurveTo(0, H, 0, H - r);
+    ctx.lineTo(0, r);
+    ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(10,20,40,0.82)';
+    ctx.fill();
+
+    // Border putih tipis
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // Teks putih bold
+    ctx.font = "bold 76px 'Segoe UI',Arial,sans-serif";
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, W / 2, H / 2);
+
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(cv),
+        transparent: true,
+        depthTest: false,
+        sizeAttenuation: true,
+    }));
+    sp.renderOrder = 1000;
+    return sp;
 }
 
-// ── Environment: walls, aisle markings, ceiling neons ────────────────────
-// Static warehouse shell — called once at init, persists across loadScene calls.
-// Layout: X[−1 .. 27], Z[−52 .. 10], height 12.5 m.
-// Front (Z=10) is left open as a loading-bay entrance so the top-down camera
-// can see into the building without a ceiling obstructing the view.
-function buildEnvironment() {
-    const wX0 = -1,  wX1 = 27;     // warehouse X extents
-    const wZ0 = -52, wZ1 = 10;     // warehouse Z extents
-    const wW  = wX1 - wX0;         // 28 m wide
-    const wD  = wZ1 - wZ0;         // 62 m deep
-    const cX  = (wX0 + wX1) / 2;   // 13  (centre X)
-    const cZ  = (wZ0 + wZ1) / 2;   // −21 (centre Z)
-    const wH  = 12.5;               // wall height (racks are 7 × 1.3 = 9.1 m)
+// ── Area label sprite (colored pill, billboard) ───────────────────────────
+function makeAreaLabel(text, bgRgba, fgColor) {
+    const W = 320, H = 128, r = 22;
+    const cv  = document.createElement('canvas');
+    cv.width = W; cv.height = H;
+    const ctx = cv.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(r, 0); ctx.lineTo(W-r, 0); ctx.quadraticCurveTo(W, 0, W, r);
+    ctx.lineTo(W, H-r); ctx.quadraticCurveTo(W, H, W-r, H);
+    ctx.lineTo(r, H); ctx.quadraticCurveTo(0, H, 0, H-r);
+    ctx.lineTo(0, r); ctx.quadraticCurveTo(0, 0, r, 0);
+    ctx.closePath();
+    ctx.fillStyle = bgRgba; ctx.fill();
+    ctx.strokeStyle = fgColor; ctx.lineWidth = 3; ctx.stroke();
+    ctx.font = "bold 56px 'Segoe UI',Arial,sans-serif";
+    ctx.fillStyle = fgColor;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, W / 2, H / 2);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: new THREE.CanvasTexture(cv), transparent: true, depthTest: false,
+    }));
+    sp.renderOrder = 1000;
+    return sp;
+}
 
-    // ── Back wall only — tembok samping dihilangkan ──────────────────────────
+// ── Definisi area non-rak berdasarkan kode rak di DB ─────────────────────
+const SPECIAL_AREA_DEFS = {
+    '16': { label: 'Lemari',     bg: 'rgba(255,248,225,0.92)', fg: '#5d4037', hex: 0xfff8e1 },
+    '17': { label: 'O2 & Argon', bg: 'rgba(128,222,234,0.92)', fg: '#006064', hex: 0x80deea, noCells: true },
+    '18': { label: 'Lemari',     bg: 'rgba(255,248,225,0.92)', fg: '#5d4037', hex: 0xfff8e1, noCells: true },
+    '19': { label: 'Rak Ban',    bg: 'rgba(255,241,118,0.92)', fg: '#b45309', hex: 0xfff176, noCells: true },
+    '20': { label: 'V-Belt',     bg: 'rgba(144,164,174,0.92)', fg: '#263238', hex: 0x90a4ae, noCells: true },
+};
+
+// ── Render area non-rak: flat platform berwarna + cell interaktif tipis ───
+function buildSpecialArea(rx, rz, def, rack) {
+    const AW    = CW;     // footprint X sama seperti rak standar
+    const AD    = CD;     // footprint Z sama seperti rak standar
+    const baseH = 0.35;   // tinggi platform rendah
+    const cellH = 0.22;   // tebal slab cell
+    const gap   = 0.04;
+
+    // Platform dasar berwarna
+    const base = new THREE.Mesh(
+        new THREE.BoxGeometry(AW, baseH, AD),
+        new THREE.MeshLambertMaterial({ color: def.hex })
+    );
+    base.position.set(rx, baseH / 2, rz);
+    scene.add(base);
+
+    // Slab cell tipis ditumpuk di atas platform (hanya jika noCells tidak aktif)
+    const cGeo = new THREE.BoxGeometry(AW - 0.18, cellH, AD - 0.22);
+    let topY = baseH;
+    if (!def.noCells) rack.cells.forEach(cell => {
+        const mat = new THREE.MeshLambertMaterial({
+            color:       cellHex(cell),
+            emissive:    new THREE.Color(cellEmissive(cell)),
+            transparent: true,
+            opacity:     cellOpacity(cell),
+            side:        THREE.DoubleSide,
+            depthWrite:  false,
+        });
+        const mesh = new THREE.Mesh(cGeo, mat);
+        mesh.renderOrder = 1;
+        mesh.position.set(rx, topY + cellH / 2, rz);
+        mesh.userData = {
+            cellId:   cell.cell_id,
+            cellCode: cell.code,
+            status:   cell.status,
+            util:     cell.utilization,
+            rackW:    AW,
+        };
+        scene.add(mesh);
+        cellMeshes.push(mesh);
+        topY += cellH + gap;
+    });
+
+    // Label area — skip jika pasangan rak sudah punya label (noLabel)
+    if (!def.noLabel) {
+        const lbl = makeAreaLabel(def.label, def.bg, def.fg);
+        lbl.scale.set(2.8, 1.0, 1);
+        lbl.position.set(rx, topY + 1.2, rz);
+        scene.add(lbl);
+    }
+}
+
+// ── Environment: walls + aisle markings ───────────────────────────────────
+// Layout baru: rak 1–11 wide di X=-1..7, Z=0..33.8 ; rak belakang Z=36 ; rak depan Z=-3
+function buildEnvironment() {
     const wallMat = new THREE.MeshLambertMaterial({ color: 0xcdd0d4, side: THREE.DoubleSide });
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(wW + 0.6, wH, 0.3), wallMat);
-    backWall.position.set(cX, wH / 2, wZ0);
+
+    // Dinding belakang (Z=38.5)
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(46, 14, 0.3), wallMat);
+    backWall.position.set(9, 7, 38.5);
     backWall.receiveShadow = true;
     scene.add(backWall);
 
-    // ── Yellow aisle safety lines on floor ────────────────────────────────
-    // Four longitudinal stripes marking the two main walking corridors:
-    //   left corridor  : between wall racks (X≈2) and centre racks (X≈13)  → X 3.5 & 11.5
-    //   right corridor : between centre racks (X≈13) and right racks (X≈20+) → X 14.5 & 21.5
+// Garis aisle kuning (antar pasangan rak): setiap pair dipisah ~4 m
+    // Pasangan: (1,2) Z 0-3.3 | (3,4) Z 6.4-9.7 | (5,6) Z 12.8-16.1 |
+    //           (7,8) Z 19.2-22.5 | (9,10) Z 25.6-28.9 | 11 Z 32
     const laneMat = new THREE.MeshBasicMaterial({ color: 0xffc107 });
-    const laneGeo = new THREE.PlaneGeometry(0.22, wD - 4);
-    [3.5, 11.5, 14.5, 21.5].forEach(lx => {
-        const ln = new THREE.Mesh(laneGeo, laneMat);
+    const laneW   = 14;   // panjang garis aisle (melintang X, cukup untuk rak utama)
+    [4.4, 10.6, 16.8, 23.0, 30.0].forEach(lz => {
+        const ln = new THREE.Mesh(new THREE.PlaneGeometry(laneW, 0.22), laneMat);
         ln.rotation.x = -Math.PI / 2;
-        ln.position.set(lx, 0.03, cZ);
+        ln.position.set(3, 0.03, lz);
         scene.add(ln);
     });
-
-    // ── Neon ceiling light strips ─────────────────────────────────────────
-    // Neon tubes & point lights dihapus — tanpa plafon/dinding tabung mengambang
-    // AmbientLight(0.48) + DirectionalLight(0.85) sudah cukup untuk pencahayaan scene.
 }
 
 // ── Shared rack-structure materials & cell panel geometry ─────────────────
 // Rack colours: blue uprights + orange beams/shelves (industrial warehouse style)
 const postMat     = new THREE.MeshLambertMaterial({ color: 0x1565c0 });   // blue upright
 const beamMat     = new THREE.MeshLambertMaterial({ color: 0xe65100 });   // orange beam/shelf
-// Cell panel: slightly inset from post/beam edges so rack frame shows around it
-const cellPanelGeo = new THREE.BoxGeometry(CW - 0.22, CH - 0.14, CD - 0.28);
+// Cell panel geometries — full-width so "full" cells span wall-to-wall; partial scaled in JS
+const cellPanelGeo     = new THREE.BoxGeometry(CW - 0.06, CH - 0.06, CD - 0.15);
+const cellPanelGeoWide = new THREE.BoxGeometry(WW - 0.06, CH - 0.06, CD - 0.15);
+const cellPanelGeoVert = new THREE.BoxGeometry(CW - 0.06, CH - 0.06, VW - 0.15);
 
 // ── Shared low-poly item geometries & materials ───────────────────────────
 // 4 types: standard box · tall box · drum · flat/wide box
@@ -542,209 +699,304 @@ function clearScene() {
     itemMeshes.length = 0;
 }
 
-function buildWarehouse(zones) {
-    zones.forEach(zone => {
-        const zc   = zone.zone_code || '?';
-        const absX = zone.pos_x;
-        const absZ = zone.pos_z;
+// ── Posisi label zona [x, z, y] — y opsional, default 0.1 ────────────────
+const ZONE_LABEL_POS = {
+    'A': [ 12,  11,  0.1],  // aisle antara rak utama (X=10) dan rak vertikal (X=14)
+    'B': [ 12,  30,  0.1],  // aisle, sejajar rak 9–11
+    'C': [  3,  -9,  2.5],  // tengah antara cluster kiri (X=8-10) dan kanan (X=-4--2)
+};
 
-        addZoneMarker(absX, absZ, zone.racks, ZONE_FLOOR[zc] ?? 0x1a2332);
+// ── Rak vertikal 12–15: perpendicular ke rak utama, memanjang di arah Z ──────
+function buildVerticalRack(rx, rz, rack) {
+    const rh   = rack.total_levels * CH;
+    const pOff = 0.045;
 
-        // Zone label — centred on the bounding box of the zone's racks
-        if (zone.racks.length) {
-            const zs = zone.racks.map(r => absZ + r.pos_z);
-            const cz = (Math.min(...zs) + Math.max(...zs)) / 2;
-            const sp = makeSprite(zone.zone_name, 22, ZONE_LABEL[zc] ?? '#94a3b8');
-            sp.scale.set(10, 2.4, 1);
-            sp.position.set(-3, 0.1, cz);   // left-edge label, outside the rack area
-            scene.add(sp);
+    // Posisi Z upright: dari rz-VW/2 ke rz+VW/2 setiap 2 m
+    const uprightZs = [];
+    for (let zi = rz - VW / 2; zi <= rz + VW / 2 + 0.01; zi += 2.0) {
+        uprightZs.push(Math.round(zi * 1000) / 1000);
+    }
+
+    // Tiang vertikal (posts) di setiap Z upright, di kedua sisi X
+    const postGeo = new THREE.BoxGeometry(0.085, rh + 0.40, 0.085);
+    uprightZs.forEach(pz => {
+        [rx - CW / 2 + pOff, rx + CW / 2 - pOff].forEach(px => {
+            const p = new THREE.Mesh(postGeo, postMat);
+            p.position.set(px, rh / 2, pz);
+            p.castShadow = true;
+            scene.add(p);
+        });
+    });
+
+    // X-bracing hanya di ujung depan dan belakang (arah Z)
+    const xFX  = rx - CW / 2 + pOff;
+    const xBX  = rx + CW / 2 - pOff;
+    const xDX  = xBX - xFX;
+    const xMX  = (xFX + xBX) / 2;
+    const half = rh / 2;
+    [uprightZs[0], uprightZs[uprightZs.length - 1]].forEach(zEnd => {
+        [0, half].forEach(y0 => {
+            const y1    = y0 + half;
+            const dY    = y1 - y0;
+            const len   = Math.sqrt(dY * dY + xDX * xDX);
+            const ang   = Math.atan2(xDX, dY);
+            const mY    = (y0 + y1) / 2;
+            const brGeo = new THREE.BoxGeometry(0.040, len, 0.040);
+            [ang, -ang].forEach(a => {
+                const d = new THREE.Mesh(brGeo, postMat);
+                d.position.set(xMX, mY, zEnd);
+                d.rotation.z = a;
+                scene.add(d);
+            });
+        });
+    });
+
+    // Load beam (X direction) di setiap upright Z, setiap level
+    const bGeo = new THREE.BoxGeometry(CW + 0.10, 0.075, 0.060);
+    for (let lv = 0; lv <= rack.total_levels; lv++) {
+        uprightZs.forEach(pz => {
+            const b = new THREE.Mesh(bGeo, beamMat);
+            b.position.set(rx, lv * CH, pz);
+            scene.add(b);
+        });
+    }
+
+    // Rail memanjang (Z direction) di sisi kiri & kanan X, setiap level
+    const railGeo = new THREE.BoxGeometry(0.060, 0.075, VW + 0.10);
+    for (let lv = 0; lv <= rack.total_levels; lv++) {
+        [rx - CW / 2 + 0.058, rx + CW / 2 - 0.058].forEach(bx => {
+            const r = new THREE.Mesh(railGeo, beamMat);
+            r.position.set(bx, lv * CH, rz);
+            scene.add(r);
+        });
+    }
+
+    // Shelf deck (spanning full VW in Z)
+    const sfGeo = new THREE.BoxGeometry(CW - 0.10, 0.042, VW - 0.15);
+    for (let lv = 0; lv < rack.total_levels; lv++) {
+        const sf = new THREE.Mesh(sfGeo, beamMat);
+        sf.position.set(rx, lv * CH + 0.024, rz);
+        scene.add(sf);
+    }
+
+    // Label di atas tengah rak
+    const lbl = makeRackLabel('R' + rack.rack_code);
+    lbl.scale.set(1.8, 0.72, 1);
+    lbl.position.set(rx, rh + 1.8, rz);
+    lbl.userData.isRackLabel = true;
+    lbl.userData.scaleWide   = false;
+    scene.add(lbl);
+
+    // Cell panels (satu panel per level, memanjang di Z = VW)
+    rack.cells.forEach(cell => {
+        const lvl = (cell.level ?? 1) - 1;
+        const mat = new THREE.MeshLambertMaterial({
+            color:       cellHex(cell),
+            emissive:    new THREE.Color(cellEmissive(cell)),
+            transparent: true,
+            opacity:     cellOpacity(cell),
+            side:        THREE.DoubleSide,
+            depthWrite:  false,
+        });
+        const mesh = new THREE.Mesh(cellPanelGeoVert, mat);
+        mesh.renderOrder = 1;
+        mesh.position.set(rx, lvl * CH + CH / 2, rz);
+        mesh.userData = {
+            cellId:   cell.cell_id,
+            cellCode: cell.code,
+            status:   cell.status,
+            util:     cell.utilization,
+            rackW:    CW,
+        };
+        scene.add(mesh);
+        cellMeshes.push(mesh);
+
+        const nItems = itemCountForCell(cell);
+        if (nItems > 0) {
+            const h      = hashCell(cell.code);
+            const shelfY = lvl * CH + 0.066;
+            ITEM_LAYOUTS[nItems].forEach(([xOff, zOff], si) => {
+                const iType = (h + si * 7) % ITEM_GEOS.length;
+                const ih    = ITEM_H[iType];
+                const im    = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
+                im.position.set(rx + xOff, shelfY + ih / 2, rz + zOff);
+                im.rotation.y = ((h * 13 + si * 97) % 628) / 100;
+                im.castShadow = true;
+                scene.add(im);
+                itemMeshes.push(im);
+            });
         }
+    });
+}
 
-        // ── Bridge adjacent racks into one continuous shelf unit ──────────────
-        // Seeder positions racks side-by-side in X (all pos_z = 0), so group
-        // by Z and bridge in the X direction.  Only bridge gaps ≤ 2.5 m so
-        // real aisles between zones (≈ 10 m gap) are never spanned.
-        {
-            const rowMap = {};
-            zone.racks.forEach(r => {
-                const key = Math.round((absZ + r.pos_z) * 2); // group by Z
-                (rowMap[key] = rowMap[key] || []).push(r);
+// ── Render satu rak (wide atau standar) ──────────────────────────────────
+function buildRack(rx, rz, rack) {
+    // Area khusus non-rak → delegasi ke buildSpecialArea
+    const areaDef = SPECIAL_AREA_DEFS[rack.rack_code];
+    if (areaDef) { buildSpecialArea(rx, rz, areaDef, rack); return; }
+
+    // Rak vertikal (12–15) → delegasi ke buildVerticalRack
+    if (VERTICAL_RACK_CODES.has(rack.rack_code)) { buildVerticalRack(rx, rz, rack); return; }
+
+    const isWide = WIDE_RACK_CODES.has(rack.rack_code);
+    const RW     = isWide ? WW : CW;
+    const rh     = rack.total_levels * CH;
+    const pOff   = 0.045;
+
+    // Hitung posisi X upright: 7 kolom untuk wide rack, 1 kolom untuk standar
+    const xStep    = isWide ? WW / 7 : CW;
+    const uprightXs = [];
+    for (let xi = rx - RW / 2; xi <= rx + RW / 2 + 0.01; xi += xStep) {
+        uprightXs.push(Math.round(xi * 1000) / 1000);
+    }
+
+    const postGeo = new THREE.BoxGeometry(0.085, rh + 0.40, 0.085);
+    uprightXs.forEach(px => {
+        [rz - CD / 2 + pOff, rz + CD / 2 - pOff].forEach(pz => {
+            const p = new THREE.Mesh(postGeo, postMat);
+            p.position.set(px, rh / 2, pz);
+            p.castShadow = true;
+            scene.add(p);
+        });
+    });
+
+    // X-bracing hanya di ujung kiri & kanan rak (bukan tiap kolom tengah)
+    const xFZ  = rz - CD / 2 + pOff;
+    const xBZ  = rz + CD / 2 - pOff;
+    const xDZ  = xBZ - xFZ;
+    const xMZ  = (xFZ + xBZ) / 2;
+    const half = rh / 2;
+
+    [uprightXs[0], uprightXs[uprightXs.length - 1]].forEach(xPost => {
+        [0, half].forEach(y0 => {
+            const y1    = y0 + half;
+            const dY    = y1 - y0;
+            const len   = Math.sqrt(dY * dY + xDZ * xDZ);
+            const ang   = Math.atan2(xDZ, dY);
+            const mY    = (y0 + y1) / 2;
+            const brGeo = new THREE.BoxGeometry(0.040, len, 0.040);
+            [ang, -ang].forEach(a => {
+                const d = new THREE.Mesh(brGeo, postMat);
+                d.position.set(xPost, mY, xMZ);
+                d.rotation.x = a;
+                scene.add(d);
             });
+        });
+    });
 
-            Object.values(rowMap).forEach(row => {
-                if (row.length < 2) return;
-                row.sort((a, b) => a.pos_x - b.pos_x); // left → right
+    // Load beam (orange, depan & belakang, setiap level)
+    const bGeo = new THREE.BoxGeometry(RW + 0.10, 0.075, 0.060);
+    for (let lv = 0; lv <= rack.total_levels; lv++) {
+        [rz - CD / 2 + 0.058, rz + CD / 2 - 0.058].forEach(bz => {
+            const b = new THREE.Mesh(bGeo, beamMat);
+            b.position.set(rx, lv * CH, bz);
+            scene.add(b);
+        });
+    }
 
-                for (let i = 0; i < row.length - 1; i++) {
-                    const rA = row[i], rB = row[i + 1];
-                    const rz  = absZ + rA.pos_z;
-                    const rh  = rA.total_levels * CH;
+    // Shelf deck (orange, tiap level)
+    const sfGeo = new THREE.BoxGeometry(RW - 0.10, 0.042, CD - 0.15);
+    for (let lv = 0; lv < rack.total_levels; lv++) {
+        const sf = new THREE.Mesh(sfGeo, beamMat);
+        sf.position.set(rx, lv * CH + 0.024, rz);
+        scene.add(sf);
+    }
 
-                    // Right edge of A  →  left edge of B
-                    const xA1 = absX + rA.pos_x + CW / 2;
-                    const xB0 = absX + rB.pos_x - CW / 2;
-                    const gap = xB0 - xA1;
-                    if (gap <= 0.05) continue;   // touching
-                    if (gap > 2.5)   continue;   // aisle — don't bridge
+    // Label nomor rak — ukuran perspektif default; Top View memperbesar via setRackLabelScale()
+    const lbl = makeRackLabel('R' + rack.rack_code);
+    lbl.scale.set(isWide ? 4.5 : 1.8, isWide ? 0.9 : 0.72, 1);
+    lbl.position.set(rx, rh + 1.8, rz);
+    lbl.userData.isRackLabel = true;
+    lbl.userData.scaleWide   = isWide;
+    scene.add(lbl);
 
-                    const gapCX = (xA1 + xB0) / 2;
+    // Cell panels — full geometry, colour & opacity encode status
+    const cellGeo = isWide ? cellPanelGeoWide : cellPanelGeo;
+    rack.cells.forEach(cell => {
+        const lvl = (cell.level ?? 1) - 1;
+        const mat = new THREE.MeshLambertMaterial({
+            color:       cellHex(cell),
+            emissive:    new THREE.Color(cellEmissive(cell)),
+            transparent: true,
+            opacity:     cellOpacity(cell),
+            side:        THREE.DoubleSide,
+            depthWrite:  false,
+        });
+        const mesh = new THREE.Mesh(cellGeo, mat);
+        mesh.renderOrder = 1;
+        mesh.position.set(rx, lvl * CH + CH / 2, rz);
+        mesh.userData = {
+            cellId:   cell.cell_id,
+            cellCode: cell.code,
+            status:   cell.status,
+            util:     cell.utilization,
+            rackW:    RW,
+        };
+        scene.add(mesh);
+        cellMeshes.push(mesh);
 
-                    // — Shelf decks spanning the gap (continuous orange surface) —
-                    const sfG = new THREE.BoxGeometry(gap, 0.042, CD - 0.15);
-                    for (let lv = 0; lv < rA.total_levels; lv++) {
-                        const sf = new THREE.Mesh(sfG, beamMat);
-                        sf.position.set(gapCX, lv * CH + 0.024, rz);
-                        scene.add(sf);
-                    }
+        // 3D items inside the cell
+        if (cell.status !== 'blocked' && (cell.utilization || 0) > 0) {
+            const h      = hashCell(cell.code);
+            const shelfY = lvl * CH + 0.066;
+            const u      = Math.min((cell.utilization || 0) / 100, 1.0);
 
-                    // — Vertical junction beams at each shelf level (left + right edges) —
-                    const jbGeo = new THREE.BoxGeometry(0.060, 0.075, CD + 0.10);
-                    for (let lv = 0; lv <= rA.total_levels; lv++) {
-                        [xA1 + 0.030, xB0 - 0.030].forEach(bx => {
-                            const b = new THREE.Mesh(jbGeo, beamMat);
-                            b.position.set(bx, lv * CH, rz);
-                            scene.add(b);
-                        });
-                    }
-                }
-            });
-        }
-
-        zone.racks.forEach(rack => {
-            const rx   = absX + rack.pos_x;
-            const rz   = absZ + rack.pos_z;
-            const rh   = rack.total_levels * CH;
-            const pOff = 0.045;   // inset so posts sit at column corners
-
-            // ── 4 Blue Corner Uprights ──────────────────────────────────────
-            const postGeo = new THREE.BoxGeometry(0.085, rh + 0.40, 0.085);
-            [
-                [rx - CW/2 + pOff, rz - CD/2 + pOff],
-                [rx + CW/2 - pOff, rz - CD/2 + pOff],
-                [rx - CW/2 + pOff, rz + CD/2 - pOff],
-                [rx + CW/2 - pOff, rz + CD/2 - pOff],
-            ].forEach(([px, pz]) => {
-                const p = new THREE.Mesh(postGeo, postMat);
-                p.position.set(px, rh / 2, pz);
-                p.castShadow = true;
-                scene.add(p);
-            });
-
-            // ── Blue X Cross-Bracing on left & right upright frames ────────
-            // Two equal-height X segments per side → clear "×" silhouette
-            // Braces run in the Y-Z plane (side face) between front & back posts
-            {
-                const xFZ  = rz - CD/2 + pOff;   // front post Z
-                const xBZ  = rz + CD/2 - pOff;   // back post Z
-                const xDZ  = xBZ - xFZ;           // depth span ≈ 1.71
-                const xMZ  = (xFZ + xBZ) / 2;    // Z midpoint of frame
-                const half = rh / 2;
-
-                [0, half].forEach(y0 => {
-                    const y1   = y0 + half;
-                    const dY   = y1 - y0;
-                    const len  = Math.sqrt(dY * dY + xDZ * xDZ);
-                    const ang  = Math.atan2(xDZ, dY);   // tilt from vertical (≈ 20°)
-                    const mY   = (y0 + y1) / 2;
-                    const brGeo = new THREE.BoxGeometry(0.040, len, 0.040);
-
-                    [rx - CW/2 + pOff, rx + CW/2 - pOff].forEach(xPost => {
-                        // Diagonal A: bottom-front → top-back
-                        const da = new THREE.Mesh(brGeo, postMat);
-                        da.position.set(xPost, mY, xMZ);
-                        da.rotation.x = ang;
-                        scene.add(da);
-                        // Diagonal B: bottom-back → top-front  (together = X shape)
-                        const db = new THREE.Mesh(brGeo, postMat);
-                        db.position.set(xPost, mY, xMZ);
-                        db.rotation.x = -ang;
-                        scene.add(db);
-                    });
-                });
-            }
-
-            // ── Orange Load Beams: front + back edge, every level ───────────
-            const bGeo = new THREE.BoxGeometry(CW + 0.10, 0.075, 0.060);
-            const bFZ  = rz - CD/2 + 0.058;
-            const bBZ  = rz + CD/2 - 0.058;
-            for (let lv = 0; lv <= rack.total_levels; lv++) {
-                [bFZ, bBZ].forEach(bz => {
-                    const b = new THREE.Mesh(bGeo, beamMat);
-                    b.position.set(rx, lv * CH, bz);
-                    scene.add(b);
-                });
-            }
-
-            // ── Orange Shelf Deck: flat surface at each level ───────────────
-            const sfGeo = new THREE.BoxGeometry(CW - 0.10, 0.042, CD - 0.15);
-            for (let lv = 0; lv < rack.total_levels; lv++) {
-                const sf = new THREE.Mesh(sfGeo, beamMat);
-                sf.position.set(rx, lv * CH + 0.024, rz);
-                scene.add(sf);
-            }
-
-            // ── Rack Number Label ───────────────────────────────────────────
-            const lbl = makeSprite('R' + rack.rack_code, 36, '#94a3b8');
-            lbl.scale.set(2.2, 0.55, 1);
-            lbl.position.set(rx, rh + 1.4, rz);
-            scene.add(lbl);
-
-            // ── Cell Status Panels (semi-transparent, WMS colour by status) ─
-            rack.cells.forEach(cell => {
-                const col = (cell.column ?? 1) - 1;
-                const lvl = (cell.level  ?? 1) - 1;
-
-                const mat = new THREE.MeshLambertMaterial({
-                    color:       cellHex(cell),
-                    emissive:    new THREE.Color(cellEmissive(cell)),
-                    transparent: true,
-                    opacity:     cellOpacity(cell),
-                    side:        THREE.DoubleSide,
-                    depthWrite:  false,
-                });
-
-                const mesh = new THREE.Mesh(cellPanelGeo, mat);
-                mesh.renderOrder = 1;
-                mesh.position.set(
-                    rx + col * CW,
-                    lvl * CH + CH / 2,
-                    rz
-                );
-                mesh.userData = {
-                    cellId:   cell.cell_id,
-                    cellCode: cell.code,
-                    status:   cell.status,
-                    util:     cell.utilization,
-                };
-                scene.add(mesh);
-                cellMeshes.push(mesh);
-
-                // ── Low-poly shelf items based on utilization ───────────────
-                // Items sit ON the shelf deck surface; panel glow shows status.
-                // Geometry & materials are shared (defined above) — no GC churn.
-                const nItems = itemCountForCell(cell);
-                if (nItems > 0) {
-                    const h      = hashCell(cell.code);
-                    // Shelf deck top surface Y for this level
-                    const shelfY = lvl * CH + 0.066;  // shelf center(0.024) + half-thick(0.021) + pad(0.021)
-                    const slots  = ITEM_LAYOUTS[nItems];
-                    slots.forEach(([xOff, zOff], si) => {
-                        const iType = (h + si * 7) % ITEM_GEOS.length;
+            if (isWide) {
+                // 7 columns at X offsets ±0,±2,±4,±6 relative to rack centre
+                // Fill from screen-left (+X) side; number of columns ∝ utilization
+                const COL_XS   = [6, 4, 2, 0, -2, -4, -6];
+                const colsFill = cell.status === 'full' ? 7 : Math.max(1, Math.ceil(u * 7));
+                for (let ci = 0; ci < colsFill; ci++) {
+                    const colX  = COL_XS[ci];
+                    const twoRow = cell.status === 'full' || u > 0.5;
+                    const zOffs  = twoRow ? [-0.22, 0.22] : [0];
+                    zOffs.forEach((zOff, ri) => {
+                        const iType = (h + ci * 7 + ri * 3) % ITEM_GEOS.length;
                         const ih    = ITEM_H[iType];
                         const im    = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
-                        im.position.set(
-                            rx + col * CW + xOff,
-                            shelfY + ih / 2,
-                            rz + zOff
-                        );
-                        // Deterministic Y-rotation so items don't all face the same way
-                        im.rotation.y = ((h * 13 + si * 97) % 628) / 100;
+                        im.position.set(rx + colX, shelfY + ih / 2, rz + zOff);
+                        im.rotation.y = ((h * 13 + ci * 97 + ri * 31) % 628) / 100;
                         im.castShadow = true;
                         scene.add(im);
                         itemMeshes.push(im);
                     });
                 }
-            });
+            } else {
+                // Standard cell (CW = 2 m)
+                const nItems = itemCountForCell(cell);
+                ITEM_LAYOUTS[nItems].forEach(([xOff, zOff], si) => {
+                    const iType = (h + si * 7) % ITEM_GEOS.length;
+                    const ih    = ITEM_H[iType];
+                    const im    = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
+                    im.position.set(rx + xOff, shelfY + ih / 2, rz + zOff);
+                    im.rotation.y = ((h * 13 + si * 97) % 628) / 100;
+                    im.castShadow = true;
+                    scene.add(im);
+                    itemMeshes.push(im);
+                });
+            }
+        }
+    });
+}
+
+function buildWarehouse(zones) {
+    zones.forEach(zone => {
+        const zc   = zone.zone_code || '?';
+        const absX = zone.pos_x;   // = 0 untuk semua zona (koordinat absolut)
+        const absZ = zone.pos_z;
+
+        // Label nama zona di posisi tetap sesuai layout baru
+        const lpos = ZONE_LABEL_POS[zc];
+        if (lpos) {
+            const sp = makeSprite(zone.zone_name, 22, ZONE_LABEL[zc] ?? '#94a3b8');
+            sp.scale.set(10, 2.4, 1);
+            sp.position.set(lpos[0], lpos[2] ?? 0.1, lpos[1]);
+            scene.add(sp);
+        }
+
+        // Render setiap rak
+        zone.racks.forEach(rack => {
+            buildRack(absX + rack.pos_x, absZ + rack.pos_z, rack);
         });
     });
 }
@@ -771,9 +1023,7 @@ let highlightedMeshes    = [];
 let highlightMats        = [];
 let highlightOutlines    = [];   // BackSide gold shells for GA outlines
 
-// Geometry for the GA outline shell: same shape as cellPanelGeo but 0.22 m larger all-round
-// = effectively full-cell-width box so the gold border is clearly visible
-const GA_OUTLINE_GEO = new THREE.BoxGeometry(CW, CH + 0.08, CD - 0.06);
+// GA outline shell dibuat per-mesh (ukuran menyesuaikan lebar rak wide vs standar)
 
 function applyHighlight(ids, reason, label) {
     clearHighlight();
@@ -799,17 +1049,14 @@ function applyHighlight(ids, reason, label) {
         highlightMats.push(mat);
         highlightedMeshes.push(mesh);
 
-        // ── GA: solid gold outline shell (BackSide = border only, no fill) ───
-        // The shell is slightly larger than the cell panel; BackSide culls front
-        // faces so only the outer border ring is visible around the panel.
+        // ── GA: gold outline shell (BackSide, ukuran menyesuaikan lebar rak) ─
         if (isGa) {
-            const outlineMat = new THREE.MeshBasicMaterial({
-                color: 0xffd700,
-                side: THREE.BackSide,
-            });
-            const outline = new THREE.Mesh(GA_OUTLINE_GEO, outlineMat);
+            const outlineW   = mesh.userData.rackW ?? CW;
+            const outlineGeo = new THREE.BoxGeometry(outlineW, CH + 0.08, CD - 0.06);
+            const outlineMat = new THREE.MeshBasicMaterial({ color: 0xffd700, side: THREE.BackSide });
+            const outline = new THREE.Mesh(outlineGeo, outlineMat);
             outline.position.copy(mesh.position);
-            outline.renderOrder = 1;   // render behind panel but above normal cells
+            outline.renderOrder = 1;
             scene.add(outline);
             highlightOutlines.push(outline);
         }

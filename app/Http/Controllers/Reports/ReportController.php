@@ -486,12 +486,10 @@ class ReportController extends Controller
         $chartMaxFit    = [];
         $chartExecMs    = [];
         foreach ($months as $m) {
-            $chartAvgFit[] = $monthlyFitness[$m]->avg_fitness
-                ? round($monthlyFitness[$m]->avg_fitness, 4) : null;
-            $chartMaxFit[] = $monthlyFitness[$m]->max_fitness
-                ? round($monthlyFitness[$m]->max_fitness, 4) : null;
-            $chartExecMs[] = $monthlyFitness[$m]->avg_exec_ms
-                ? round($monthlyFitness[$m]->avg_exec_ms) : null;
+            $row = $monthlyFitness->get($m);
+            $chartAvgFit[] = $row?->avg_fitness ? round($row->avg_fitness, 4) : null;
+            $chartMaxFit[] = $row?->max_fitness ? round($row->max_fitness, 4) : null;
+            $chartExecMs[] = $row?->avg_exec_ms ? round($row->avg_exec_ms) : null;
         }
 
         $compliancePct = ($compliance->total ?? 0) > 0

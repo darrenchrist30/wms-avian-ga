@@ -1,0 +1,188 @@
+{
+  "info": {
+    "name": "WMS Avian – ERP Integration Simulation",
+    "description": "Simulasi ERP mengirim Delivery Order ke WMS Avian.\nGunakan Collection Runner untuk menjalankan semua skenario sekaligus.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://wms-avian-ga.test/api/v1",
+      "description": "Sesuaikan dengan URL lokal kamu (Laragon biasanya pakai .test)"
+    },
+    {
+      "key": "token",
+      "value": "6|niTu18UuGGBvtYRaTgKxo9PvO28MI1GKARHk5B6l",
+      "description": "Bearer token Sanctum — generate ulang via php artisan tinker jika expired"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Health Check",
+      "item": [
+        {
+          "name": "Ping – cek API aktif",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/ping",
+            "description": "Tidak butuh token. Cek apakah WMS API bisa diakses."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Inbound – Skenario Normal (1 Item)",
+      "item": [
+        {
+          "name": "DO Bearing SKF – 1 item normal",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound/receive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-001\",\n  \"do_date\": \"2026-05-08\",\n  \"erp_reference\": \"ERP-TEST-001\",\n  \"supplier_code\": \"SUP-001\",\n  \"notes\": \"Skenario 1: 1 item, kuantitas normal\",\n  \"items\": [\n    {\n      \"sku\": \"SP-BRG-001\",\n      \"quantity\": 20,\n      \"lpn\": \"LPN-TEST-001\"\n    }\n  ]\n}"
+            },
+            "description": "Skenario paling sederhana: 1 SKU, 1 DO."
+          }
+        },
+        {
+          "name": "Cek Status DO SJ-TEST-001",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound/SJ-TEST-001",
+            "description": "Cek status DO yang baru dikirim."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Inbound – Skenario Multi Item",
+      "item": [
+        {
+          "name": "DO Multi Item – 3 SKU sekaligus",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound/receive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-002\",\n  \"do_date\": \"2026-05-08\",\n  \"erp_reference\": \"ERP-TEST-002\",\n  \"supplier_code\": \"SUP-001\",\n  \"notes\": \"Skenario 2: 3 item berbeda SKU\",\n  \"items\": [\n    {\n      \"sku\": \"SP-BRG-001\",\n      \"quantity\": 15,\n      \"lpn\": \"LPN-TEST-002A\"\n    },\n    {\n      \"sku\": \"SP-BRG-002\",\n      \"quantity\": 10,\n      \"lpn\": \"LPN-TEST-002B\"\n    },\n    {\n      \"sku\": \"SP-BRG-003\",\n      \"quantity\": 25,\n      \"lpn\": \"LPN-TEST-002C\"\n    }\n  ]\n}"
+            },
+            "description": "ERP mengirim 1 DO dengan 3 SKU berbeda — GA harus alokasikan semuanya."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Inbound – Skenario Partial (dari skripsi)",
+      "item": [
+        {
+          "name": "DO Partial – sesuai format skripsi",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound/receive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-GA-PARTIAL-001\",\n  \"do_date\": \"2026-05-04\",\n  \"erp_reference\": \"ERP-GA-PARTIAL-001\",\n  \"supplier_code\": \"SUP-TEST\",\n  \"notes\": \"Testing partial allocation existing cell first\",\n  \"items\": [\n    {\n      \"sku\": \"SP-BRG-001\",\n      \"quantity\": 35,\n      \"lpn\": \"LPN-GA-PARTIAL-001\"\n    }\n  ]\n}"
+            },
+            "description": "Format asli dari skripsi — DO number unik, ganti jika sudah pernah dikirim."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Inbound – Skenario Kuantitas Besar (uji GA)",
+      "item": [
+        {
+          "name": "DO Kuantitas Besar – stress test GA",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound/receive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-003\",\n  \"do_date\": \"2026-05-08\",\n  \"erp_reference\": \"ERP-TEST-003\",\n  \"supplier_code\": \"SUP-002\",\n  \"notes\": \"Skenario 4: kuantitas besar, uji kemampuan GA\",\n  \"items\": [\n    {\n      \"sku\": \"SP-BRG-001\",\n      \"quantity\": 100,\n      \"lpn\": \"LPN-TEST-003A\"\n    },\n    {\n      \"sku\": \"SP-BRG-004\",\n      \"quantity\": 80,\n      \"lpn\": \"LPN-TEST-003B\"\n    },\n    {\n      \"sku\": \"SP-SEAL-001\",\n      \"quantity\": 60,\n      \"lpn\": \"LPN-TEST-003C\"\n    }\n  ]\n}"
+            },
+            "description": "Kuantitas besar untuk menguji performa GA engine dalam menentukan penempatan optimal."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Inbound – Skenario DO Duplikat (error handling)",
+      "item": [
+        {
+          "name": "DO Duplikat – kirim DO_NUMBER yang sama dua kali",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound/receive",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-001\",\n  \"do_date\": \"2026-05-08\",\n  \"erp_reference\": \"ERP-TEST-001\",\n  \"supplier_code\": \"SUP-001\",\n  \"notes\": \"Ini duplikat — harus ditolak WMS\",\n  \"items\": [\n    {\n      \"sku\": \"SP-BRG-001\",\n      \"quantity\": 20,\n      \"lpn\": \"LPN-TEST-001\"\n    }\n  ]\n}"
+            },
+            "description": "WMS harus return error 422 / 409 karena DO number sudah ada. Jalankan SETELAH skenario 1."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. List & Status",
+      "item": [
+        {
+          "name": "List semua DO",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": "{{base_url}}/inbound",
+            "description": "Lihat semua DO yang sudah masuk ke WMS."
+          }
+        },
+        {
+          "name": "List DO – filter status pending",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Accept",        "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/inbound?status=pending",
+              "query": [{ "key": "status", "value": "pending" }]
+            },
+            "description": "Filter DO yang belum diproses."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -56,8 +56,8 @@ class WarehouseSeeder extends Seeder
             [
                 'code'  => 'B',
                 'name'  => 'Zona B – Slow Moving',
-                'pos_x' => 40,
-                'pos_z' => 0,
+                'pos_x' => 0,
+                'pos_z' => 8,
                 'racks' => [
                     ['no' => 9,  'cat' => 'CAT-01'], // Engine Parts
                     ['no' => 10, 'cat' => 'CAT-01'], // Engine Parts
@@ -72,8 +72,8 @@ class WarehouseSeeder extends Seeder
             [
                 'code'  => 'C',
                 'name'  => 'Zona C – Heavy',
-                'pos_x' => 80,
-                'pos_z' => 0,
+                'pos_x' => 0,
+                'pos_z' => 16,
                 'racks' => [
                     ['no' => 17, 'cat' => 'CAT-03'], // Body & Frame
                     ['no' => 18, 'cat' => 'CAT-08'], // Suspension & Steering
@@ -93,6 +93,9 @@ class WarehouseSeeder extends Seeder
                 'is_active'    => true,
             ]);
 
+            // Each zone has 2 rows: front (pos_z=0) and back (pos_z=2.4)
+            $racksPerRow = intdiv(count($zd['racks']), 2);
+
             foreach ($zd['racks'] as $i => $rackInfo) {
                 $rackNo = $rackInfo['no'];
                 $catId  = $cat[$rackInfo['cat']] ?? null;
@@ -105,8 +108,8 @@ class WarehouseSeeder extends Seeder
                     'name'                 => 'Rak ' . $rackNo,
                     'total_levels'         => 7,
                     'total_columns'        => 1,
-                    'pos_x'                => $i * 4,
-                    'pos_z'                => 0,
+                    'pos_x'                => ($i % $racksPerRow) * 4,
+                    'pos_z'                => floor($i / $racksPerRow) * 2.4,
                     'rotation_y'           => 0,
                     'is_active'            => true,
                 ]);
