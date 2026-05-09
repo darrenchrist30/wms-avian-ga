@@ -144,9 +144,12 @@ Route::middleware(['auth', 'active.user'])->group(function () {
             ->name('transfer')->middleware('role:admin,supervisor');
 
         // FIFO Picking — Rekomendasi Pengambilan Barang
-        Route::get('fifo-picking', [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])->name('fifo-picking.index');
-        Route::post('fifo-picking/preview', [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])->name('fifo-picking.preview');
-        Route::post('fifo-picking/confirm', [\App\Http\Controllers\Stock\FifoPickingController::class, 'confirm'])->name('fifo-picking.confirm');
+        Route::get('fifo-picking', [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])
+            ->name('fifo-picking.index')->middleware('role:admin,supervisor,operator');
+        Route::post('fifo-picking/preview', [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])
+            ->name('fifo-picking.preview')->middleware('role:admin,supervisor,operator');
+        Route::post('fifo-picking/confirm', [\App\Http\Controllers\Stock\FifoPickingController::class, 'confirm'])
+            ->name('fifo-picking.confirm')->middleware('role:admin,supervisor,operator');
 
         Route::get('{item}', [\App\Http\Controllers\Stock\StockController::class, 'show'])->name('show');
     });

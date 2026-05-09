@@ -14,8 +14,14 @@ class FifoPickingController extends Controller
 
     public function index()
     {
-        $items      = Item::orderBy('name')->get(['id', 'name', 'sku']);
-        $warehouses = Warehouse::orderBy('name')->get(['id', 'name', 'code']);
+        $items = Item::where('is_active', true)
+            ->whereHas('stocks', fn($q) => $q->where('status', 'available')->where('quantity', '>', 0))
+            ->orderBy('name')
+            ->get(['id', 'name', 'sku']);
+
+        $warehouses = Warehouse::where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
 
         return view('stock.fifo-picking', compact('items', 'warehouses'));
     }
