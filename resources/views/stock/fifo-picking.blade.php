@@ -94,6 +94,16 @@
         <p class="text-muted mt-2">Menghitung rekomendasi FIFO...</p>
     </div>
 
+    {{-- Empty state --}}
+    <div id="emptyState" class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-sort-amount-up-alt fa-3x text-muted mb-3" style="opacity:.3"></i>
+            <p class="text-muted mb-0">
+                Pilih item, gudang, dan masukkan qty, lalu klik <strong>Preview FIFO</strong>.
+            </p>
+        </div>
+    </div>
+
     {{-- Error state --}}
     <div id="errorState" class="alert alert-danger" style="display:none">
         <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -218,7 +228,8 @@ $(function () {
         const warehouseId = $('#warehouseSelect').val();
         const qty         = parseInt($('#qtyInput').val());
 
-        if (!itemId)   { toastWarn('Pilih item terlebih dahulu.'); return; }
+        if (!itemId) { toastWarn('Pilih item terlebih dahulu.'); return; }
+        if (!warehouseId) { toastWarn('Pilih gudang terlebih dahulu.'); return; }
         if (!qty || qty < 1) { toastWarn('Masukkan qty yang valid.'); return; }
 
         showLoading();
