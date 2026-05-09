@@ -23,6 +23,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
 
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('dashboard/trend', [DashboardController::class, 'trendData'])->name('dashboard.trend');
 
     // Notifications
     Route::prefix('notifications')->name('notifications.')->group(function () {
@@ -139,9 +140,15 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('movements', [\App\Http\Controllers\Stock\StockController::class, 'movements'])->name('movements');
         Route::get('low-stock', [\App\Http\Controllers\Stock\StockController::class, 'lowStock'])->name('low-stock');
         Route::get('near-expiry', [\App\Http\Controllers\Stock\StockController::class, 'nearExpiry'])->name('near-expiry');
-        Route::get('{item}', [\App\Http\Controllers\Stock\StockController::class, 'show'])->name('show');
         Route::post('transfer', [\App\Http\Controllers\Stock\StockController::class, 'transfer'])
             ->name('transfer')->middleware('role:admin,supervisor');
+
+        // FIFO Picking — Rekomendasi Pengambilan Barang
+        Route::get('fifo-picking', [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])->name('fifo-picking.index');
+        Route::post('fifo-picking/preview', [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])->name('fifo-picking.preview');
+        Route::post('fifo-picking/confirm', [\App\Http\Controllers\Stock\FifoPickingController::class, 'confirm'])->name('fifo-picking.confirm');
+
+        Route::get('{item}', [\App\Http\Controllers\Stock\StockController::class, 'show'])->name('show');
     });
 
     /*

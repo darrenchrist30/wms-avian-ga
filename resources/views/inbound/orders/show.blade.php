@@ -45,12 +45,12 @@
 @php
     /* ─── Status meta ─── */
     $statusMeta = [
-        'draft'       => ['secondary', 'Draft',                  'fas fa-inbox'],
-        'processing'  => ['warning',   'Processing GA',          'fas fa-spinner fa-spin'],
-        'recommended' => ['info',      'Rekomendasi GA Selesai', 'fas fa-lightbulb'],
-        'put_away'    => ['primary',   'Sedang Put-Away',        'fas fa-dolly'],
-        'completed'   => ['success',   'Selesai',                'fas fa-check-circle'],
-        'cancelled'   => ['danger',    'Dibatalkan',             'fas fa-ban'],
+        'draft'       => ['secondary', 'Draft',          'fas fa-inbox'],
+        'processing'  => ['warning',   'Qty Confirmed',  'fas fa-clipboard-check'],
+        'recommended' => ['info',      'Menunggu Review','fas fa-lightbulb'],
+        'put_away'    => ['primary',   'Put-Away',       'fas fa-dolly'],
+        'completed'   => ['success',   'Completed',      'fas fa-check-circle'],
+        'cancelled'   => ['danger',    'Cancelled',      'fas fa-ban'],
     ];
     [$sCls, $sLabel, $sIcon] = $statusMeta[$order->status] ?? ['secondary', ucfirst($order->status), 'fas fa-circle'];
 

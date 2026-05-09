@@ -528,6 +528,20 @@
             display: block;
         }
 
+        .chart-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            min-height: 80px;
+            color: #9ca3af;
+            font-size: 12px;
+            text-align: center;
+            padding: 16px;
+        }
+        .chart-empty i { font-size: 22px; opacity: 0.35; display: block; margin-bottom: 8px; }
+
         .capacity-stats {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -814,10 +828,10 @@
         </div>
         <div class="col-6 col-md-3">
             <div class="kpi-card kpi-orange">
-                <i class="fas fa-shipping-fast kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($outboundToday) }}</div>
-                <div class="kpi-label">Outbound Hari Ini</div>
-                <div class="kpi-trend"><span class="up">Pergerakan barang keluar</span></div>
+                <i class="fas fa-dolly kpi-icon"></i>
+                <div class="kpi-value">{{ number_format($putAwayTodayTotal) }}</div>
+                <div class="kpi-label">Put-Away Selesai Hari Ini</div>
+                <div class="kpi-trend"><span class="up">Konfirmasi penempatan barang</span></div>
             </div>
         </div>
         <div class="col-6 col-md-3">
@@ -865,13 +879,21 @@
     {{-- ══════════════════════════════════════════════════════
     ROW 2 — KAPASITAS GUDANG + GRAFIK INBOUND/OUTBOUND
 ══════════════════════════════════════════════════════ --}}
-    <p class="section-title"><i class="fas fa-chart-line mr-1"></i> Trend Inbound vs Outbound Harian</p>
+    <p class="section-title"><i class="fas fa-chart-line mr-1"></i> Trend Penerimaan Barang Harian</p>
     <div class="row dashboard-section">
         <div class="col-md-12">
             <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-exchange-alt mr-1 text-primary"></i> Arus Barang Harian - 7 Hari Terakhir</h6>
-                    <span style="font-size:12px;color:#6b7280;">hover titik chart untuk detail qty</span>
+                <div class="panel-header" style="flex-wrap:wrap;gap:8px;">
+                    <h6><i class="fas fa-exchange-alt mr-1 text-primary"></i> Arus Barang Harian</h6>
+                    <div class="d-flex align-items-center" style="gap:6px;">
+                        <input type="date" id="trendFrom" class="form-control form-control-sm" style="width:130px;" />
+                        <span style="font-size:12px;color:#6b7280;">–</span>
+                        <input type="date" id="trendTo" class="form-control form-control-sm" style="width:130px;" />
+                        <button id="btnTrendFilter" class="btn btn-sm btn-primary px-2" title="Tampilkan">
+                            <i class="fas fa-search"></i>
+                        </button>
+                        {{-- <span style="font-size:11px;color:#9ca3af;">hover titik untuk detail</span> --}}
+                    </div>
                 </div>
                 <div class="panel-body">
                     @php
@@ -881,15 +903,15 @@
                     @endphp
                     <div class="capacity-stats">
                         <div class="capacity-stat">
-                            <strong style="color:#0d8564">{{ number_format($trendInboundTotal) }}</strong>
+                            <strong id="trendInboundStat" style="color:#0d8564">{{ number_format($trendInboundTotal) }}</strong>
                             <span>Total Inbound</span>
                         </div>
                         <div class="capacity-stat">
-                            <strong style="color:#3b82f6">{{ number_format($trendOutboundTotal) }}</strong>
-                            <span>Total Outbound</span>
+                            <strong id="trendOutboundStat" style="color:#3b82f6">{{ number_format($trendOutboundTotal) }}</strong>
+                            <span>Pergerakan Keluar</span>
                         </div>
                         <div class="capacity-stat">
-                            <strong style="color:{{ $trendNetFlow >= 0 ? '#0d8564' : '#ef4444' }}">{{ number_format($trendNetFlow) }}</strong>
+                            <strong id="trendNetFlowStat" style="color:{{ $trendNetFlow >= 0 ? '#0d8564' : '#ef4444' }}">{{ number_format($trendNetFlow) }}</strong>
                             <span>Net Flow</span>
                         </div>
                     </div>
@@ -1076,7 +1098,7 @@
                         </div>
                         <div class="capacity-stat">
                             <strong style="color:#3b82f6">{{ number_format($outbound7Total) }}</strong>
-                            <span>Outbound</span>
+                            <span>Pergerakan Keluar</span>
                         </div>
                         <div class="capacity-stat">
                             <strong style="color:{{ $netFlow7 >= 0 ? '#0d8564' : '#ef4444' }}">{{ number_format($netFlow7) }}</strong>
@@ -1084,10 +1106,14 @@
                         </div>
                     </div>
                     <div class="chart-box flow">
-                        <div id="chartInOut" class="hc-chart"></div>
+                        @if($inbound7Total + $outbound7Total === 0)
+                            <div class="chart-empty"><div><i class="fas fa-exchange-alt"></i>Belum ada transaksi pada periode ini.</div></div>
+                        @else
+                            <div id="chartInOut" class="hc-chart"></div>
+                        @endif
                     </div>
                     <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:11px;color:#6b7280;">
-                        Membandingkan qty inbound dan outbound harian untuk membaca arus stok gudang.
+                        Menampilkan qty penerimaan barang harian. Pergerakan keluar dicatat dari stock movement apabila tersedia.
                     </div>
                 </div>
             </div>
@@ -1097,12 +1123,12 @@
         <div class="col-md-3">
             @php
                 $statusDef = [
-                    'draft' => ['label' => 'Draft / Terjadwal', 'color' => '#6b7280'],
-                    'processing' => ['label' => 'Konfirmasi Qty', 'color' => '#3b82f6'],
-                    'recommended' => ['label' => 'Menunggu GA Accept', 'color' => '#f59e0b'],
-                    'put_away' => ['label' => 'Put-Away Berlangsung', 'color' => '#14b8a6'],
-                    'completed' => ['label' => 'Selesai', 'color' => '#0d8564'],
-                    'cancelled' => ['label' => 'Dibatalkan', 'color' => '#ef4444'],
+                    'draft'       => ['label' => 'Draft',           'color' => '#6b7280'],
+                    'processing'  => ['label' => 'Qty Confirmed',   'color' => '#3b82f6'],
+                    'recommended' => ['label' => 'Menunggu Review',  'color' => '#f59e0b'],
+                    'put_away'    => ['label' => 'Put-Away',         'color' => '#14b8a6'],
+                    'completed'   => ['label' => 'Completed',        'color' => '#0d8564'],
+                    'cancelled'   => ['label' => 'Cancelled',        'color' => '#ef4444'],
                 ];
                 $totalOrders = $orderStatusCounts->sum();
             @endphp
@@ -1211,8 +1237,13 @@
         <div class="col-md-4">
             <div class="panel-card">
                 <div class="panel-header">
-                    <h6><i class="fas fa-fire mr-1" style="color:#f97316;"></i> Top 5 SKU Paling Aktif</h6>
-                    <span style="font-size:11px;color:#6b7280">by total movement</span>
+                    <h6>
+                        <i class="fas fa-fire mr-1" style="color:#f97316;"></i> Top 5 SKU Paling Aktif
+                        <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                           data-toggle="tooltip" data-placement="top"
+                           title="Peringkat berdasarkan total quantity seluruh pergerakan stok (inbound & transfer). Semakin tinggi total qty, semakin aktif SKU tersebut bergerak di gudang."></i>
+                    </h6>
+                    <span style="font-size:11px;color:#6b7280">by total qty movement</span>
                 </div>
                 <div class="panel-body" style="padding-top:8px;">
                     @if ($topMovedItems->isEmpty())
@@ -1250,6 +1281,9 @@
                                 </div>
                             </div>
                         @endforeach
+                        <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:11px;color:#9ca3af;">
+                            <i class="fas fa-info-circle mr-1"></i>Diurutkan berdasarkan total qty inbound &amp; transfer movement.
+                        </div>
                     @endif
                 </div>
             </div>
@@ -1352,7 +1386,7 @@
         <div class="col-md-5">
             <div class="panel-card">
                 <div class="panel-header">
-                    <h6><i class="fas fa-truck mr-1 text-success"></i> Jadwal Penerimaan &amp; Pengiriman</h6>
+                    <h6><i class="fas fa-truck mr-1 text-success"></i> Jadwal Penerimaan Barang</h6>
                     <a href="{{ route('inbound.orders.index') }}" style="font-size:12px;color:#0d8564;">Lihat Semua →</a>
                 </div>
                 <div class="panel-body" style="padding-top:4px;">
@@ -1370,11 +1404,11 @@
                             @forelse($scheduledInbound as $order)
                                 @php
                                     $statusMap = [
-                                        'draft' => ['label' => 'Terjadwal', 'class' => 'badge-pending'],
-                                        'processing' => ['label' => 'Sedang Diproses', 'class' => 'badge-processing'],
-                                        'recommended' => ['label' => 'Rekomendasi GA', 'class' => 'badge-info'],
-                                        'put_away' => ['label' => 'Put-Away', 'class' => 'badge-transit'],
-                                        'completed' => ['label' => 'Selesai', 'class' => 'badge-completed'],
+                                        'draft'       => ['label' => 'Draft',          'class' => 'badge-pending'],
+                                        'processing'  => ['label' => 'Qty Confirmed',  'class' => 'badge-processing'],
+                                        'recommended' => ['label' => 'Menunggu Review','class' => 'badge-info'],
+                                        'put_away'    => ['label' => 'Put-Away',       'class' => 'badge-transit'],
+                                        'completed'   => ['label' => 'Completed',      'class' => 'badge-completed'],
                                     ];
                                     $st = $statusMap[$order->status] ?? [
                                         'label' => ucfirst($order->status),
@@ -1782,7 +1816,11 @@
                     </div>
                     <div class="zone-row">
                         <div class="zone-label">
-                            <span>Acceptance Rate</span>
+                            <span>Acceptance Rate
+                                <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                                   data-toggle="tooltip" data-placement="top"
+                                   title="Persentase rekomendasi GA yang diterima supervisor dari total rekomendasi yang dihasilkan. Penolakan bisa terjadi karena kondisi gudang berubah atau keputusan operasional."></i>
+                            </span>
                             <span style="color:#0d8564;font-weight:600">{{ $gaAcceptRate }}%</span>
                         </div>
                         <div class="zone-bar">
@@ -1791,7 +1829,11 @@
                     </div>
                     <div class="zone-row">
                         <div class="zone-label">
-                            <span>Follow GA Rate (put-away)</span>
+                            <span>Follow GA Rate
+                                <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                                   data-toggle="tooltip" data-placement="top"
+                                   title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk — operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
+                            </span>
                             <span style="color:#3b82f6;font-weight:600">{{ $followGaRate }}%</span>
                         </div>
                         <div class="zone-bar">
@@ -1825,7 +1867,11 @@
                 <div class="panel-body">
                     <div class="zone-row">
                         <div class="zone-label">
-                            <span>GA Acceptance Rate</span>
+                            <span>GA Acceptance Rate
+                                <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                                   data-toggle="tooltip" data-placement="top"
+                                   title="Persentase rekomendasi GA yang diterima supervisor dari total rekomendasi yang dihasilkan. Penolakan bisa terjadi karena kondisi gudang berubah atau keputusan operasional."></i>
+                            </span>
                             <span style="color:#8b5cf6;font-weight:600">{{ $gaAcceptRate }}%</span>
                         </div>
                         <div class="zone-bar">
@@ -1834,7 +1880,11 @@
                     </div>
                     <div class="zone-row">
                         <div class="zone-label">
-                            <span>Follow GA (put-away)</span>
+                            <span>Follow GA Rate
+                                <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                                   data-toggle="tooltip" data-placement="top"
+                                   title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk — operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
+                            </span>
                             <span style="color:#3b82f6;font-weight:600">{{ $followGaRate }}%</span>
                         </div>
                         <div class="zone-bar">
@@ -1902,7 +1952,11 @@
                 </div>
                 <div class="panel-body">
                     <div class="chart-box visual">
-                        <div id="chartExpiryBucket" class="hc-chart"></div>
+                        @if(array_sum(array_values($expiryBucketChart ?? [])) === 0)
+                            <div class="chart-empty"><div><i class="fas fa-calendar-times"></i>Tidak ada item mendekati kadaluarsa.</div></div>
+                        @else
+                            <div id="chartExpiryBucket" class="hc-chart"></div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -1916,7 +1970,11 @@
                 </div>
                 <div class="panel-body">
                     <div class="chart-box visual">
-                        <div id="chartDeadstockBucket" class="hc-chart"></div>
+                        @if(array_sum(array_values($deadstockBucketChart ?? [])) === 0)
+                            <div class="chart-empty"><div><i class="fas fa-hourglass-half"></i>Belum ada item yang terdeteksi deadstock.</div></div>
+                        @else
+                            <div id="chartDeadstockBucket" class="hc-chart"></div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -1930,7 +1988,11 @@
                 </div>
                 <div class="panel-body">
                     <div class="chart-box visual">
-                        <div id="chartOperatorProductivity" class="hc-chart"></div>
+                        @if($operatorProductivity->isEmpty())
+                            <div class="chart-empty"><div><i class="fas fa-user-clock"></i>Belum ada aktivitas put-away tercatat hari ini.</div></div>
+                        @else
+                            <div id="chartOperatorProductivity" class="hc-chart"></div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -2146,40 +2208,71 @@
             }]
         });
 
-        // ── 2. Bar Chart Inbound vs Outbound (real 7-hari) ──────────────────────
+        // ── 2. Trend Chart Arus Barang (filterable by date) ──────────────────────
         @php
             $chartLabelsJson = json_encode($chartLabels);
             $chartInboundJson = json_encode($chartInbound);
             $chartOutboundJson = json_encode($chartOutbound);
         @endphp
-        Highcharts.chart('chartDailyInOutTrend', {
-            chart: { type: 'spline' },
-            xAxis: { categories: {!! $chartLabelsJson !!}, crosshair: true },
-            yAxis: {
-                min: 0,
-                title: { text: 'Total Qty' },
-                gridLineColor: '#f3f4f6'
-            },
-            legend: { align: 'center', verticalAlign: 'bottom' },
-            tooltip: {
-                shared: true,
-                valueSuffix: ' unit'
-            },
-            plotOptions: {
-                spline: {
-                    marker: {
-                        enabled: true,
-                        radius: 4
-                    },
-                    lineWidth: 3
-                }
-            },
-            series: [
-                { name: 'Inbound', data: {!! $chartInboundJson !!}, color: '#0d8564' },
-                { name: 'Outbound', data: {!! $chartOutboundJson !!}, color: '#3b82f6' }
-            ]
-        });
+        (function () {
+            var trendChart = null;
 
+            function fmt(d) { return d.toISOString().split('T')[0]; }
+            var today  = new Date();
+            var from7  = new Date(today); from7.setDate(today.getDate() - 6);
+            $('#trendFrom').val(fmt(from7));
+            $('#trendTo').val(fmt(today));
+
+            function renderTrend(res) {
+                var net = res.total_inbound - res.total_outbound;
+                $('#trendInboundStat').text(res.total_inbound.toLocaleString());
+                $('#trendOutboundStat').text(res.total_outbound.toLocaleString());
+                $('#trendNetFlowStat').text(net.toLocaleString()).css('color', net >= 0 ? '#0d8564' : '#ef4444');
+
+                if (trendChart) { trendChart.destroy(); trendChart = null; }
+
+                if (res.total_inbound + res.total_outbound === 0) {
+                    $('#chartDailyInOutTrend').html('<div class="chart-empty"><div><i class="fas fa-chart-line"></i>Belum ada transaksi pada periode ini.</div></div>');
+                    return;
+                }
+                $('#chartDailyInOutTrend').html('');
+                trendChart = Highcharts.chart('chartDailyInOutTrend', {
+                    chart: { type: 'spline' },
+                    xAxis: { categories: res.labels, crosshair: true },
+                    yAxis: { min: 0, title: { text: 'Total Qty' }, gridLineColor: '#f3f4f6' },
+                    legend: { align: 'center', verticalAlign: 'bottom' },
+                    tooltip: { shared: true, valueSuffix: ' unit' },
+                    plotOptions: { spline: { marker: { enabled: true, radius: 4 }, lineWidth: 3 } },
+                    series: [
+                        { name: 'Inbound', data: res.inbound, color: '#0d8564' },
+                        { name: 'Pergerakan Keluar', data: res.outbound, color: '#3b82f6' }
+                    ]
+                });
+            }
+
+            function loadTrend(from, to) {
+                $('#btnTrendFilter').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+                $.getJSON('{{ route("dashboard.trend") }}', { date_from: from, date_to: to })
+                    .done(renderTrend)
+                    .always(function () {
+                        $('#btnTrendFilter').prop('disabled', false).html('<i class="fas fa-search"></i>');
+                    });
+            }
+
+            loadTrend(fmt(from7), fmt(today));
+
+            $('#btnTrendFilter').on('click', function () {
+                var from = $('#trendFrom').val(), to = $('#trendTo').val();
+                if (from && to) loadTrend(from, to);
+            });
+
+            $('#trendFrom, #trendTo').on('change', function () {
+                var from = $('#trendFrom').val(), to = $('#trendTo').val();
+                if (from && to) loadTrend(from, to);
+            });
+        })();
+
+        @if($inbound7Total + $outbound7Total > 0)
         Highcharts.chart('chartInOut', {
             chart: { type: 'column' },
             xAxis: { categories: {!! $chartLabelsJson !!}, crosshair: true },
@@ -2189,13 +2282,14 @@
             plotOptions: { column: { borderRadius: 4, pointPadding: 0.12, groupPadding: 0.12 } },
             series: [
                 { name: 'Inbound', data: {!! $chartInboundJson !!}, color: '#0d8564' },
-                { name: 'Outbound', data: {!! $chartOutboundJson !!}, color: '#3b82f6' }
+                { name: 'Pergerakan Keluar', data: {!! $chartOutboundJson !!}, color: '#3b82f6' }
             ]
         });
+        @endif
 
         // ── 3. Pie Chart Status Order (real) ────────────────────────────────────
         @php
-            $osLabels = ['Selesai', 'Put-Away', 'Menunggu GA Accept', 'Konfirmasi Qty', 'Draft', 'Dibatalkan'];
+            $osLabels = ['Completed', 'Put-Away', 'Menunggu Review', 'Qty Confirmed', 'Draft', 'Cancelled'];
             $osKeys = ['completed', 'put_away', 'recommended', 'processing', 'draft', 'cancelled'];
             $osData = array_map(fn($k) => (int) ($orderStatusCounts[$k] ?? 0), $osKeys);
             $osColors = ['#0d8564', '#14b8a6', '#f59e0b', '#3b82f6', '#6b7280', '#ef4444'];
@@ -2285,6 +2379,7 @@
             }]
         });
 
+        @if(array_sum($expiryData ?? []) > 0)
         Highcharts.chart('chartExpiryBucket', {
             chart: { type: 'column' },
             xAxis: { categories: {!! json_encode($expiryLabels) !!}, crosshair: true },
@@ -2294,7 +2389,9 @@
             plotOptions: { column: { borderRadius: 5, colorByPoint: true, colors: ['#dc2626', '#f59e0b', '#3b82f6'] } },
             series: [{ name: 'Near Expiry', data: {!! json_encode($expiryData) !!} }]
         });
+        @endif
 
+        @if(array_sum($deadstockData ?? []) > 0)
         Highcharts.chart('chartDeadstockBucket', {
             chart: { type: 'bar' },
             xAxis: { categories: {!! json_encode($deadstockLabels) !!}, title: { text: null } },
@@ -2304,7 +2401,9 @@
             plotOptions: { bar: { borderRadius: 5, colorByPoint: true, colors: ['#64748b', '#f59e0b', '#dc2626'] } },
             series: [{ name: 'Deadstock', data: {!! json_encode($deadstockData) !!} }]
         });
+        @endif
 
+        @if(!empty($operatorLabels))
         Highcharts.chart('chartOperatorProductivity', {
             chart: { zoomType: 'xy' },
             xAxis: { categories: {!! json_encode($operatorLabels) !!}, crosshair: true },
@@ -2341,6 +2440,7 @@
                 tooltip: { valueSuffix: '%' }
             }]
         });
+        @endif
 
         Highcharts.chart('chartGaTrend', {
             chart: { zoomType: 'xy' },

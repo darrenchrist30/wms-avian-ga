@@ -62,9 +62,9 @@ class InboundOrderController extends Controller
             ->addColumn('status_badge', function ($row) {
                 $map = [
                     'draft'       => ['badge-secondary', 'Draft'],
-                    'processing'  => ['badge-warning',   'Processing'],
-                    'recommended' => ['badge-info',      'Recommended'],
-                    'put_away'    => ['badge-primary',   'Put Away'],
+                    'processing'  => ['badge-warning',   'Qty Confirmed'],
+                    'recommended' => ['badge-info',      'Menunggu Review'],
+                    'put_away'    => ['badge-primary',   'Put-Away'],
                     'completed'   => ['badge-success',   'Completed'],
                     'cancelled'   => ['badge-danger',    'Cancelled'],
                 ];

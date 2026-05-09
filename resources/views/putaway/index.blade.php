@@ -40,7 +40,7 @@
                         $isPartial = $order->status === 'put_away';
                         $cardBorder = $isPartial ? 'border-warning' : 'border-primary';
                         $badgeCls = $isPartial ? 'badge-warning' : 'badge-primary';
-                        $badgeTxt = $isPartial ? 'Sedang Berjalan' : 'Siap Put-Away';
+                        $badgeTxt = $isPartial ? 'Put-Away' : 'Menunggu Review';
                     @endphp
                     <div class="col-md-6 col-lg-4 mb-4">
                         <div class="card {{ $cardBorder }} shadow-sm h-100">

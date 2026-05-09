@@ -50,7 +50,14 @@
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box {{ $summary['compliance_pct'] >= 80 ? 'bg-success' : ($summary['compliance_pct'] >= 50 ? 'bg-warning' : 'bg-danger') }} mb-0">
-            <div class="inner"><h4>{{ $summary['compliance_pct'] }}%</h4><p>Tingkat Kepatuhan</p></div>
+            <div class="inner">
+                <h4>{{ $summary['compliance_pct'] }}%</h4>
+                <p>Tingkat Kepatuhan
+                    <i class="fas fa-info-circle ml-1" style="font-size:11px;opacity:0.8;cursor:pointer"
+                       data-toggle="tooltip" data-placement="top"
+                       title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk — operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
+                </p>
+            </div>
             <div class="icon"><i class="fas fa-check-double"></i></div>
         </div>
     </div>
@@ -267,6 +274,9 @@
         <div class="card h-100">
             <div class="card-header py-2">
                 <strong><i class="fas fa-chart-pie mr-1"></i>Kepatuhan Rekomendasi GA</strong>
+                <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                   data-toggle="tooltip" data-placement="top"
+                   title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk — operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
             </div>
             <div class="card-body d-flex flex-column">
                 @if(($compliance->total ?? 0) == 0)

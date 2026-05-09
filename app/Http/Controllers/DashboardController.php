@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use App\Models\GaRecommendation;
 use App\Models\InboundOrder;
 use App\Models\Item;
@@ -195,12 +196,12 @@ class DashboardController extends Controller
         $completedOrders   = InboundOrder::where('status', 'completed')->count();
 
         $processFunnel = [
-            ['label' => 'Draft',          'count' => (int) ($orderStatusCounts['draft'] ?? 0),       'color' => '#6b7280'],
-            ['label' => 'Qty Confirmed',  'count' => $qtyConfirmedReady,                            'color' => '#3b82f6'],
-            ['label' => 'GA Processing',  'count' => $gaProcessing,                                 'color' => '#8b5cf6'],
-            ['label' => 'Recommended',    'count' => $gaRecommended,                                'color' => '#f59e0b'],
-            ['label' => 'Accepted',       'count' => $pendingPutAway,                               'color' => '#14b8a6'],
-            ['label' => 'Completed',      'count' => $completedOrders,                              'color' => '#0d8564'],
+            ['label' => 'Draft',           'count' => (int) ($orderStatusCounts['draft'] ?? 0),       'color' => '#6b7280'],
+            ['label' => 'Qty Confirmed',   'count' => $qtyConfirmedReady,                            'color' => '#3b82f6'],
+            ['label' => 'GA Processing',   'count' => $gaProcessing,                                 'color' => '#8b5cf6'],
+            ['label' => 'Menunggu Review', 'count' => $gaRecommended,                                'color' => '#f59e0b'],
+            ['label' => 'Put-Away',        'count' => $pendingPutAway,                               'color' => '#14b8a6'],
+            ['label' => 'Completed',       'count' => $completedOrders,                              'color' => '#0d8564'],
         ];
 
         $bottleneckSummary = [
@@ -436,5 +437,45 @@ class DashboardController extends Controller
             // Visual analytics
             'inventoryRiskChart', 'expiryBucketChart', 'deadstockBucketChart', 'operatorProductivity'
         ));
+    }
+
+    public function trendData(\Illuminate\Http\Request $request)
+    {
+        $from = $request->date_from ? Carbon::parse($request->date_from)->startOfDay() : now()->subDays(6)->startOfDay();
+        $to   = $request->date_to   ? Carbon::parse($request->date_to)->endOfDay()     : now()->endOfDay();
+
+        if ($from->gt($to)) [$from, $to] = [$to, $from];
+        if ($from->diffInDays($to) > 90) $from = $to->copy()->subDays(90);
+
+        $days = collect();
+        $cur  = $from->copy()->startOfDay();
+        while ($cur->lte($to)) {
+            $days->push($cur->copy());
+            $cur->addDay();
+        }
+
+        $inboundByDay = StockMovement::ofType('inbound')
+            ->selectRaw('DATE(created_at) as date, COALESCE(SUM(quantity), 0) as qty')
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('date')
+            ->pluck('qty', 'date');
+
+        $outboundByDay = StockMovement::ofType('outbound')
+            ->selectRaw('DATE(created_at) as date, COALESCE(SUM(quantity), 0) as qty')
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('date')
+            ->pluck('qty', 'date');
+
+        $labels   = $days->map(fn($d) => $d->isoFormat('ddd D/M'))->toArray();
+        $inbound  = $days->map(fn($d) => (int) ($inboundByDay[$d->format('Y-m-d')] ?? 0))->toArray();
+        $outbound = $days->map(fn($d) => (int) ($outboundByDay[$d->format('Y-m-d')] ?? 0))->toArray();
+
+        return response()->json([
+            'labels'         => $labels,
+            'inbound'        => $inbound,
+            'outbound'       => $outbound,
+            'total_inbound'  => array_sum($inbound),
+            'total_outbound' => array_sum($outbound),
+        ]);
     }
 }

@@ -1281,6 +1281,14 @@
                                         <p>Mendekati Kadaluarsa</p>
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('stock.fifo-picking.index') }}"
+                                        class="nav-link {{ request()->routeIs('stock.fifo-picking.*') ? 'active' : '' }}">
+                                        <i class="fas fa-sort-amount-up-alt nav-icon"
+                                            style="font-size:12px;color:#0d8564;"></i>
+                                        <p>FIFO Picking</p>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
 
@@ -1413,23 +1421,6 @@
                                 </ul>
                             </li>
 
-                            {{-- Audit Log --}}
-                            <li class="nav-item">
-                                <a href="{{ route('audit.index') }}"
-                                    class="nav-link {{ request()->routeIs('audit.*') ? 'active' : '' }}">
-                                    <i class="nav-icon fas fa-history"></i>
-                                    <p>Audit Log</p>
-                                </a>
-                            </li>
-
-                            {{-- API Token ERP --}}
-                            <li class="nav-item">
-                                <a href="{{ route('api-tokens.index') }}"
-                                    class="nav-link {{ request()->routeIs('api-tokens.*') ? 'active' : '' }}">
-                                    <i class="nav-icon fas fa-key"></i>
-                                    <p>API Token ERP</p>
-                                </a>
-                            </li>
                         @endif
                     </ul>
                 </nav>
