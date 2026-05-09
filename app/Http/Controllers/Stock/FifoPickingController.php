@@ -14,16 +14,33 @@ class FifoPickingController extends Controller
 
     public function index()
     {
-        $items = Item::where('is_active', true)
-            ->whereHas('stocks', fn($q) => $q->where('status', 'available')->where('quantity', '>', 0))
-            ->orderBy('name')
-            ->get(['id', 'name', 'sku']);
-
         $warehouses = Warehouse::where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
 
-        return view('stock.fifo-picking', compact('items', 'warehouses'));
+        return view('stock.fifo-picking', compact('warehouses'));
+    }
+
+    public function searchItems(Request $request)
+    {
+        $q = trim($request->get('q', ''));
+
+        $items = Item::where('is_active', true)
+            ->whereHas('stocks', fn($query) => $query->where('status', 'available')->where('quantity', '>', 0))
+            ->when($q, fn($query) => $query->where(function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                      ->orWhere('sku', 'like', "%{$q}%");
+            }))
+            ->orderBy('name')
+            ->limit(50)
+            ->get(['id', 'name', 'sku']);
+
+        return response()->json(
+            $items->map(fn($item) => [
+                'id'   => $item->id,
+                'text' => $item->name . ' (' . $item->sku . ')',
+            ])
+        );
     }
 
     public function preview(Request $request)

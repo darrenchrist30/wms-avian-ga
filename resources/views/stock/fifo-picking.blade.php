@@ -1,6 +1,33 @@
 @extends('layouts.adminlte')
 @section('title', 'FIFO Picking — Rekomendasi Pengambilan Barang')
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css">
+<style>
+    .select2 { width: 100% !important; }
+    .select2-container--bootstrap4 .select2-selection--single {
+        display: flex !important;
+        align-items: center;
+        padding: 0 2rem 0 0;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+        flex: 1;
+        padding: 0 0.75rem !important;
+        line-height: normal !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid">
 
@@ -17,164 +44,170 @@
         </div>
     </div>
 
-    <div class="row">
-
-        {{-- ── Form Input ────────────────────────────────────────── --}}
-        <div class="col-md-4">
-            <div class="card card-primary card-outline">
-                <div class="card-header">
-                    <h6 class="card-title mb-0"><i class="fas fa-search mr-1"></i> Cari Stok FIFO</h6>
+    {{-- ── Form Input (full width, horizontal) ─────────────────── --}}
+    <div class="card card-primary card-outline">
+        <div class="card-header">
+            <h6 class="card-title mb-0"><i class="fas fa-search mr-1"></i> Cari Stok FIFO</h6>
+        </div>
+        <div class="card-body">
+            <div class="form-row align-items-end">
+                <div class="form-group col-md-5 mb-0">
+                    <label class="font-weight-bold" style="font-size:13px">Item / SKU <span class="text-danger">*</span></label>
+                    <select id="itemSelect" class="form-control select2">
+                        <option value="">-- Pilih Item --</option>
+                    </select>
                 </div>
-                <div class="card-body">
-                    <div class="form-group">
-                        <label class="font-weight-bold" style="font-size:13px">Item / SKU <span class="text-danger">*</span></label>
-                        <select id="itemSelect" class="form-control select2">
-                            <option value="">-- Pilih Item --</option>
-                            @foreach($items as $item)
-                                <option value="{{ $item->id }}" data-sku="{{ $item->sku }}">
-                                    {{ $item->name }} ({{ $item->sku }})
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="font-weight-bold" style="font-size:13px">Gudang <span class="text-danger">*</span></label>
-                        <select id="warehouseSelect" class="form-control">
+                <div class="form-group col-md-3 mb-0">
+                    <label class="font-weight-bold" style="font-size:13px">Gudang <span class="text-danger">*</span></label>
+                    @if($warehouses->count() === 1)
+                        <input type="text" class="form-control"
+                               value="{{ $warehouses->first()->name }} ({{ $warehouses->first()->code }})" readonly>
+                        <input type="hidden" id="warehouseSelect" value="{{ $warehouses->first()->id }}">
+                    @else
+                        <select id="warehouseSelect" class="form-control select2">
+                            <option value="">-- Pilih Gudang --</option>
                             @foreach($warehouses as $wh)
                                 <option value="{{ $wh->id }}">{{ $wh->name }} ({{ $wh->code }})</option>
                             @endforeach
                         </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="font-weight-bold" style="font-size:13px">Qty Dibutuhkan <span class="text-danger">*</span></label>
-                        <input type="number" id="qtyInput" class="form-control" min="1" placeholder="Masukkan jumlah..." />
-                    </div>
+                    @endif
+                </div>
+                <div class="form-group col-md-2 mb-0">
+                    <label class="font-weight-bold" style="font-size:13px">Qty <span class="text-danger">*</span></label>
+                    <input type="number" id="qtyInput" class="form-control" min="1" placeholder="Jumlah..." />
+                </div>
+                <div class="form-group col-md-2 mb-0">
+                    <label class="d-block" style="font-size:13px;">&nbsp;</label>
                     <button id="btnPreview" class="btn btn-primary btn-block">
-                        <i class="fas fa-list-ol mr-1"></i> Preview Rekomendasi FIFO
+                        <i class="fas fa-list-ol mr-1"></i> Preview FIFO
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            {{-- Info Box --}}
-            <div class="callout callout-info" style="font-size:12px">
-                <h6><i class="fas fa-info-circle mr-1"></i>Cara Kerja FIFO</h6>
-                <p class="mb-0">
-                    Sistem mencari stok item yang tersedia, lalu mengurutkan dari
-                    <strong>inbound_date paling lama</strong> terlebih dahulu.
-                    Operator mengikuti urutan ini agar barang yang masuk pertama juga keluar pertama.
-                </p>
+    {{-- ── Hasil Preview (full width, di bawah form) ─────────────── --}}
+
+    {{-- Loading state --}}
+    <div id="loadingState" class="text-center py-5" style="display:none!important">
+        <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+        <p class="text-muted mt-2">Menghitung rekomendasi FIFO...</p>
+    </div>
+
+    {{-- Error state --}}
+    <div id="errorState" class="alert alert-danger" style="display:none">
+        <i class="fas fa-exclamation-triangle mr-1"></i>
+        <span id="errorMsg"></span>
+    </div>
+
+    {{-- Preview Result --}}
+    <div id="previewResult" style="display:none">
+        <div class="card card-outline card-success">
+            <div class="card-header d-flex align-items-center justify-content-between">
+                <h6 class="card-title mb-0">
+                    <i class="fas fa-clipboard-list mr-1 text-success"></i>
+                    Rekomendasi FIFO — <span id="previewItemName"></span>
+                </h6>
+                <span class="badge badge-success" id="previewTotalBadge"></span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th style="width:40px">#</th>
+                            <th>Cell</th>
+                            <th>Zona / Rak</th>
+                            <th>Inbound Date</th>
+                            <th class="text-right">Tersedia</th>
+                            <th class="text-right text-success font-weight-bold">Ambil</th>
+                        </tr>
+                    </thead>
+                    <tbody id="picksTableBody"></tbody>
+                    <tfoot>
+                        <tr class="table-success font-weight-bold">
+                            <td colspan="5" class="text-right">Total Pengambilan</td>
+                            <td class="text-right" id="totalQtyFoot"></td>
+                        </tr>
+                    </tfoot>
+                </table>
             </div>
         </div>
 
-        {{-- ── Hasil Preview ─────────────────────────────────────── --}}
-        <div class="col-md-8">
-
-            {{-- Loading state --}}
-            <div id="loadingState" class="text-center py-5" style="display:none!important">
-                <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
-                <p class="text-muted mt-2">Menghitung rekomendasi FIFO...</p>
-            </div>
-
-            {{-- Empty state --}}
-            <div id="emptyState" class="card">
-                <div class="card-body text-center py-5">
-                    <i class="fas fa-sort-amount-up-alt fa-3x text-muted mb-3" style="opacity:.3"></i>
-                    <p class="text-muted mb-0">Pilih item dan masukkan qty, lalu klik <strong>Preview Rekomendasi FIFO</strong>.</p>
+        {{-- Confirm Form --}}
+        <div class="card">
+            <div class="card-body">
+                <div class="form-group mb-2">
+                    <label style="font-size:13px;font-weight:600">Catatan (opsional)</label>
+                    <input type="text" id="notesInput" class="form-control form-control-sm"
+                           placeholder="Contoh: Pengambilan untuk produksi shift 1" maxlength="500" />
                 </div>
-            </div>
-
-            {{-- Error state --}}
-            <div id="errorState" class="alert alert-danger" style="display:none">
-                <i class="fas fa-exclamation-triangle mr-1"></i>
-                <span id="errorMsg"></span>
-            </div>
-
-            {{-- Preview Result --}}
-            <div id="previewResult" style="display:none">
-                <div class="card card-outline card-success">
-                    <div class="card-header d-flex align-items-center justify-content-between">
-                        <h6 class="card-title mb-0">
-                            <i class="fas fa-clipboard-list mr-1 text-success"></i>
-                            Rekomendasi FIFO — <span id="previewItemName"></span>
-                        </h6>
-                        <span class="badge badge-success" id="previewTotalBadge"></span>
-                    </div>
-                    <div class="card-body p-0">
-                        <table class="table table-sm table-hover mb-0">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th style="width:40px">#</th>
-                                    <th>Cell</th>
-                                    <th>Zona / Rak</th>
-                                    <th>Inbound Date</th>
-                                    <th class="text-right">Tersedia</th>
-                                    <th class="text-right text-success font-weight-bold">Ambil</th>
-                                </tr>
-                            </thead>
-                            <tbody id="picksTableBody"></tbody>
-                            <tfoot>
-                                <tr class="table-success font-weight-bold">
-                                    <td colspan="5" class="text-right">Total Pengambilan</td>
-                                    <td class="text-right" id="totalQtyFoot"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-
-                {{-- Confirm Form --}}
-                <div class="card">
-                    <div class="card-body">
-                        <div class="form-group mb-2">
-                            <label style="font-size:13px;font-weight:600">Catatan (opsional)</label>
-                            <input type="text" id="notesInput" class="form-control form-control-sm"
-                                   placeholder="Contoh: Pengambilan untuk produksi shift 1" maxlength="500" />
-                        </div>
-                        <button id="btnConfirm" class="btn btn-success">
-                            <i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan
-                        </button>
-                        <button id="btnReset" class="btn btn-outline-secondary ml-2">
-                            <i class="fas fa-redo mr-1"></i> Reset
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Sukses State --}}
-            <div id="successState" style="display:none">
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle mr-1"></i>
-                    <strong>Pengambilan berhasil!</strong> <span id="successMsg"></span>
-                </div>
-                <div class="card card-outline card-secondary">
-                    <div class="card-header"><h6 class="mb-0"><i class="fas fa-receipt mr-1"></i> Rekap Pengambilan</h6></div>
-                    <div class="card-body p-0">
-                        <table class="table table-sm mb-0">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th>#</th><th>Cell</th><th>Inbound Date</th><th class="text-right">Qty Diambil</th>
-                                </tr>
-                            </thead>
-                            <tbody id="successTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-                <button id="btnPickAgain" class="btn btn-primary mt-2">
-                    <i class="fas fa-plus mr-1"></i> Pengambilan Baru
+                <button id="btnConfirm" class="btn btn-success">
+                    <i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan
+                </button>
+                <button id="btnReset" class="btn btn-outline-secondary ml-2">
+                    <i class="fas fa-redo mr-1"></i> Reset
                 </button>
             </div>
-
         </div>
+    </div>
+
+    {{-- Sukses State --}}
+    <div id="successState" style="display:none">
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle mr-1"></i>
+            <strong>Pengambilan berhasil!</strong> <span id="successMsg"></span>
+        </div>
+        <div class="card card-outline card-secondary">
+            <div class="card-header"><h6 class="mb-0"><i class="fas fa-receipt mr-1"></i> Rekap Pengambilan</h6></div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="thead-light">
+                        <tr>
+                            <th>#</th><th>Cell</th><th>Inbound Date</th><th class="text-right">Qty Diambil</th>
+                        </tr>
+                    </thead>
+                    <tbody id="successTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <button id="btnPickAgain" class="btn btn-primary mt-2">
+            <i class="fas fa-plus mr-1"></i> Pengambilan Baru
+        </button>
     </div>
 </div>
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 $(function () {
-    // Select2 for item dropdown
     if ($.fn.select2) {
-        $('#itemSelect').select2({ placeholder: '-- Pilih Item --', allowClear: true });
+        $('#itemSelect').select2({
+            placeholder: '-- Pilih Item --',
+            theme: 'bootstrap4',
+            allowClear: true,
+            // minimumInputLength: 2,
+            language: {
+                inputTooShort: function () { return 'Ketik minimal 2 karakter...'; },
+                searching:     function () { return 'Mencari...'; },
+                noResults:     function () { return 'Item tidak ditemukan.'; },
+            },
+            ajax: {
+                url: '{{ route("stock.fifo-picking.search-items") }}',
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term };
+                },
+                processResults: function (data) {
+                    return { results: data };
+                },
+                cache: true
+            }
+        });
+        if ($('#warehouseSelect').is('select')) {
+            $('#warehouseSelect').select2({ placeholder: '-- Pilih Gudang --', theme: 'bootstrap4', allowClear: true });
+        }
     }
 
     let currentPreview = null;
@@ -202,7 +235,7 @@ $(function () {
             success: function (res) {
                 hideLoading();
                 if (!res.success) { showError(res.message); return; }
-                currentPreview = res;
+                currentPreview = { ...res, request: { item_id: itemId, warehouse_id: warehouseId, quantity: qty } };
                 renderPreview(res);
             },
             error: function (xhr) {
@@ -225,9 +258,9 @@ $(function () {
             type: 'POST',
             data: {
                 _token:       '{{ csrf_token() }}',
-                item_id:      $('#itemSelect').val(),
-                warehouse_id: $('#warehouseSelect').val(),
-                quantity:     parseInt($('#qtyInput').val()),
+                item_id:      currentPreview.request.item_id,
+                warehouse_id: currentPreview.request.warehouse_id,
+                quantity:     currentPreview.request.quantity,
                 notes:        $('#notesInput').val(),
             },
             success: function (res) {
@@ -268,6 +301,7 @@ $(function () {
         $('#emptyState, #errorState, #successState').hide();
         $('#previewResult').show();
         $('#btnConfirm').prop('disabled', false).html('<i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan');
+        // $('html, body').animate({ scrollTop: $('#previewResult').offset().top - 20 }, 400);
     }
 
     function renderSuccess(res) {

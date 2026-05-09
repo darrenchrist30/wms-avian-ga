@@ -144,6 +144,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
             ->name('transfer')->middleware('role:admin,supervisor');
 
         // FIFO Picking — Rekomendasi Pengambilan Barang
+        Route::get('fifo-picking/search-items', [\App\Http\Controllers\Stock\FifoPickingController::class, 'searchItems'])
+            ->name('fifo-picking.search-items')->middleware('role:admin,supervisor,operator');
         Route::get('fifo-picking', [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])
             ->name('fifo-picking.index')->middleware('role:admin,supervisor,operator');
         Route::post('fifo-picking/preview', [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])
