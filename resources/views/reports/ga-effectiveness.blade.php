@@ -11,7 +11,15 @@
         </h5>
         <small class="text-muted">Performa GA dalam mengoptimasi lokasi put-away — fitness, kecepatan, dan kepatuhan</small>
     </div>
-    <div class="d-flex align-items-center" style="gap:6px;">
+    <div class="d-flex align-items-center flex-wrap" style="gap:6px;">
+        <a href="{{ route('reports.ga-effectiveness.export.pdf', ['year' => $year]) }}"
+           class="btn btn-sm btn-danger" target="_blank">
+            <i class="fas fa-file-pdf mr-1"></i> Export PDF
+        </a>
+        <a href="{{ route('reports.ga-effectiveness.export.excel', ['year' => $year]) }}"
+           class="btn btn-sm btn-success">
+            <i class="fas fa-file-excel mr-1"></i> Export Excel
+        </a>
         <form method="GET" class="d-flex align-items-center" style="gap:6px;">
             <select name="year" class="form-control form-control-sm" style="width:100px;" onchange="this.form.submit()">
                 @foreach($years as $y)
@@ -170,7 +178,6 @@
                             <div class="mt-1"><span class="badge badge-light border" style="font-size:10px;"><i class="fas fa-flask mr-1"></i>Simulasi Teori</span></div>
                             @endif
                         </td>
-                        {{-- Split Location --}}
                         <td class="text-center align-middle">
                             @if($isGa && $sc['split_count'] == 0 && $sc['avg_loc'] == 0)
                                 <span class="text-muted">—</span><br><small class="text-muted" style="font-size:10px;">Data belum cukup</small>
@@ -189,7 +196,6 @@
                                 @endif
                             @endif
                         </td>
-                        {{-- Avg Lokasi / SKU --}}
                         <td class="text-center align-middle">
                             @if($isGa && $sc['avg_loc'] == 0)
                                 <span class="text-muted">—</span>
@@ -200,7 +206,6 @@
                                 @if($isGa)<small class="text-muted">idealnya 1.00</small>@endif
                             @endif
                         </td>
-                        {{-- Utilisasi Rak --}}
                         <td class="text-center align-middle">
                             <span class="h5 font-weight-bold mb-0 d-block text-secondary">{{ $sc['utilization'] }}%</span>
                             <div class="progress mt-1" style="height:4px;width:80px;margin:0 auto;">
@@ -208,7 +213,6 @@
                             </div>
                             @if($isSim)<small class="text-muted" style="font-size:10px;">sama (input identik)</small>@endif
                         </td>
-                        {{-- Est. Waktu Put-Away --}}
                         <td class="text-center align-middle">
                             @if($sc['putaway_min'] == 0)
                                 <span class="text-muted">—</span><br>
@@ -240,7 +244,6 @@
 </div>
 
 @if($summary['total_ga'] == 0)
-{{-- Empty state --}}
 <div class="card">
     <div class="card-body text-center py-5">
         <i class="fas fa-dna fa-4x mb-4 d-block" style="color:#6f42c1; opacity:.3;"></i>
@@ -257,7 +260,6 @@
 @else
 
 <div class="row">
-    {{-- Trend Fitness --}}
     <div class="col-md-8 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
@@ -269,7 +271,6 @@
         </div>
     </div>
 
-    {{-- Compliance Donut --}}
     <div class="col-md-4 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
@@ -302,7 +303,6 @@
     </div>
 </div>
 
-{{-- Waktu Eksekusi --}}
 <div class="card mb-3">
     <div class="card-header py-2">
         <strong><i class="fas fa-stopwatch mr-1"></i>Rata-rata Waktu Eksekusi GA per Bulan (ms)</strong>
@@ -312,7 +312,6 @@
     </div>
 </div>
 
-{{-- Tabel riwayat GA --}}
 <div class="card">
     <div class="card-header py-2">
         <strong><i class="fas fa-history mr-1"></i>Riwayat 50 Run GA Terakhir — {{ $year }}</strong>
@@ -393,7 +392,6 @@ const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt',
 $(function () {
     @if($summary['total_ga'] > 0)
 
-    // Trend fitness
     Highcharts.chart('chartFitnessTrend', {
         chart: { style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
         title: { text: null },
@@ -420,7 +418,6 @@ $(function () {
         credits: { enabled: false }
     });
 
-    // Exec time
     Highcharts.chart('chartExecTime', {
         chart: { type: 'column', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
         title: { text: null },
@@ -459,7 +456,6 @@ $(function () {
     });
     @endif
 
-    // DataTable for GA records
     $('#tblGA').DataTable({
         pageLength: 25,
         order: [[7, 'desc']],
