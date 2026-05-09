@@ -93,13 +93,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::resource('orders', \App\Http\Controllers\Inbound\InboundOrderController::class);
         Route::post('orders/{order}/sync-erp', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'syncFromErp'])
             ->name('orders.sync-erp');
-        // STEP 1: Operator konfirmasi qty fisik di dock
         Route::post('orders/{order}/confirm-qty', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'confirmQty'])
             ->name('orders.confirm-qty');
-        // STEP 2: Operator/Supervisor trigger GA — hasil langsung auto-validate
         Route::post('orders/{order}/process-ga', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'processGA'])
             ->name('orders.process-ga')->middleware('role:admin,supervisor,operator');
-        // STEP 3: Supervisor review exception (pending_review) — accept / reject
         Route::post('orders/{order}/ga/{recommendation}/accept', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'acceptGa'])
             ->name('orders.ga.accept')->middleware('role:admin,supervisor');
         Route::post('orders/{order}/ga/{recommendation}/reject', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'rejectGa'])
@@ -112,19 +109,13 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('putaway')->name('putaway.')->group(function () {
-        // Daftar order yang sudah accepted dan siap di-put-away
         Route::get('/', [\App\Http\Controllers\PutAway\PutAwayController::class, 'index'])->name('index');
-        // Detail order + rekomendasi GA per item
         Route::get('{order}', [\App\Http\Controllers\PutAway\PutAwayController::class, 'show'])->name('show');
-        // AJAX: resolve cell dari QR code scan
         Route::post('scan-qr', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanQr'])->name('scan-qr');
-        // AJAX: rekomendasi cell alternatif ketika cell GA penuh
         Route::get('{order}/alternative-cells', [\App\Http\Controllers\PutAway\PutAwayController::class, 'alternativeCells'])
             ->name('alternative-cells');
-        // AJAX: operator konfirmasi penempatan per item
         Route::post('{order}/items/{detail}/confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'confirm'])
             ->name('confirm');
-        // AJAX: supervisor override lokasi
         Route::post('{order}/items/{detail}/override', [\App\Http\Controllers\PutAway\PutAwayController::class, 'override'])
             ->name('override')->middleware('role:admin,supervisor');
     });
@@ -143,7 +134,6 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('transfer', [\App\Http\Controllers\Stock\StockController::class, 'transfer'])
             ->name('transfer')->middleware('role:admin,supervisor');
 
-        // FIFO Picking — Rekomendasi Pengambilan Barang
         Route::get('fifo-picking/search-items', [\App\Http\Controllers\Stock\FifoPickingController::class, 'searchItems'])
             ->name('fifo-picking.search-items')->middleware('role:admin,supervisor,operator');
         Route::get('fifo-picking', [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])
@@ -179,6 +169,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('putaway', [\App\Http\Controllers\Reports\ReportController::class, 'putaway'])->name('putaway');
         Route::get('movements', [\App\Http\Controllers\Reports\ReportController::class, 'movements'])->name('movements');
         Route::get('ga-effectiveness', [\App\Http\Controllers\Reports\ReportController::class, 'gaEffectiveness'])->name('ga-effectiveness');
+        Route::get('ga-effectiveness/export/pdf', [\App\Http\Controllers\Reports\GaEffectivenessExportController::class, 'pdf'])
+            ->name('ga-effectiveness.export.pdf')->middleware('permission:report.export');
+        Route::get('ga-effectiveness/export/excel', [\App\Http\Controllers\Reports\GaEffectivenessExportController::class, 'excel'])
+            ->name('ga-effectiveness.export.excel')->middleware('permission:report.export');
         Route::get('export/{type}', [\App\Http\Controllers\Reports\ReportController::class, 'export'])
             ->name('export')->middleware('permission:report.export');
     });
@@ -192,9 +186,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('/', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'index'])->name('index');
         Route::get('create', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'store'])->name('store');
-        // AJAX — harus di atas route wildcard {opname}
         Route::get('lookup-item', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'lookupItem'])->name('lookup-item');
-        // Wildcard routes
         Route::get('{opname}', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'show'])->name('show');
         Route::get('{opname}/scan', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'scan'])->name('scan');
         Route::post('{opname}/complete', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'complete'])->name('complete')->middleware('role:admin,supervisor');
@@ -208,7 +200,6 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::middleware('role:admin')->group(function () {
-        // API Token Management
         Route::get('api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'index'])->name('api-tokens.index');
         Route::post('api-tokens', [\App\Http\Controllers\ApiTokenController::class, 'store'])->name('api-tokens.store');
         Route::delete('api-tokens/{id}', [\App\Http\Controllers\ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
@@ -219,7 +210,6 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('roles/datatable', [\App\Http\Controllers\UserManagement\RoleController::class, 'datatable'])->name('roles.datatable');
         Route::resource('roles', \App\Http\Controllers\UserManagement\RoleController::class);
 
-        // Audit Log (admin + supervisor dapat melihat)
         Route::get('audit', [\App\Http\Controllers\AuditLogController::class, 'index'])->name('audit.index');
         Route::get('audit/datatable', [\App\Http\Controllers\AuditLogController::class, 'datatable'])->name('audit.datatable');
     });
