@@ -18,7 +18,7 @@ class ItemInput(BaseModel):
     category_id:       Optional[int]   = None
     quantity:          int             = Field(..., gt=0)
     item_size:         str             = "medium"
-    movement_type:     str             = "slow_moving"
+    movement_type:     Optional[str]   = None
 
     # Jika terisi, gene ini dikunci ke cell tertentu.
     # Dipakai untuk partial allocation: isi existing cell terlebih dahulu.

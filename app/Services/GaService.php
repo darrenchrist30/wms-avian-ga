@@ -196,7 +196,7 @@ class GaService
                     'category_id'       => $detail->item->category_id,
                     'quantity'          => $chunkQty,
                     'item_size'         => $detail->item->item_size ?? 'medium',
-                    'movement_type'     => $detail->item->movement_type ?? 'slow_moving',
+                    'movement_type'     => $detail->item->movement_type,
 
                     // Ini yang membuat chunk ini wajib ke cell existing tersebut.
                     'preferred_cell_id' => $cell->id,
@@ -214,7 +214,7 @@ class GaService
                     'category_id'       => $detail->item->category_id,
                     'quantity'          => $remainingQty,
                     'item_size'         => $detail->item->item_size ?? 'medium',
-                    'movement_type'     => $detail->item->movement_type ?? 'slow_moving',
+                    'movement_type'     => $detail->item->movement_type,
 
                     // Null berarti GA bebas memilih cell terbaik.
                     'preferred_cell_id' => null,
@@ -446,6 +446,16 @@ class GaService
         Log::info('[GaService] Mock GA run', ['inbound_order_id' => $order->id]);
 
         $payload = $this->buildPayload($order);
+
+        Log::info('[GA DEBUG CELLS TARGET]', [
+            'target_cells' => collect($payload['cells'])
+                ->filter(function ($c) {
+                    return in_array($c['cell_code'], ['1-F', '1-G', '9-C'])
+                        || in_array($c['rack_code'], ['1', '9']);
+                })
+                ->values()
+                ->toArray(),
+        ]);
 
         // Buat kromosom dummy: assign setiap item ke sel pertama yang muat
         $cells     = collect($payload['cells'])->sortByDesc('capacity_remaining');

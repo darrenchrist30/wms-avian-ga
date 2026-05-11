@@ -528,10 +528,10 @@
     [$gaCl, $gaLbl, $gaIco] = $gaStatusCfg[$latestGa->status] ?? ['secondary','—','fas fa-circle'];
 
     $fcDefs = [
-        'fc_cap_score'   => ['FC_CAP',   'Kapasitas Cell',           40, '#3b82f6'],
-        'fc_cat_score'   => ['FC_CAT',   'Kesesuaian Kategori/Zona', 30, '#10b981'],
-        'fc_aff_score'   => ['FC_AFF',   'Afinitas Co-occurrence',   20, '#f59e0b'],
-        'fc_split_score' => ['FC_SPLIT', 'Minimasi Pemisahan SKU',   10, '#8b5cf6'],
+        'fc_cap_score'   => ['FC_CAP',   'Kapasitas Cell',            35, '#3b82f6'],
+        'fc_cat_score'   => ['FC_CAT',   'Kesesuaian Kategori/Zona',  25, '#10b981'],
+        'fc_aff_score'   => ['FC_AFF',   'Afinitas Co-occurrence',    20, '#f59e0b'],
+        'fc_split_score' => ['FC_SPLIT', 'Anti-Split + Jarak Lokasi', 20, '#8b5cf6'],
     ];
 
     $avgFc = [];
@@ -626,10 +626,10 @@
                         <i class="fas fa-function mr-1"></i>Formula Fitness Function:
                     </div>
                     <div style="font-size:12px;font-family:monospace;color:#374151;line-height:2;">
-                        <span style="color:#3b82f6;font-weight:700;">FC_CAP</span>(40) +
-                        <span style="color:#10b981;font-weight:700;">FC_CAT</span>(30) +
+                        <span style="color:#3b82f6;font-weight:700;">FC_CAP</span>(35) +
+                        <span style="color:#10b981;font-weight:700;">FC_CAT</span>(25) +
                         <span style="color:#f59e0b;font-weight:700;">FC_AFF</span>(20) +
-                        <span style="color:#8b5cf6;font-weight:700;">FC_SPLIT</span>(10) = maks <strong>100</strong>
+                        <span style="color:#8b5cf6;font-weight:700;">FC_SPLIT</span>(20) = maks <strong>100</strong>
                     </div>
                     <div style="font-size:10px;color:#9ca3af;margin-top:3px;">
                         Nilai rata-rata fitness seluruh gen dalam kromosom terbaik (generasi {{ $latestGa->generations_run ?? '—' }})
@@ -661,11 +661,11 @@
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#3b82f6;font-weight:700;">CAP</span><br>
-                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/40</small>
+                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/35</small>
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#10b981;font-weight:700;">CAT</span><br>
-                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/30</small>
+                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/25</small>
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#f59e0b;font-weight:700;">AFF</span><br>
@@ -673,7 +673,7 @@
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#8b5cf6;font-weight:700;">SPL</span><br>
-                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/10</small>
+                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/20</small>
                         </th>
                     </tr>
                 </thead>
