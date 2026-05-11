@@ -241,6 +241,9 @@ class GaService
                     // zone_category: gunakan field langsung jika ada, fallback ke kode zona
                     'zone_category'        => $cell->zone_category ?? $cell->rack?->zone?->code,
                     'rack_code'            => (string) ($cell->rack?->code ?? ''),
+                    'rack_index'           => (int) ($cell->rack?->code ?? 9999),
+                    'cell_code'            => (string) $cell->code,
+                    'cell_index'           => $this->cellCodeToIndex($cell->code),
                     'dominant_category_id' => $cell->dominant_category_id,
                     'capacity_remaining'   => $cell->capacity_max - $cell->capacity_used,
                     'capacity_max'         => $cell->capacity_max,
@@ -406,6 +409,33 @@ class GaService
     // ─────────────────────────────────────────────────────────────────────────
     // PUBLIC: Mock run (untuk testing sebelum Python FastAPI siap)
     // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Ubah kode cell menjadi indeks posisi numerik dalam rack.
+     * Contoh: "1-F" → 6 (F adalah huruf ke-6)
+     *         "A"   → 1
+     *         null  → 9999 (tidak diketahui)
+     */
+    private function cellCodeToIndex(?string $code): int
+    {
+        if (!$code) {
+            return 9999;
+        }
+
+        $code = strtoupper(trim($code));
+
+        // Format single letter: A, B, C, ...
+        if (preg_match('/^[A-Z]$/', $code)) {
+            return ord($code) - ord('A') + 1;
+        }
+
+        // Format "rack-cell": 1-F, 10-G, dll — ambil huruf setelah dash
+        if (preg_match('/-([A-Z])$/', $code, $m)) {
+            return ord($m[1]) - ord('A') + 1;
+        }
+
+        return 9999;
+    }
 
     /**
      * Mock GA run — assign item ke sel secara random dengan fitness dummy.

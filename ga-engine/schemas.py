@@ -29,6 +29,9 @@ class CellInput(BaseModel):
     cell_id:              int
     zone_category:        Optional[str] = None   # kode zona: "A", "B", "C"
     rack_code:            Optional[str] = None   # kode rack fisik, contoh: "19"
+    rack_index:           Optional[int] = None   # nomor urut rack (integer dari rack code)
+    cell_code:            Optional[str] = None   # kode cell lengkap, contoh: "1-F"
+    cell_index:           Optional[int] = None   # nomor urut posisi cell dalam rack (A=1, B=2, ...)
     dominant_category_id: Optional[int] = None   # FK ke item_categories
     capacity_remaining:   int
     capacity_max:         int
