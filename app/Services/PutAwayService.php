@@ -131,6 +131,15 @@ class PutAwayService
         // GA quantity adalah rekomendasi, bukan batas keras —
         // operator boleh menempatkan lebih/kurang selama masih dalam remaining qty dan kapasitas cell.
 
+        // Cegah penempatan di luar sel rekomendasi GA (tanpa override)
+        if ($gaDetail && $cell->id !== $gaDetail->cell_id) {
+            $recommended = $gaDetail->cell?->code ?? "ID {$gaDetail->cell_id}";
+            throw new \Exception(
+                "Sel {$cell->code} tidak sesuai rekomendasi GA ({$recommended}). " .
+                "Gunakan Override Lokasi jika penempatan di luar rekomendasi diperlukan."
+            );
+        }
+
         // Cegah detail rekomendasi GA yang sama dikonfirmasi dua kali
         if ($gaDetail && PutAwayConfirmation::where('ga_recommendation_detail_id', $gaDetail->id)->exists()) {
             throw new \Exception("Rekomendasi ke sel {$gaDetail->cell?->code} sudah pernah dikonfirmasi.");

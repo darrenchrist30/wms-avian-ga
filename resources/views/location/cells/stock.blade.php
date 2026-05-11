@@ -32,10 +32,6 @@
                                 <div class="font-weight-bold">{{ $cell->rack->zone->warehouse->name ?? '-' }}</div>
                             </div>
                             <div class="col-md-2">
-                                <small class="text-muted">Zona</small>
-                                <div class="font-weight-bold">{{ $cell->rack->zone->code ?? '-' }} — {{ $cell->rack->zone->name ?? '' }}</div>
-                            </div>
-                            <div class="col-md-2">
                                 <small class="text-muted">Rak</small>
                                 <div class="font-weight-bold">{{ $cell->rack->code ?? '-' }}</div>
                             </div>

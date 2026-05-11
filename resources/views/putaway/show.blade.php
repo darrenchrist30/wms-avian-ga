@@ -956,6 +956,19 @@
                                                         data-qty="{{ $gd->quantity }}">
                                                         <i class="fas fa-check"></i> Konfirmasi
                                                     </button>
+                                                    @if (auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                                                        <button type="button" class="btn btn-sm btn-warning btnOverride mt-1"
+                                                            title="Override: paksa cell berbeda dari GA"
+                                                            data-detail-id="{{ $detail->id }}"
+                                                            data-item-name="{{ $detail->item->name ?? '-' }}"
+                                                            data-ga-cell="{{ $gd->cell?->code }}"
+                                                            data-ga-cell-id="{{ $gd->cell_id }}"
+                                                            data-cap-remaining="{{ $capRemain }}"
+                                                            data-cap-max="{{ $capMax }}"
+                                                            data-qty="{{ $gd->quantity }}">
+                                                            <i class="fas fa-shield-alt"></i> Override
+                                                        </button>
+                                                    @endif
                                                 @endif
                                             </td>
                                         </tr>
@@ -1815,32 +1828,59 @@
                     };
 
                     const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
+                    const diffFromGa = !isOverride && modalGaCell && (cell.id != modalGaCell.id);
                     const capOk = cell.capacity_remaining >= modalQty && modalQty > 0;
 
-                    if (matchesGa && capOk) {
-                        // ════ AUTO-CONFIRM ════════════════════════════════════════════
-                        // Scan cocok GA + kapasitas OK → simpan langsung, tidak perlu tap lagi
-                        modalCell = cell;
-                        $('#modalConfirm').data('cell-id', cell.id);
-
+                    if (diffFromGa) {
+                        // ════ BLOCKED — sel berbeda dari rekomendasi GA, bukan override ════
                         $('#scanLoading').hide();
-                        $('#autoConfirmStatus').html(
-                            '<div style="background:#f0fff4;border:1px solid #c3e6cb;' +
-                            'border-radius:8px;padding:12px 16px;font-size:13px;text-align:center">' +
-                            '<i class="fas fa-circle-notch fa-spin mr-2" style="color:#0d8564;font-size:18px"></i>' +
-                            '<strong style="color:#0d8564">Cocok dengan GA ✓</strong>' +
-                            '<span class="text-muted ml-2">Menyimpan ke <strong>' + cell.code +
-                            '</strong>…</span>' +
-                            '</div>'
-                        ).show();
+                        $('#modalQrInput').prop('disabled', false);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Sel Tidak Sesuai Rekomendasi GA',
+                            html:
+                                '<p>Anda memindai <strong>' + cell.code + '</strong>, sedangkan GA merekomendasikan ' +
+                                '<strong>' + modalGaCell.code + '</strong>.</p>' +
+                                '<p class="mb-0 text-muted" style="font-size:13px">Scan ulang QR cell <strong>' +
+                                modalGaCell.code + '</strong>, atau gunakan <strong>Override Lokasi</strong> ' +
+                                'jika penempatan di luar rekomendasi benar-benar diperlukan.</p>',
+                            confirmButtonText: 'Scan Ulang',
+                            confirmButtonColor: '#dc3545',
+                        }).then(() => { $('#modalQrInput').val('').focus(); });
 
-                        doSaveConfirm(cell.id, modalQty, '', cell.code);
+                    } else if (matchesGa && capOk) {
+                        // ════ KONFIRMASI SWAL — cocok GA, kapasitas OK ════════════════
+                        $('#scanLoading').hide();
+                        $('#modalQrInput').prop('disabled', false);
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Konfirmasi Penempatan',
+                            html:
+                                '<p>Cell <strong>' + cell.code + '</strong> ' +
+                                '<span class="badge badge-success" style="font-size:12px">' +
+                                '<i class="fas fa-check-circle mr-1"></i>Sesuai rekomendasi GA</span></p>' +
+                                '<p>Qty: <strong>' + modalQty + ' unit</strong></p>' +
+                                '<p class="mb-0 text-muted" style="font-size:13px">Sisa kapasitas: ' +
+                                cell.capacity_remaining + ' / ' + cell.capacity_max + ' unit</p>',
+                            showCancelButton: true,
+                            confirmButtonText: '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan',
+                            cancelButtonText: 'Batal',
+                            confirmButtonColor: '#28a745',
+                            cancelButtonColor: '#6c757d',
+                        }).then(function(result) {
+                            if (result.isConfirmed) {
+                                modalCell = cell;
+                                $('#modalConfirm').data('cell-id', cell.id);
+                                doSaveConfirm(cell.id, modalQty, '', cell.code);
+                            } else {
+                                $('#modalQrInput').val('').focus();
+                            }
+                        });
 
                     } else {
                         // ════ PHASE 2 MANUAL ══════════════════════════════════════════
-                        // Beda GA / kapasitas kurang / override → operator konfirmasi manual
+                        // Kapasitas kurang / override / no GA detail → operator konfirmasi manual
                         modalCell = cell;
-                        if (isOverride) selectedCellMap[currentDetailId] = cell;
                         showConfirmPhase(cell);
                     }
                 },
@@ -1920,8 +1960,8 @@
                 $('#btnSkipScan').hide(); // Override wajib scan
             }
 
-            // Jika sudah ada cell tersimpan (dari "Ganti Cell") → langsung Phase 2
-            if (selectedCellMap[detailId]) {
+            // Jika sudah ada cell tersimpan dari "Ganti Cell" (bukan override) → langsung Phase 2
+            if (!isOverride && selectedCellMap[detailId]) {
                 $('#modalConfirm').modal('show');
                 showConfirmPhase(selectedCellMap[detailId]);
             } else {

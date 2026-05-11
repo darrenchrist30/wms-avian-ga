@@ -1,4 +1,4 @@
-@extends('layouts.adminlte')
+﻿@extends('layouts.adminlte')
 @section('title', 'Efektivitas Algoritma GA')
 
 @section('content')
@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-dna text-purple mr-2" style="color:#6f42c1;"></i>Efektivitas Algoritma Genetika
         </h5>
-        <small class="text-muted">Performa GA dalam mengoptimasi lokasi put-away — fitness, kecepatan, dan kepatuhan</small>
+        <small class="text-muted">Performa GA dalam mengoptimasi lokasi put-away â€” fitness, kecepatan, dan kepatuhan</small>
     </div>
     <div class="d-flex align-items-center flex-wrap" style="gap:6px;">
         <a href="{{ route('reports.ga-effectiveness.export.pdf', ['year' => $year]) }}"
@@ -63,7 +63,7 @@
                 <p>Tingkat Kepatuhan
                     <i class="fas fa-info-circle ml-1" style="font-size:11px;opacity:0.8;cursor:pointer"
                        data-toggle="tooltip" data-placement="top"
-                       title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk — operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
+                       title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk â€” operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
                 </p>
             </div>
             <div class="icon"><i class="fas fa-check-double"></i></div>
@@ -71,12 +71,12 @@
     </div>
 </div>
 
-{{-- ── Metrik Efektivitas Penempatan (selalu tampil) ────────────────────── --}}
+{{-- â”€â”€ Metrik Efektivitas Penempatan (selalu tampil) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
 <div class="d-flex align-items-center mb-2 mt-1">
     <span class="font-weight-bold text-dark" style="font-size:13px">
         <i class="fas fa-map-marker-alt mr-1" style="color:#6f42c1"></i>Metrik Efektivitas Penempatan
     </span>
-    <span class="text-muted ml-2" style="font-size:11px">— kondisi saat ini (snapshot gudang)</span>
+    <span class="text-muted ml-2" style="font-size:11px">â€” kondisi saat ini (snapshot gudang)</span>
 </div>
 <div class="row mb-4">
     {{-- Split Location --}}
@@ -135,19 +135,19 @@
                 </div>
                 <small class="text-muted">rata-rata order selesai (tahun {{ $year }})</small>
                 <div class="mt-1" style="font-size:10px;color:#6c757d">
-                    <i class="fas fa-info-circle mr-1"></i>Dari buat order → semua item put-away
+                    <i class="fas fa-info-circle mr-1"></i>Dari buat order â†’ semua item put-away
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-{{-- ── Perbandingan Skenario Pengujian ──────────────────────────────────── --}}
+{{-- â”€â”€ Perbandingan Skenario Pengujian â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ --}}
 <div class="d-flex align-items-center mb-2 mt-1">
     <span class="font-weight-bold text-dark" style="font-size:13px">
         <i class="fas fa-table mr-1" style="color:#6f42c1"></i>Perbandingan Skenario Pengujian
     </span>
-    <span class="text-muted ml-2" style="font-size:11px">— evaluasi tiga skenario penempatan barang</span>
+    <span class="text-muted ml-2" style="font-size:11px">â€” evaluasi tiga skenario penempatan barang</span>
 </div>
 <div class="card mb-4">
     <div class="card-body p-0">
@@ -180,7 +180,7 @@
                         </td>
                         <td class="text-center align-middle">
                             @if($isGa && $sc['split_count'] == 0 && $sc['avg_loc'] == 0)
-                                <span class="text-muted">—</span><br><small class="text-muted" style="font-size:10px;">Data belum cukup</small>
+                                <span class="text-muted">â€”</span><br><small class="text-muted" style="font-size:10px;">Data belum cukup</small>
                             @else
                                 @php
                                     $aktual = $scenarioComparison[0]['split_count'];
@@ -198,7 +198,7 @@
                         </td>
                         <td class="text-center align-middle">
                             @if($isGa && $sc['avg_loc'] == 0)
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">â€”</span>
                             @else
                                 <span class="h5 font-weight-bold mb-0 d-block {{ $isGa ? 'text-success' : ($isSim ? 'text-danger' : 'text-secondary') }}">
                                     {{ $sc['avg_loc'] }}
@@ -215,7 +215,7 @@
                         </td>
                         <td class="text-center align-middle">
                             @if($sc['putaway_min'] == 0)
-                                <span class="text-muted">—</span><br>
+                                <span class="text-muted">â€”</span><br>
                                 <small class="text-muted" style="font-size:10px;">{{ $isGa ? 'Data belum cukup' : 'Belum ada order selesai' }}</small>
                             @else
                                 @php $mnt = $sc['putaway_min']; @endphp
@@ -237,7 +237,7 @@
         <div class="px-3 py-2 border-top" style="background:#f8f9fa;font-size:11px;color:#6c757d;">
             <i class="fas fa-info-circle mr-1"></i>
             <strong>Kondisi Aktual</strong>: snapshot stok gudang saat ini ({{ number_format($itemPutCounts->count()) }} SKU aktif, {{ number_format($totalActiveCells) }} sel tersedia).&nbsp;
-            <strong>Penempatan Acak</strong>: simulasi probabilistik (occupancy model) — T<sub>i</sub> record stok per SKU ditempatkan ke sel acak tanpa konsolidasi; angka mendekati aktual karena kondisi saat ini merefleksikan penempatan belum teroptimasi.&nbsp;
+            <strong>Penempatan Acak</strong>: simulasi probabilistik (occupancy model) â€” T<sub>i</sub> record stok per SKU ditempatkan ke sel acak tanpa konsolidasi; angka mendekati aktual karena kondisi saat ini merefleksikan penempatan belum teroptimasi.&nbsp;
             <strong>Rekomendasi GA</strong>: dihitung dari {{ number_format($gaFollowedCount) }} konfirmasi put-away yang mengikuti saran GA (tahun {{ $year }}). Semakin banyak order diikuti, perbedaan akan semakin signifikan.
         </div>
     </div>
@@ -277,7 +277,7 @@
                 <strong><i class="fas fa-chart-pie mr-1"></i>Kepatuhan Rekomendasi GA</strong>
                 <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
                    data-toggle="tooltip" data-placement="top"
-                   title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk — operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
+                   title="Persentase konfirmasi put-away yang mengikuti rekomendasi GA tanpa override. Nilai di bawah 100% tidak berarti GA buruk â€” operator dapat melakukan override karena partial allocation, kapasitas berubah, atau testing."></i>
             </div>
             <div class="card-body d-flex flex-column">
                 @if(($compliance->total ?? 0) == 0)
@@ -314,7 +314,7 @@
 
 <div class="card">
     <div class="card-header py-2">
-        <strong><i class="fas fa-history mr-1"></i>Riwayat 50 Run GA Terakhir — {{ $year }}</strong>
+        <strong><i class="fas fa-history mr-1"></i>Riwayat 50 Run GA Terakhir â€” {{ $year }}</strong>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -346,7 +346,7 @@
                                     {{ $ga->inboundOrder->do_number }}
                                 </a>
                             @else
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">â€”</span>
                             @endif
                         </td>
                         <td class="text-center">
@@ -355,7 +355,7 @@
                                     {{ number_format($ga->fitness_score, 4) }}
                                 </span>
                             @else
-                                <span class="text-muted">—</span>
+                                <span class="text-muted">â€”</span>
                             @endif
                         </td>
                         <td class="text-center">{{ number_format($ga->generations_run ?? 0) }}</td>
@@ -368,7 +368,7 @@
                                 {{ ucfirst($ga->status) }}
                             </span>
                         </td>
-                        <td>{{ $ga->generatedBy->name ?? '—' }}</td>
+                        <td>{{ $ga->generatedBy->name ?? 'â€”' }}</td>
                         <td class="text-center">
                             <small>{{ $ga->generated_at?->format('d M Y H:i') ?? $ga->created_at->format('d M Y H:i') }}</small>
                         </td>
@@ -385,7 +385,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="{{ asset('js/highcharts.min.js') }}"></script>
 <script>
 const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 

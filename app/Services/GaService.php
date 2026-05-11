@@ -447,16 +447,6 @@ class GaService
 
         $payload = $this->buildPayload($order);
 
-        Log::info('[GA DEBUG CELLS TARGET]', [
-            'target_cells' => collect($payload['cells'])
-                ->filter(function ($c) {
-                    return in_array($c['cell_code'], ['1-F', '1-G', '9-C'])
-                        || in_array($c['rack_code'], ['1', '9']);
-                })
-                ->values()
-                ->toArray(),
-        ]);
-
         // Buat kromosom dummy: assign setiap item ke sel pertama yang muat
         $cells     = collect($payload['cells'])->sortByDesc('capacity_remaining');
         $chromosome = [];

@@ -178,10 +178,6 @@ body {
                 <td>{{ chr(64 + $cell->level) }}</td>
             </tr>
             <tr>
-                <td>Zona</td>
-                <td>{{ $rack->zone->name ?? '—' }}</td>
-            </tr>
-            <tr>
                 <td>Kapasitas</td>
                 <td>{{ number_format($cell->capacity_max) }} unit</td>
             </tr>

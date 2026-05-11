@@ -1,4 +1,4 @@
-@extends('layouts.adminlte')
+﻿@extends('layouts.adminlte')
 @section('title', 'Laporan Penerimaan Barang')
 
 @section('content')
@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-truck-loading text-success mr-2"></i>Laporan Penerimaan Barang
         </h5>
-        <small class="text-muted">Analisis penerimaan inbound — tren, supplier, dan status DO</small>
+        <small class="text-muted">Analisis penerimaan inbound â€” tren, supplier, dan status DO</small>
     </div>
     <div class="d-flex align-items-center" style="gap:6px;">
         {{-- Filter Tahun --}}
@@ -87,7 +87,7 @@
 {{-- Top Supplier --}}
 <div class="card">
     <div class="card-header py-2">
-        <strong><i class="fas fa-chart-bar mr-1"></i>Top Supplier — Jumlah DO {{ $year }}</strong>
+        <strong><i class="fas fa-chart-bar mr-1"></i>Top Supplier â€” Jumlah DO {{ $year }}</strong>
     </div>
     <div class="card-body">
         @if($bySupplier->isEmpty())
@@ -102,7 +102,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="{{ asset('js/highcharts.min.js') }}"></script>
 <script>
 const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 

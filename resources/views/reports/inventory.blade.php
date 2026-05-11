@@ -174,7 +174,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="{{ asset('js/highcharts.min.js') }}"></script>
 <script>
 $(function () {
     @if(!$stockByCategory->isEmpty())

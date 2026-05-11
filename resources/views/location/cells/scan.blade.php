@@ -138,10 +138,6 @@
                                     <td class="font-weight-bold py-1" id="cellLevel">—</td>
                                 </tr>
                                 <tr>
-                                    <td class="text-muted py-1">Zona</td>
-                                    <td class="py-1" id="cellZone">—</td>
-                                </tr>
-                                <tr>
                                     <td class="text-muted py-1">Gudang</td>
                                     <td class="py-1" id="cellWarehouse">—</td>
                                 </tr>
@@ -387,7 +383,7 @@ function doLookup(code) {
 function showEmpty(cell) {
     const statusMap = { available:'Tersedia',partial:'Sebagian',full:'Penuh',blocked:'Terblokir',reserved:'Reservasi' };
     $('#emptyCellCode').text('Cell ' + cell.code + ' — Kosong');
-    $('#emptyCellLocation').text('Rak ' + cell.rack + ' | Level ' + cell.level + ' | ' + cell.zone);
+    $('#emptyCellLocation').text('Rak ' + cell.rack + ' | Level ' + cell.level);
     $('#btnEmptyQrLabel').attr('href', cell.qr_label_url);
     $('#emptyArea').show();
     $('html,body').animate({ scrollTop: $('#emptyArea').offset().top - 80 }, 300);
@@ -408,7 +404,6 @@ function showResult(cell, stocks) {
     $('#cellCode').text(cell.code);
     $('#cellRack').text(cell.rack);
     $('#cellLevel').text('Level ' + cell.level);
-    $('#cellZone').text(cell.zone);
     $('#cellWarehouse').text(cell.warehouse);
     $('#cellStatusBadge').text(st.text).attr('class', 'badge px-3 py-1 ' + st.cls);
     $('#totalQtyBadge').text(cell.total_qty.toLocaleString('id') + ' unit');
@@ -504,7 +499,7 @@ function addHistory(code, cell) {
     const tbody = $('#historyBody');
     tbody.empty();
     scanHistory.slice(0, 10).forEach((h, i) => {
-        const loc  = h.cell ? `Rak ${h.cell.rack} | Level ${h.cell.level} | ${h.cell.zone}` : '<span class="text-danger">—</span>';
+        const loc  = h.cell ? `Rak ${h.cell.rack} | Level ${h.cell.level}` : '<span class="text-danger">—</span>';
         const skus = h.cell ? h.cell.total_skus : '—';
         const qty  = h.cell ? h.cell.total_qty.toLocaleString('id') + ' unit' : '<span class="text-danger">tidak ditemukan</span>';
         tbody.append(`<tr>

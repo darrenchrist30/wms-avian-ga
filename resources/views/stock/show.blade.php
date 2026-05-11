@@ -155,7 +155,6 @@
                         <th class="text-center" width="40">FIFO</th>
                         <th width="120">Cell</th>
                         <th width="100">Rak</th>
-                        <th width="100">Zona</th>
                         <th width="100">Gudang</th>
                         <th class="text-center" width="90">Qty</th>
                         <th width="120">LPN</th>
@@ -200,11 +199,6 @@
                             @endif
                         </td>
                         <td>{{ $s->cell?->rack?->code ?? '—' }}</td>
-                        <td>
-                            <span class="badge badge-light border">
-                                {{ $s->cell?->rack?->zone?->name ?? '—' }}
-                            </span>
-                        </td>
                         <td><small>{{ $s->warehouse?->name ?? '—' }}</small></td>
                         <td class="text-center font-weight-bold">{{ number_format($s->quantity) }}</td>
                         <td><code class="small">{{ $s->lpn ?? '—' }}</code></td>
@@ -257,7 +251,7 @@
                 </tbody>
                 <tfoot class="font-weight-bold bg-light">
                     <tr>
-                        <td colspan="5" class="text-right pr-2">Total:</td>
+                        <td colspan="4" class="text-right pr-2">Total:</td>
                         <td class="text-center">{{ number_format($totalQty) }}</td>
                         @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
                         <td colspan="5"></td>

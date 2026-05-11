@@ -8,6 +8,7 @@ use App\Models\GaRecommendation;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
 use App\Models\InboundOrderItem;
+use App\Models\Warehouse;
 use App\Services\FastSlowMovingService;
 use App\Services\PutAwayService;
 use Illuminate\Http\Request;
@@ -24,28 +25,52 @@ class PutAwayController extends Controller
     // GET /putaway
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function index()
+    public function index(Request $request)
     {
+        $search       = trim($request->input('search', ''));
+        $filterStatus = $request->input('status', '');  // '' | 'recommended' | 'put_away' | 'completed'
+        $warehouseId  = $request->input('warehouse_id', '');
+
+        $empty = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+
         $base = InboundOrder::with(['warehouse', 'receivedBy'])
             ->withCount([
                 'items',
                 'items as put_away_count' => fn($q) => $q->where('status', 'put_away'),
             ])
-            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'));
+            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
+            ->when($search, fn($q) => $q->where('do_number', 'like', "%{$search}%"))
+            ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId));
 
-        // Antrian aktif: belum selesai
-        $orders = (clone $base)
-            ->whereIn('status', ['recommended', 'put_away'])
-            ->orderByDesc('updated_at')
-            ->paginate(15);
+        // Antrian aktif — disembunyikan kalau filter 'completed'
+        if ($filterStatus === 'completed') {
+            $orders = $empty;
+        } else {
+            $activeStatuses = in_array($filterStatus, ['recommended', 'put_away'])
+                ? [$filterStatus]
+                : ['recommended', 'put_away'];
 
-        // Riwayat: sudah completed
-        $completedOrders = (clone $base)
-            ->where('status', 'completed')
-            ->orderByDesc('updated_at')
-            ->paginate(10, ['*'], 'completed_page');
+            $orders = (clone $base)
+                ->whereIn('status', $activeStatuses)
+                ->orderByDesc('updated_at')
+                ->paginate(15)
+                ->withQueryString();
+        }
 
-        return view('putaway.index', compact('orders', 'completedOrders'));
+        // Riwayat completed — disembunyikan kalau filter aktif saja
+        if (in_array($filterStatus, ['recommended', 'put_away'])) {
+            $completedOrders = $empty;
+        } else {
+            $completedOrders = (clone $base)
+                ->where('status', 'completed')
+                ->orderByDesc('updated_at')
+                ->paginate(10, ['*'], 'completed_page')
+                ->withQueryString();
+        }
+
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
+
+        return view('putaway.index', compact('orders', 'completedOrders', 'warehouses'));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

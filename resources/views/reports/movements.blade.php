@@ -1,4 +1,4 @@
-@extends('layouts.adminlte')
+﻿@extends('layouts.adminlte')
 @section('title', 'Laporan Mutasi Stok')
 
 @section('content')
@@ -68,7 +68,7 @@
     <div class="col-md-7 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-fire mr-1"></i>Top 10 Item Paling Aktif — {{ $year }}</strong>
+                <strong><i class="fas fa-fire mr-1"></i>Top 10 Item Paling Aktif â€” {{ $year }}</strong>
             </div>
             <div class="card-body">
                 @if($topActive->isEmpty())
@@ -101,7 +101,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="{{ asset('js/highcharts.min.js') }}"></script>
 <script>
 const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 

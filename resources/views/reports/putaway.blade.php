@@ -1,4 +1,4 @@
-@extends('layouts.adminlte')
+﻿@extends('layouts.adminlte')
 @section('title', 'Laporan Put-Away')
 
 @section('content')
@@ -84,7 +84,7 @@
 @if($summary['total_ga'] > 0)
 <div class="card">
     <div class="card-header py-2">
-        <strong><i class="fas fa-dna mr-1"></i>Statistik Algoritma GA — {{ $year }}</strong>
+        <strong><i class="fas fa-dna mr-1"></i>Statistik Algoritma GA â€” {{ $year }}</strong>
     </div>
     <div class="card-body">
         <div class="row text-center">
@@ -120,7 +120,7 @@
             <div class="row">
                 <div class="col-md-3 mb-2">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="font-weight-bold">FC_CAP — Kapasitas Cell</small>
+                        <small class="font-weight-bold">FC_CAP â€” Kapasitas Cell</small>
                         <small class="text-muted">40 poin</small>
                     </div>
                     <div class="progress" style="height:10px;">
@@ -130,7 +130,7 @@
                 </div>
                 <div class="col-md-3 mb-2">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="font-weight-bold">FC_CAT — Kategori Sama</small>
+                        <small class="font-weight-bold">FC_CAT â€” Kategori Sama</small>
                         <small class="text-muted">30 poin</small>
                     </div>
                     <div class="progress" style="height:10px;">
@@ -140,7 +140,7 @@
                 </div>
                 <div class="col-md-3 mb-2">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="font-weight-bold">FC_AFF — Item Affinity</small>
+                        <small class="font-weight-bold">FC_AFF â€” Item Affinity</small>
                         <small class="text-muted">20 poin</small>
                     </div>
                     <div class="progress" style="height:10px;">
@@ -150,7 +150,7 @@
                 </div>
                 <div class="col-md-3 mb-2">
                     <div class="d-flex justify-content-between mb-1">
-                        <small class="font-weight-bold">FC_SPLIT — Minimalkan Split</small>
+                        <small class="font-weight-bold">FC_SPLIT â€” Minimalkan Split</small>
                         <small class="text-muted">10 poin</small>
                     </div>
                     <div class="progress" style="height:10px;">
@@ -176,7 +176,7 @@
 @endsection
 
 @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="{{ asset('js/highcharts.min.js') }}"></script>
 <script>
 const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 

@@ -104,10 +104,6 @@
                                     <td class="font-weight-bold text-right">{{ chr(64 + $cell->level) }}</td>
                                 </tr>
                                 <tr>
-                                    <td style="color:#6c757d;">Zona</td>
-                                    <td class="font-weight-bold text-right">{{ $cell->rack?->zone?->name ?? '—' }}</td>
-                                </tr>
-                                <tr>
                                     <td style="color:#6c757d;">Kapasitas</td>
                                     <td class="font-weight-bold text-right">{{ $cell->capacity_max }} unit</td>
                                 </tr>
@@ -160,10 +156,6 @@
                         <tr>
                             <td class="text-muted">Level</td>
                             <td>{{ chr(64 + $cell->level) }} (level {{ $cell->level }})</td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted">Zona</td>
-                            <td>{{ $cell->rack?->zone?->name ?? '—' }}</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Gudang</td>
