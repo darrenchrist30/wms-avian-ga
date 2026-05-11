@@ -643,76 +643,6 @@
         @endif
 
         {{-- ══════════════════════════════════════════════════════
-     QR SCAN (Opsional)
-══════════════════════════════════════════════════════ --}}
-        @if ($order->status !== 'completed')
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <div class="card card-outline card-secondary mb-0">
-                        <div class="card-header py-2">
-                            <h6 class="mb-0">
-                                <i class="fas fa-qrcode mr-1 text-secondary"></i>
-                                Scan QR Code Cell
-                                <span class="badge badge-secondary ml-1" style="font-size:10px">OPSIONAL</span>
-                                <small class="text-muted font-weight-normal ml-2">
-                                    — Scan sticker QR yang menempel di rak fisik untuk verifikasi lokasi sebelum konfirmasi
-                                </small>
-                            </h6>
-                        </div>
-                        <div class="card-body py-2">
-                            <div class="row align-items-center">
-                                <div class="col-md-4">
-                                    <div class="input-group input-group-sm">
-                                        <input type="text" id="qrInput" class="form-control"
-                                            placeholder="Arahkan scanner atau ketik kode cell (contoh: R1A-A)..."
-                                            autocomplete="off">
-                                        <div class="input-group-append">
-                                            <button class="btn btn-avian-secondary" id="btnScanQr" type="button"
-                                                title="Tekan Enter atau klik untuk scan QR code cell">
-                                                <i class="fas fa-search mr-1"></i> Cari
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-8" id="qrResultPanel" style="display:none">
-                                    <div class="d-flex align-items-center flex-wrap" style="gap:12px">
-                                        <div>
-                                            <span class="font-weight-bold" style="font-size:16px;color:#7b4f00"
-                                                id="qrCellCode">-</span>
-                                            <br>
-                                            <small class="text-muted" id="qrCellMeta">-</small>
-                                        </div>
-                                        <div style="min-width:170px">
-                                            <div class="d-flex justify-content-between" style="font-size:11px">
-                                                <span class="text-muted">Kapasitas tersisa</span>
-                                                <span id="qrCellCap" class="font-weight-bold">-</span>
-                                            </div>
-                                            <div class="cap-bar-wrap mt-1">
-                                                <div class="cap-bar-fill bg-secondary" id="qrCapBar" style="width:0%">
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <span class="badge badge-warning text-dark px-2 py-1">
-                                            <i class="fas fa-qrcode mr-1"></i> Aktif — berlaku semua item
-                                        </span>
-                                        <button class="btn btn-xs btn-outline-danger" id="btnClearQr">
-                                            <i class="fas fa-times mr-1"></i> Hapus
-                                        </button>
-                                    </div>
-                                    <small class="text-muted d-block mt-1">
-                                        <i class="fas fa-info-circle mr-1"></i>
-                                        Cell ini override rekomendasi GA saat klik Konfirmasi
-                                        (kecuali item yang sudah dipilih alternatif manual)
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endif
-
-        {{-- ══════════════════════════════════════════════════════
      TABEL UTAMA — PROSES PUT-AWAY
 ══════════════════════════════════════════════════════ --}}
         <div class="row">
@@ -729,7 +659,7 @@
                                 <button type="button" id="modeGaBtn"
                                     class="btn btn-primary active"
                                     title="Rekomendasi berdasarkan 4 aturan Genetic Algorithm (default)">
-                                    <i class="fas fa-dna mr-1"></i> GA (4 Aturan)
+                                    <i class="fas fa-dna mr-1"></i> Genetic Algorithm
                                 </button>
                                 <button type="button" id="modeFsBtn"
                                     class="btn btn-outline-info"
@@ -1400,50 +1330,6 @@
                 $('.send-to-ga-wrap').show();
                 $('.send-to-fs-wrap').hide();
             });
-        });
-
-        // ── QR SCAN (panel atas — opsional global) ───────────────────────────────────
-        function doScanQr(code) {
-            if (!code) return;
-            $.ajax({
-                url: scanQrUrl,
-                method: 'POST',
-                data: {
-                    _token: csrfToken,
-                    cell_id: cellId,
-                    quantity_stored: qty,
-                    ga_detail_id: isOverride ? null : currentGaDetailId,
-                    notes: notes || ''
-                },
-                success: function(res) {
-                    const c = res.cell;
-                    const rem = c.capacity_remaining || 0;
-                    const max = c.capacity_max || 0;
-                    const pct = max > 0 ? Math.min(100, Math.round((max - rem) / max * 100)) : 0;
-                    $('#qrCellCode').text(c.code);
-                    $('#qrCellMeta').text('Zone ' + (c.zone_category || '-') + ' · Rack ' + (c.rack_code ||
-                        '-'));
-                    $('#qrCellCap').text(rem + ' / ' + max + ' unit');
-                    $('#qrCapBar').css('width', pct + '%');
-                    $('#qrResultPanel').show();
-                    $('#qrInput').val('');
-                },
-                error: function(xhr) {
-                    Swal.fire('Cell Tidak Ditemukan', xhr.responseJSON?.message || 'Kode tidak dikenali.',
-                        'error');
-                }
-            });
-        }
-        $('#btnScanQr').on('click', () => doScanQr($('#qrInput').val().trim()));
-        $('#qrInput').on('keydown', function(e) {
-            if (e.key === 'Enter') {
-                doScanQr($(this).val().trim());
-                e.preventDefault();
-            }
-        });
-        $('#btnClearQr').on('click', function() {
-            $('#qrResultPanel').hide();
-            $('#qrInput').val('').focus();
         });
 
         // ── MODAL ALTERNATIF ─────────────────────────────────────────────────────────
