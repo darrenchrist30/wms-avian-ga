@@ -46,7 +46,6 @@ class ItemController extends Controller
             'min_stock'                => 'required|integer|min:0',
             'max_stock'                => 'required|integer|min:0|gte:min_stock',
             'reorder_point'            => 'required|integer|min:0',
-            'movement_type'            => 'required|in:fast_moving,slow_moving,dead',
             'weight_kg'                => 'nullable|numeric|min:0',
             'volume_m3'                => 'nullable|numeric|min:0',
             'deadstock_threshold_days' => 'required|integer|min:1',
@@ -65,7 +64,6 @@ class ItemController extends Controller
                 'min_stock'                => $request->min_stock,
                 'max_stock'                => $request->max_stock,
                 'reorder_point'            => $request->reorder_point,
-                'movement_type'            => $request->movement_type,
                 'weight_kg'                => $request->weight_kg,
                 'volume_m3'                => $request->volume_m3,
                 'deadstock_threshold_days' => $request->deadstock_threshold_days,
@@ -109,7 +107,6 @@ class ItemController extends Controller
             'min_stock'                => 'required|integer|min:0',
             'max_stock'                => 'required|integer|min:0|gte:min_stock',
             'reorder_point'            => 'required|integer|min:0',
-            'movement_type'            => 'required|in:fast_moving,slow_moving,dead',
             'weight_kg'                => 'nullable|numeric|min:0',
             'volume_m3'                => 'nullable|numeric|min:0',
             'deadstock_threshold_days' => 'required|integer|min:1',
@@ -128,7 +125,6 @@ class ItemController extends Controller
                 'min_stock'                => $request->min_stock,
                 'max_stock'                => $request->max_stock,
                 'reorder_point'            => $request->reorder_point,
-                'movement_type'            => $request->movement_type,
                 'weight_kg'                => $request->weight_kg,
                 'volume_m3'                => $request->volume_m3,
                 'deadstock_threshold_days' => $request->deadstock_threshold_days,
@@ -260,7 +256,6 @@ class ItemController extends Controller
                 'category'      => $item->category?->name ?? '—',
                 'category_color'=> $item->category?->color_code ?? '#6c757d',
                 'unit'          => $item->unit?->code ?? '—',
-                'movement_type' => $item->movement_type,
                 'min_stock'     => $item->min_stock,
                 'reorder_point' => $item->reorder_point,
                 'total_stock'   => (int) $totalStock,
@@ -281,9 +276,6 @@ class ItemController extends Controller
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
-        if ($request->filled('movement_type')) {
-            $query->where('movement_type', $request->movement_type);
-        }
         if ($request->filled('status')) {
             $query->where('is_active', $request->status);
         }
@@ -302,15 +294,6 @@ class ItemController extends Controller
                 }
                 return '<span class="text-muted">-</span>';
             })
-            ->addColumn('movement_badge', function ($row) {
-                $map = [
-                    'fast_moving'  => ['Fast Moving', 'badge-warning'],
-                    'slow_moving'  => ['Slow Moving', 'badge-info'],
-                    'dead'         => ['Dead Stock', 'badge-danger'],
-                ];
-                [$label, $cls] = $map[$row->movement_type] ?? [$row->movement_type, 'badge-secondary'];
-                return '<span class="badge ' . $cls . '">' . $label . '</span>';
-            })
             ->addColumn('status_badge', function ($row) {
                 return $row->is_active
                     ? '<span class="badge badge-success">Aktif</span>'
@@ -324,7 +307,7 @@ class ItemController extends Controller
                 $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->name) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
                 return $html;
             })
-            ->rawColumns(['nama_info', 'category_badge', 'movement_badge', 'status_badge', 'action'])
+            ->rawColumns(['nama_info', 'category_badge', 'status_badge', 'action'])
             ->make(true);
     }
 }

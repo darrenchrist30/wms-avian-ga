@@ -108,19 +108,6 @@
                                                 </div>
                                             </div>
 
-                                            <div class="form-group row">
-                                                <label class="col-sm-4 col-form-label">Tipe Pergerakan <span class="text-danger">*</span></label>
-                                                <div class="col-sm-8">
-                                                    <select name="movement_type" class="form-control @error('movement_type') is-invalid @enderror">
-                                                        <option value="fast_moving" {{ old('movement_type', $data->movement_type ?? 'fast_moving') == 'fast_moving' ? 'selected' : '' }}>Fast Moving</option>
-                                                        <option value="slow_moving" {{ old('movement_type', $data->movement_type ?? '') == 'slow_moving' ? 'selected' : '' }}>Slow Moving</option>
-                                                        <option value="dead"        {{ old('movement_type', $data->movement_type ?? '') == 'dead'        ? 'selected' : '' }}>Dead</option>
-                                                    </select>
-                                                    @error('movement_type')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
 
                                             <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">ERP Item Code</label>

@@ -114,6 +114,8 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('scan-qr', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanQr'])->name('scan-qr');
         Route::get('{order}/alternative-cells', [\App\Http\Controllers\PutAway\PutAwayController::class, 'alternativeCells'])
             ->name('alternative-cells');
+        Route::get('{order}/fast-slow-suggestions', [\App\Http\Controllers\PutAway\PutAwayController::class, 'fastSlowSuggestions'])
+            ->name('fast-slow-suggestions');
         Route::post('{order}/items/{detail}/confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'confirm'])
             ->name('confirm');
         Route::post('{order}/items/{detail}/override', [\App\Http\Controllers\PutAway\PutAwayController::class, 'override'])
@@ -134,14 +136,14 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('transfer', [\App\Http\Controllers\Stock\StockController::class, 'transfer'])
             ->name('transfer')->middleware('role:admin,supervisor');
 
-        Route::get('fifo-picking/search-items', [\App\Http\Controllers\Stock\FifoPickingController::class, 'searchItems'])
-            ->name('fifo-picking.search-items')->middleware('role:admin,supervisor,operator');
-        Route::get('fifo-picking', [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])
-            ->name('fifo-picking.index')->middleware('role:admin,supervisor,operator');
-        Route::post('fifo-picking/preview', [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])
-            ->name('fifo-picking.preview')->middleware('role:admin,supervisor,operator');
-        Route::post('fifo-picking/confirm', [\App\Http\Controllers\Stock\FifoPickingController::class, 'confirm'])
-            ->name('fifo-picking.confirm')->middleware('role:admin,supervisor,operator');
+        Route::middleware('role:admin,supervisor,operator')->group(function () {
+            Route::get('fifo-picking/datatable',    [\App\Http\Controllers\Stock\FifoPickingController::class, 'datatable'])->name('fifo-picking.datatable');
+            Route::get('fifo-picking/search-items', [\App\Http\Controllers\Stock\FifoPickingController::class, 'searchItems'])->name('fifo-picking.search-items');
+            Route::get('fifo-picking/create',       [\App\Http\Controllers\Stock\FifoPickingController::class, 'create'])->name('fifo-picking.create');
+            Route::get('fifo-picking',              [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])->name('fifo-picking.index');
+            Route::post('fifo-picking/preview',     [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])->name('fifo-picking.preview');
+            Route::post('fifo-picking/confirm',     [\App\Http\Controllers\Stock\FifoPickingController::class, 'confirm'])->name('fifo-picking.confirm');
+        });
 
         Route::get('{item}', [\App\Http\Controllers\Stock\StockController::class, 'show'])->name('show');
     });

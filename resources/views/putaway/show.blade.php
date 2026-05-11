@@ -718,15 +718,29 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="gap:8px">
                         <h6 class="mb-0">
                             <i class="fas fa-boxes mr-1"></i>
                             Daftar Item Inbound &mdash; Input Lokasi Penempatan (Send To)
                         </h6>
-                        <small class="text-muted">
-                            Kolom <strong>SEND TO</strong> = rekomendasi GA.
-                            User dapat menerima atau mengganti ke lokasi lain.
-                        </small>
+                        <div class="d-flex align-items-center" style="gap:8px">
+                            <small class="text-muted d-none d-md-inline">Mode Rekomendasi:</small>
+                            <div class="btn-group btn-group-sm" id="modeSwitcher" role="group">
+                                <button type="button" id="modeGaBtn"
+                                    class="btn btn-primary active"
+                                    title="Rekomendasi berdasarkan 4 aturan Genetic Algorithm (default)">
+                                    <i class="fas fa-dna mr-1"></i> GA (4 Aturan)
+                                </button>
+                                <button type="button" id="modeFsBtn"
+                                    class="btn btn-outline-info"
+                                    title="Saran lokasi berdasarkan frekuensi pengambilan outbound (Fast/Slow Moving)">
+                                    <i class="fas fa-tachometer-alt mr-1"></i> Fast/Slow Moving
+                                </button>
+                            </div>
+                            <span id="fsLoadingSpinner" style="display:none">
+                                <i class="fas fa-circle-notch fa-spin text-info"></i>
+                            </span>
+                        </div>
                     </div>
                     <div class="card-body p-0">
                         <table class="table table-bordered mb-0">
@@ -857,41 +871,51 @@
                                             @endif
 
                                             <td class="align-middle">
-                                                <div
+                                                {{-- GA mode (default) --}}
+                                                <div class="send-to-ga-wrap"
                                                     class="send-to-cell {{ $isRowDone ? 'done' : ($isOver ? 'overflow' : '') }}">
-                                                    <div class="d-flex justify-content-between align-items-center">
-                                                        <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}">
-                                                            {{ $gd->cell?->code ?? '-' }}
-                                                        </span>
-
-                                                        @if ($isRowDone)
-                                                            <span class="badge badge-success">Done</span>
-                                                        @elseif($isOver)
-                                                            <span class="badge badge-warning text-dark">Capacity
-                                                                Risk</span>
-                                                        @else
-                                                            <span class="badge badge-primary">GA Suggest</span>
-                                                        @endif
-                                                    </div>
-
-                                                    <small class="text-muted">
-                                                        Zone {{ $gd->cell?->zone_category ?? '-' }}
-                                                        · Rack {{ $gd->cell?->rack?->code ?? '-' }}
-                                                    </small>
-
-                                                    <div class="mt-1" style="font-size:11px">
-                                                        Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
-                                                        Sisa cell:
-                                                        <strong>{{ $capRemain }}</strong>/{{ $capMax }}
-                                                    </div>
-
-                                                    <div class="cap-bar-wrap mt-1">
-                                                        <div class="cap-bar-fill bg-secondary"
-                                                            style="width:{{ $usedPct }}%"></div>
-                                                        <div class="cap-bar-fill {{ $isOver ? 'bg-danger' : 'bg-info' }}"
-                                                            style="width:{{ $addPct }}%; margin-top:-5px"></div>
+                                                    <div class="send-to-cell {{ $isRowDone ? 'done' : ($isOver ? 'overflow' : '') }}">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}">
+                                                                {{ $gd->cell?->code ?? '-' }}
+                                                            </span>
+                                                            @if ($isRowDone)
+                                                                <span class="badge badge-success">Done</span>
+                                                            @elseif($isOver)
+                                                                <span class="badge badge-warning text-dark">Capacity Risk</span>
+                                                            @else
+                                                                <span class="badge badge-primary">GA Suggest</span>
+                                                            @endif
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            Zone {{ $gd->cell?->zone_category ?? '-' }}
+                                                            · Rack {{ $gd->cell?->rack?->code ?? '-' }}
+                                                        </small>
+                                                        <div class="mt-1" style="font-size:11px">
+                                                            Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
+                                                            Sisa cell: <strong>{{ $capRemain }}</strong>/{{ $capMax }}
+                                                        </div>
+                                                        <div class="cap-bar-wrap mt-1">
+                                                            <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>
+                                                            <div class="cap-bar-fill {{ $isOver ? 'bg-danger' : 'bg-info' }}"
+                                                                style="width:{{ $addPct }}%; margin-top:-5px"></div>
+                                                        </div>
                                                     </div>
                                                 </div>
+
+                                                {{-- Fast/Slow mode (hidden by default, populated via JS) --}}
+                                                @if (!$isRowDone)
+                                                <div class="send-to-fs-wrap" data-detail-id="{{ $detail->id }}" style="display:none">
+                                                    <div class="send-to-cell" style="border-left:3px solid #17a2b8">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="cell-code fs-cell-code" style="color:#17a2b8">—</span>
+                                                            <span class="badge fs-badge">—</span>
+                                                        </div>
+                                                        <small class="text-muted fs-cell-info">Memuat...</small>
+                                                        <div class="mt-1" style="font-size:11px" class="fs-cell-cap"></div>
+                                                    </div>
+                                                </div>
+                                                @endif
                                             </td>
 
                                             <td class="text-center align-middle">
@@ -1287,6 +1311,7 @@
         const orderId = {{ $order->id }};
         const scanQrUrl = "{{ route('putaway.scan-qr') }}";
         const altCellUrl = "{{ route('putaway.alternative-cells', $order->id) }}";
+        const fastSlowUrl = "{{ route('putaway.fast-slow-suggestions', $order->id) }}";
         const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
         // ── State ─────────────────────────────────────────────────────────────────────
@@ -1298,6 +1323,71 @@
         let modalGaCell = null; // referensi GA (untuk match indicator)
         let modalQty = 0; // qty inbound item saat ini
         let qtyEditing = false;
+
+        // ── Fast/Slow Moving State ────────────────────────────────────────────────────
+        let currentMode = 'ga'; // 'ga' | 'fast_slow'
+        let fastSlowData = null; // loaded once on first switch
+
+        const badgeColor = { fast: 'success', medium: 'warning', slow: 'secondary' };
+        const badgeIcon  = { fast: '🟢', medium: '🟡', slow: '⚪' };
+
+        $('#modeGaBtn').on('click', function () {
+            if (currentMode === 'ga') return;
+            currentMode = 'ga';
+            $('#modeGaBtn').removeClass('btn-outline-primary').addClass('btn-primary active');
+            $('#modeFsBtn').removeClass('btn-info').addClass('btn-outline-info').removeClass('active');
+            $('.send-to-ga-wrap').show();
+            $('.send-to-fs-wrap').hide();
+        });
+
+        $('#modeFsBtn').on('click', function () {
+            if (currentMode === 'fast_slow') return;
+            currentMode = 'fast_slow';
+            $('#modeFsBtn').removeClass('btn-outline-info').addClass('btn-info active');
+            $('#modeGaBtn').removeClass('btn-primary active').addClass('btn-outline-primary');
+            $('.send-to-ga-wrap').hide();
+            $('.send-to-fs-wrap').show();
+
+            if (fastSlowData) return; // sudah dimuat
+
+            $('#fsLoadingSpinner').show();
+            $.getJSON(fastSlowUrl, function (res) {
+                fastSlowData = res.suggestions;
+                $('#fsLoadingSpinner').hide();
+
+                $.each(fastSlowData, function (detailId, s) {
+                    const $wrap = $('.send-to-fs-wrap[data-detail-id="' + detailId + '"]');
+                    if (!$wrap.length) return;
+
+                    const cellCode = s.cell ? s.cell.cell_code : '—';
+                    const rackCode = s.cell ? s.cell.rack_code : '-';
+                    const capRem   = s.cell ? s.cell.capacity_remaining : 0;
+                    const capMax   = s.cell ? s.cell.capacity_max : 0;
+                    const color    = badgeColor[s.classification] ?? 'secondary';
+                    const label    = s.label;
+
+                    $wrap.find('.fs-cell-code').text(cellCode);
+                    $wrap.find('.fs-badge')
+                         .removeClass('badge-success badge-warning badge-secondary badge-danger')
+                         .addClass('badge-' + color)
+                         .text(label);
+                    $wrap.find('.fs-cell-info').text('Rak ' + rackCode + ' · ' + s.count + 'x outbound/30hr');
+                    $wrap.find('.fs-cell-cap').html(
+                        s.cell
+                            ? 'Sisa cell: <strong>' + capRem + '</strong>/' + capMax
+                            : '<span class="text-danger">Tidak ada cell tersedia</span>'
+                    );
+                });
+            }).fail(function () {
+                $('#fsLoadingSpinner').hide();
+                Swal.fire('Gagal', 'Tidak dapat memuat data Fast/Slow Moving.', 'error');
+                currentMode = 'ga';
+                $('#modeGaBtn').removeClass('btn-outline-primary').addClass('btn-primary active');
+                $('#modeFsBtn').removeClass('btn-info').addClass('btn-outline-info').removeClass('active');
+                $('.send-to-ga-wrap').show();
+                $('.send-to-fs-wrap').hide();
+            });
+        });
 
         // ── QR SCAN (panel atas — opsional global) ───────────────────────────────────
         function doScanQr(code) {
@@ -1637,10 +1727,12 @@
                 url,
                 method: 'POST',
                 data: {
-                    _token: csrfToken,
-                    cell_id: cellId,
+                    _token:         csrfToken,
+                    cell_id:        cellId,
                     quantity_stored: qty,
-                    notes: notes || ''
+                    ga_detail_id:   isOverride ? null : (currentGaDetailId || null),
+                    fast_slow_mode: (!isOverride && currentMode === 'fast_slow') ? 1 : 0,
+                    notes:          notes || ''
                 },
                 success: function(res) {
                     if (res.status !== 'success') return;
@@ -1658,8 +1750,14 @@
                                 confirmButtonText: 'Kembali ke Daftar'
                             }).then(() => window.location.href = "{{ route('putaway.index') }}");
                         } else {
-                            // Reload halaman agar data server selalu fresh
-                            location.reload();
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Berhasil Disimpan!',
+                                text: res.message || 'Put-away berhasil dicatat.',
+                                timer: 1800,
+                                timerProgressBar: true,
+                                showConfirmButton: false,
+                            }).then(() => location.reload());
                         }
                     });
                 },
@@ -1833,10 +1931,28 @@
         }
 
         $(document).on('click', '.btnConfirm', function() {
-            const b = $(this);
+            const b        = $(this);
+            const detailId = b.data('detail-id');
+
+            // Fast/Slow mode: gunakan cell saran F/S jika tersedia
+            if (currentMode === 'fast_slow' && fastSlowData?.[detailId]?.cell) {
+                const s = fastSlowData[detailId];
+                openConfirmModal(
+                    detailId,
+                    b.data('item-name'),
+                    parseInt(b.data('qty')),
+                    s.cell.cell_code,
+                    s.cell.cell_id,
+                    s.cell.capacity_remaining,
+                    s.cell.capacity_max,
+                    false,
+                    null  // tidak terikat GA detail
+                );
+                return;
+            }
 
             openConfirmModal(
-                b.data('detail-id'),
+                detailId,
                 b.data('item-name'),
                 parseInt(b.data('qty')),
                 b.data('ga-cell'),

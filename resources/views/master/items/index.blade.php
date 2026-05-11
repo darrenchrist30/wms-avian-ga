@@ -55,20 +55,6 @@
                                 </div>
                                 <div class="col-sm-12 col-md-4">
                                     <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Pergerakan</label>
-                                        <div class="col-sm-8">
-                                            <select name="movement_type" class="form-control form-control-sm"
-                                                id="filter-movement">
-                                                <option value="">Semua</option>
-                                                <option value="fast_moving">Fast Moving</option>
-                                                <option value="slow_moving">Slow Moving</option>
-                                                <option value="dead">Dead Stock</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-12 col-md-4">
-                                    <div class="form-group row">
                                         <label class="col-sm-4 col-form-label small font-weight-bold">Status</label>
                                         <div class="col-sm-8">
                                             <select name="status" class="form-control form-control-sm" id="filter-status">
@@ -90,7 +76,6 @@
                                     <th>SKU / Nama Sparepart</th>
                                     <th width="120">Kategori</th>
                                     <th width="80">Satuan</th>
-                                    <th width="110">Pergerakan</th>
                                     <th width="100" class="text-center">Min / Max</th>
                                     <th width="80" class="text-center">Status</th>
                                 </tr>
@@ -117,7 +102,7 @@
                     <div class="modal-body">
                         <div class="alert alert-info py-2 small">
                             <i class="fas fa-info-circle mr-1"></i>
-                            <strong>Format kolom:</strong> SKU, Nama Sparepart, Kategori, Kode Satuan, Tipe Pergerakan,
+                            <strong>Format kolom:</strong> SKU, Nama Sparepart, Kategori, Kode Satuan,
                             ERP Item Code, Min Stok, Maks Stok, Reorder Point, Berat KG, Volume M3, Barcode,
                             Deadstock Threshold Hari, Deskripsi.
                             <br>SKU yang sudah ada akan <strong>dilewati</strong> (tidak diupdate).
@@ -200,9 +185,8 @@
                 ajax: {
                     url: baseURL,
                     data: function(d) {
-                        d.category_id    = $('#filter-category').val();
-                        d.movement_type  = $('#filter-movement').val();
-                        d.status         = $('#filter-status').val();
+                        d.category_id = $('#filter-category').val();
+                        d.status      = $('#filter-status').val();
                     },
                     type: 'GET'
                 },
@@ -238,11 +222,6 @@
                         orderable: false
                     },
                     {
-                        data: 'movement_badge',
-                        name: 'movement_type',
-                        orderable: false
-                    },
-                    {
                         data: null,
                         name: 'min_max',
                         orderable: false,
@@ -269,11 +248,11 @@
         });
 
         $('.btnRefresh').on('click', function() {
-                $('#filter-category, #filter-movement, #filter-status').val('');
+                $('#filter-category, #filter-status').val('');
                 table.ajax.reload();
             });
 
-            $('#filter-category, #filter-movement, #filter-status').on('change', function() {
+            $('#filter-category, #filter-status').on('change', function() {
                 table.ajax.reload();
             });
 

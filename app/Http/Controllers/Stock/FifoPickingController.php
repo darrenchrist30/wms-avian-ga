@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Stock;
 
 use App\Http\Controllers\Controller;
 use App\Models\Item;
+use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\FifoPickingService;
 use Illuminate\Http\Request;
@@ -13,6 +14,61 @@ class FifoPickingController extends Controller
     public function __construct(private FifoPickingService $service) {}
 
     public function index()
+    {
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']);
+        return view('stock.fifo-picking-index', compact('warehouses'));
+    }
+
+    public function datatable(Request $request)
+    {
+        $query = StockMovement::with(['item', 'warehouse', 'fromCell.rack.zone', 'performedBy'])
+            ->where('reference_type', 'FIFO_PICKING')
+            ->when($request->filled('warehouse_id'), fn($q) => $q->where('warehouse_id', $request->warehouse_id))
+            ->when($request->filled('date_from'),    fn($q) => $q->whereDate('moved_at', '>=', $request->date_from))
+            ->when($request->filled('date_to'),      fn($q) => $q->whereDate('moved_at', '<=', $request->date_to));
+
+        // DataTables global search
+        if ($search = $request->input('search.value')) {
+            $query->whereHas('item', fn($q) => $q->where('name', 'like', "%{$search}%")
+                ->orWhere('sku', 'like', "%{$search}%"));
+        }
+
+        $total = $query->count();
+
+        // Ordering
+        $orderCol  = $request->input('order.0.column', 1);
+        $orderDir  = $request->input('order.0.dir', 'desc') === 'asc' ? 'asc' : 'desc';
+        $colMap    = [1 => 'moved_at', 6 => 'quantity'];
+        $query->orderBy($colMap[$orderCol] ?? 'moved_at', $orderDir);
+
+        $movements = $query->skip((int) $request->get('start', 0))
+                           ->take((int) $request->get('length', 25))
+                           ->get();
+
+        $rowIndex = (int) $request->get('start', 0) + 1;
+        $data = $movements->map(function ($m) use (&$rowIndex) {
+            return [
+                'DT_RowIndex'  => $rowIndex++,
+                'moved_at'     => $m->moved_at?->format('d M Y H:i'),
+                'item'         => '<strong>' . e($m->item?->name ?? '-') . '</strong><br><small class="text-muted">' . e($m->item?->sku ?? '-') . '</small>',
+                'warehouse'    => e($m->warehouse?->name ?? '-'),
+                'from_cell'    => '<span class="badge badge-light border font-weight-bold">' . e($m->fromCell?->code ?? '-') . '</span>',
+                'zone_rack'    => '<small class="text-muted">' . e(($m->fromCell?->rack?->zone?->code ?? '-') . ' / ' . ($m->fromCell?->rack?->code ?? '-')) . '</small>',
+                'quantity'     => $m->quantity,
+                'notes'        => '<small class="text-muted">' . e($m->notes ?? '-') . '</small>',
+                'performed_by' => '<small>' . e($m->performedBy?->name ?? '-') . '</small>',
+            ];
+        });
+
+        return response()->json([
+            'draw'            => (int) $request->get('draw', 1),
+            'recordsTotal'    => $total,
+            'recordsFiltered' => $total,
+            'data'            => $data,
+        ]);
+    }
+
+    public function create()
     {
         $warehouses = Warehouse::where('is_active', true)
             ->orderBy('name')

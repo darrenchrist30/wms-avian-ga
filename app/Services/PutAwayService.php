@@ -128,13 +128,8 @@ class PutAwayService
             );
         }
 
-        // Jika konfirmasi mengikuti detail rekomendasi GA tertentu,
-        // qty harus sesuai dengan qty pada detail rekomendasi tersebut.
-        if ($gaDetail && $quantityStored !== (int) $gaDetail->quantity) {
-            throw new \Exception(
-                "Qty yang ditempatkan ({$quantityStored}) harus sesuai dengan qty rekomendasi GA ({$gaDetail->quantity})."
-            );
-        }
+        // GA quantity adalah rekomendasi, bukan batas keras —
+        // operator boleh menempatkan lebih/kurang selama masih dalam remaining qty dan kapasitas cell.
 
         // Cegah detail rekomendasi GA yang sama dikonfirmasi dua kali
         if ($gaDetail && PutAwayConfirmation::where('ga_recommendation_detail_id', $gaDetail->id)->exists()) {

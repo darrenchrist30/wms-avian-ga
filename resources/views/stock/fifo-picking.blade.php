@@ -35,13 +35,16 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h4 class="mb-0 font-weight-bold">
-                <i class="fas fa-sort-amount-up-alt mr-2 text-primary"></i>FIFO Picking
+                <i class="fas fa-sort-amount-up-alt mr-2 text-primary"></i>FIFO Picking Baru
             </h4>
-            <small class="text-muted">
+            {{-- <small class="text-muted">
                 Rekomendasi pengambilan barang berdasarkan urutan inbound paling lama (First In, First Out).
                 Fitur ini tidak mencakup delivery order atau shipment — hanya membantu operator menentukan cell mana yang diambil terlebih dahulu.
-            </small>
+            </small> --}}
         </div>
+        <a href="{{ route('stock.fifo-picking.index') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-arrow-left mr-1"></i> Kembali ke Riwayat
+        </a>
     </div>
 
     {{-- ── Form Input (full width, horizontal) ─────────────────── --}}
@@ -57,11 +60,13 @@
                         <option value="">-- Pilih Item --</option>
                     </select>
                 </div>
-                <div class="form-group col-md-3 mb-0">
+                <div class="form-group col-md-4 mb-0">
                     <label class="font-weight-bold" style="font-size:13px">Gudang <span class="text-danger">*</span></label>
                     @if($warehouses->count() === 1)
                         <input type="text" class="form-control"
-                               value="{{ $warehouses->first()->name }} ({{ $warehouses->first()->code }})" readonly>
+                               value="{{ $warehouses->first()->name }} ({{ $warehouses->first()->code }})"
+                               title="{{ $warehouses->first()->name }} ({{ $warehouses->first()->code }})"
+                               style="text-overflow:ellipsis" readonly>
                         <input type="hidden" id="warehouseSelect" value="{{ $warehouses->first()->id }}">
                     @else
                         <select id="warehouseSelect" class="form-control select2">
@@ -72,9 +77,9 @@
                         </select>
                     @endif
                 </div>
-                <div class="form-group col-md-2 mb-0">
+                <div class="form-group col-md-1 mb-0">
                     <label class="font-weight-bold" style="font-size:13px">Qty <span class="text-danger">*</span></label>
-                    <input type="number" id="qtyInput" class="form-control" min="1" placeholder="Jumlah..." />
+                    <input type="number" id="qtyInput" class="form-control" min="1" placeholder="Qty" />
                 </div>
                 <div class="form-group col-md-2 mb-0">
                     <label class="d-block" style="font-size:13px;">&nbsp;</label>
@@ -181,8 +186,11 @@
             </div>
         </div>
         <button id="btnPickAgain" class="btn btn-primary mt-2">
-            <i class="fas fa-plus mr-1"></i> Pengambilan Baru
+            <i class="fas fa-plus mr-1"></i> Picking Baru
         </button>
+        <a href="{{ route('stock.fifo-picking.index') }}" class="btn btn-outline-secondary mt-2 ml-2">
+            <i class="fas fa-history mr-1"></i> Lihat Semua Riwayat
+        </a>
     </div>
 </div>
 @endsection
@@ -260,30 +268,54 @@ $(function () {
     // ── Confirm ─────────────────────────────────────────────────
     $('#btnConfirm').on('click', function () {
         if (!currentPreview) return;
-        if (!confirm('Konfirmasi pengambilan FIFO?\nStok akan dikurangi dan movement outbound akan dicatat.')) return;
 
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i> Memproses...');
+        Swal.fire({
+            icon: 'question',
+            title: 'Konfirmasi Pengambilan FIFO?',
+            text: 'Stok akan dikurangi dan movement outbound akan dicatat.',
+            showCancelButton: true,
+            confirmButtonText: 'Ya, Konfirmasi',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#28a745',
+        }).then(function (result) {
+            if (!result.isConfirmed) return;
 
-        $.ajax({
-            url:  '{{ route("stock.fifo-picking.confirm") }}',
-            type: 'POST',
-            data: {
-                _token:       '{{ csrf_token() }}',
-                item_id:      currentPreview.request.item_id,
-                warehouse_id: currentPreview.request.warehouse_id,
-                quantity:     currentPreview.request.quantity,
-                notes:        $('#notesInput').val(),
-            },
-            success: function (res) {
-                if (!res.success) { showError(res.message); $('#btnConfirm').prop('disabled', false).html('<i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan'); return; }
-                renderSuccess(res);
-            },
-            error: function (xhr) {
-                const msg = xhr.responseJSON?.message ?? 'Terjadi kesalahan.';
-                showError(msg);
-                $('#btnConfirm').prop('disabled', false).html('<i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan');
-            }
-        });
+            $('#btnConfirm').prop('disabled', true);
+
+            Swal.fire({
+                title: 'Memproses...',
+                text: 'Sedang menyimpan pengambilan FIFO.',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: function () { Swal.showLoading(); }
+            });
+
+            $.ajax({
+                url:  '{{ route("stock.fifo-picking.confirm") }}',
+                type: 'POST',
+                data: {
+                    _token:       '{{ csrf_token() }}',
+                    item_id:      currentPreview.request.item_id,
+                    warehouse_id: currentPreview.request.warehouse_id,
+                    quantity:     currentPreview.request.quantity,
+                    notes:        $('#notesInput').val(),
+                },
+                success: function (res) {
+                    if (!res.success) {
+                        Swal.fire('Gagal', res.message, 'error');
+                        $('#btnConfirm').prop('disabled', false).html('<i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan');
+                        return;
+                    }
+                    Swal.close();
+                    renderSuccess(res);
+                },
+                error: function (xhr) {
+                    const msg = xhr.responseJSON?.message ?? 'Terjadi kesalahan.';
+                    Swal.fire('Gagal', msg, 'error');
+                    $('#btnConfirm').prop('disabled', false).html('<i class="fas fa-check mr-1"></i> Konfirmasi Pengambilan');
+                }
+            });
+        }); // end Swal.then
     });
 
     // ── Reset ────────────────────────────────────────────────────

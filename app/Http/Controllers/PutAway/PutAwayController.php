@@ -8,13 +8,15 @@ use App\Models\GaRecommendation;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
 use App\Models\InboundOrderItem;
+use App\Services\FastSlowMovingService;
 use App\Services\PutAwayService;
 use Illuminate\Http\Request;
 
 class PutAwayController extends Controller
 {
     public function __construct(
-        private readonly PutAwayService $putAwayService
+        private readonly PutAwayService $putAwayService,
+        private readonly FastSlowMovingService $fastSlowService,
     ) {}
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -150,7 +152,10 @@ class PutAwayController extends Controller
         // Cari GA detail yang jadi acuan (jika ada)
         $gaDetail = null;
 
-        if ($request->filled('ga_detail_id')) {
+        if ($request->boolean('fast_slow_mode')) {
+            // Fast/Slow Moving mode — tidak terikat rekomendasi GA
+            $gaDetail = null;
+        } elseif ($request->filled('ga_detail_id')) {
             $gaDetail = GaRecommendationDetail::whereHas(
                 'gaRecommendation',
                 fn($q) => $q->where('inbound_order_id', $orderId)
@@ -263,6 +268,41 @@ class PutAwayController extends Controller
                 'fits_all'           => $c->capacity_remaining >= $qty,
             ])->values(),
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fast/Slow Moving Suggestions — Saran cell berdasarkan frekuensi outbound
+    // GET /putaway/{order}/fast-slow-suggestions
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function fastSlowSuggestions(InboundOrder $order)
+    {
+        $order->load(['items.item', 'items.putAwayConfirmations']);
+        $warehouseId = $order->warehouse_id;
+
+        $suggestions = [];
+
+        foreach ($order->items as $detail) {
+            if ($detail->status === 'put_away') continue;
+
+            $storedQty = $detail->putAwayConfirmations->sum('quantity_stored');
+            $remaining = max(0, $detail->quantity_received - $storedQty);
+            if ($remaining <= 0) continue;
+
+            $info = $this->fastSlowService->classify($detail->item_id, $warehouseId);
+            $cell = $this->fastSlowService->suggestCell($detail->item_id, $warehouseId, $remaining);
+
+            $suggestions[$detail->id] = [
+                'classification' => $info['classification'],
+                'label'          => $info['label'],
+                'color'          => $info['color'],
+                'count'          => $info['count'],
+                'remaining_qty'  => $remaining,
+                'cell'           => $cell,
+            ];
+        }
+
+        return response()->json(['suggestions' => $suggestions]);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
