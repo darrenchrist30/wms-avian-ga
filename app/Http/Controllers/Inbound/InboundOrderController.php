@@ -11,6 +11,7 @@ use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Notifications\GaAcceptedNotification;
+use App\Notifications\GaBatchAcceptedNotification;
 use App\Services\GaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -364,19 +365,13 @@ class InboundOrderController extends Controller
 
                 $order->update(['status' => 'put_away']);
 
-                $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
-                \Illuminate\Support\Facades\Notification::send(
-                    $notifUsers,
-                    new GaAcceptedNotification($order->fresh(), auth()->user()->name, $recommendation->fitness_score)
-                );
-
                 $results[] = [
                     'id'            => $orderId,
                     'do_number'     => $order->do_number,
                     'status'        => 'accepted',
                     'message'       => 'GA selesai & otomatis diterima. Fitness: ' . round($recommendation->fitness_score, 1) . '/100.',
                     'fitness_score' => round($recommendation->fitness_score, 2),
-                    'putaway_url'   => route('putaway.show', $orderId),
+                    'putaway_url'   => route('putaway.queue'),
                 ];
             } catch (\Exception $e) {
                 $order->update(['status' => 'inbound']);
@@ -392,6 +387,15 @@ class InboundOrderController extends Controller
         $total    = count($results);
         $accepted = collect($results)->where('status', 'accepted')->count();
         $errors   = collect($results)->whereIn('status', ['error', 'skip'])->count();
+
+        // Send one batch notification for all accepted orders
+        if ($accepted > 0) {
+            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
+            \Illuminate\Support\Facades\Notification::send(
+                $notifUsers,
+                new GaBatchAcceptedNotification($accepted, auth()->user()->name)
+            );
+        }
 
         return response()->json([
             'success' => true,

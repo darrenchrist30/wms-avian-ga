@@ -78,10 +78,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('warehouses/datatable', [\App\Http\Controllers\Location\WarehouseController::class, 'datatable'])->name('warehouses.datatable');
         Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class);
 
-        Route::get('zones/datatable', [\App\Http\Controllers\Location\ZoneController::class, 'datatable'])->name('zones.datatable');
-        Route::resource('zones', \App\Http\Controllers\Location\ZoneController::class);
+        Route::get('mspart/import',  [\App\Http\Controllers\Location\MspartImportController::class, 'index'])->name('mspart.import')->middleware('role:admin');
+        Route::post('mspart/import', [\App\Http\Controllers\Location\MspartImportController::class, 'import'])->name('mspart.import.post')->middleware('role:admin');
 
-        Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
+Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
         Route::resource('racks', \App\Http\Controllers\Location\RackController::class);
 
         Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');
@@ -116,6 +116,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     */
     Route::prefix('putaway')->name('putaway.')->group(function () {
         Route::get('/', [\App\Http\Controllers\PutAway\PutAwayController::class, 'index'])->name('index');
+        Route::get('queue', [\App\Http\Controllers\PutAway\PutAwayController::class, 'queue'])->name('queue');
         Route::get('{order}', [\App\Http\Controllers\PutAway\PutAwayController::class, 'show'])->name('show');
         Route::post('scan-qr', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanQr'])->name('scan-qr');
         Route::get('{order}/alternative-cells', [\App\Http\Controllers\PutAway\PutAwayController::class, 'alternativeCells'])
@@ -171,6 +172,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('cell/{cell}', [\App\Http\Controllers\Warehouse3DController::class, 'cellDetail'])->name('cell-detail');
         Route::get('cells-by-item', [\App\Http\Controllers\Warehouse3DController::class, 'cellsByItem'])->name('cells-by-item');
         Route::get('column', [\App\Http\Controllers\Warehouse3DController::class, 'columnDetail'])->name('column-detail');
+        Route::get('grup', [\App\Http\Controllers\Warehouse3DController::class, 'grupDetail'])->name('grup-detail');
     });
 
     /*
@@ -192,22 +194,6 @@ Route::middleware(['auth', 'active.user'])->group(function () {
             ->name('export')->middleware('permission:report.export');
     });
 
-    /*
-    |------------------------------------------------------------------
-    | Stock Opname — Hitung Stok Fisik dengan Scan Barcode
-    |------------------------------------------------------------------
-    */
-    Route::prefix('opname')->name('opname.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'index'])->name('index');
-        Route::get('create', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'create'])->name('create');
-        Route::post('/', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'store'])->name('store');
-        Route::get('lookup-item', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'lookupItem'])->name('lookup-item');
-        Route::get('{opname}', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'show'])->name('show');
-        Route::get('{opname}/scan', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'scan'])->name('scan');
-        Route::post('{opname}/complete', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'complete'])->name('complete')->middleware('role:admin,supervisor');
-        Route::post('{opname}/items', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'saveItem'])->name('save-item');
-        Route::delete('{opname}/items/{item}', [\App\Http\Controllers\StockOpname\StockOpnameController::class, 'destroyItem'])->name('destroy-item');
-    });
 
     /*
     |------------------------------------------------------------------

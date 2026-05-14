@@ -273,6 +273,9 @@
         <button class="btn-cam" id="btnTopView">
             <i class="fas fa-arrows-alt mr-1"></i> Top View
         </button>
+        <button class="btn-cam {{ request('expanded') ? 'active' : '' }}" id="btnExpandedView">
+            <i class="fas fa-expand-arrows-alt mr-1"></i> Expanded View
+        </button>
     </div>
 
     {{-- Tooltip --}}
@@ -356,12 +359,13 @@ const VERTICAL_RACK_CODES = new Set(['12','13','14','15']);
 const VW = 32.0; // panjang Z rak vertikal (sama dengan span rak 1–11: Z=0 s/d Z=32)
 
 // ── Mspart layout constants ────────────────────────────────────────────────
-// Grup X offset within wide rack (A=leftmost at +6, G=rightmost at -6)
-const GRUP_X    = { A:6, B:4, C:2, D:0, E:-2, F:-4, G:-6 };
-// Kolom offset within a grup (kolom 1/2/3 → left/center/right in 2m span)
-const KOLOM_XS  = [-0.60, 0, 0.60];
-const MSPART_CW = 0.52;  // width of each mspart cell panel
+// MSpart columns use the existing 7 wide rack bays. Grup is data context, not another X subdivision.
+const GRUP_X    = { A:0, B:0, C:0, D:0, E:0, F:0, G:0, H:0 };
+const KOLOM_XS  = [6, 4, 2, 0, -2, -4, -6];
+const MSPART_CW = (WW / 7) - 0.08;
 const COLUMN_DETAIL_URL = '{{ route("warehouse3d.column-detail") }}';
+const GRUP_DETAIL_URL   = '{{ route("warehouse3d.grup-detail") }}';
+const DISPLAY_EXPANDED  = {{ request('expanded') ? 'true' : 'false' }};
 
 const ZONE_LABEL = { A: '#4fc3f7', B: '#ffb74d', C: '#ef9a9a' };
 
@@ -431,6 +435,7 @@ const TOPVIEW_CAM = { pos: new THREE.Vector3(1, 65, 15),  target: new THREE.Vect
 
 const btnReset   = document.getElementById('btnResetCam');
 const btnTopView = document.getElementById('btnTopView');
+const btnExpandedView = document.getElementById('btnExpandedView');
 
 function setCamPreset(preset, activeBtn) {
     camera.position.copy(preset.pos);
@@ -442,6 +447,12 @@ function setCamPreset(preset, activeBtn) {
 
 btnReset.addEventListener('click',   () => setCamPreset(DEFAULT_CAM, btnReset));
 btnTopView.addEventListener('click', () => setCamPreset(TOPVIEW_CAM, btnTopView));
+btnExpandedView.addEventListener('click', () => {
+    const url = new URL(window.location.href);
+    if (DISPLAY_EXPANDED) url.searchParams.delete('expanded');
+    else url.searchParams.set('expanded', '1');
+    window.location.href = url.toString();
+});
 
 controls.addEventListener('start', () => {
     [btnReset, btnTopView].forEach(b => b.classList.remove('active'));
@@ -465,12 +476,15 @@ dir.shadow.mapSize.set(2048, 2048);
 scene.add(dir);
 
 // ── Floor (concrete grey) ────────────────────────────────────────────────
+const floorW = DISPLAY_EXPANDED ? 78 : 52;
+const floorD = DISPLAY_EXPANDED ? 98 : 64;
+const floorZ = DISPLAY_EXPANDED ? 25 : 22;
 const floor = new THREE.Mesh(
-    new THREE.PlaneGeometry(52, 64),
+    new THREE.PlaneGeometry(floorW, floorD),
     new THREE.MeshLambertMaterial({ color: 0x484848 })
 );
 floor.rotation.x = -Math.PI / 2;
-floor.position.set(7, -0.01, 22);
+floor.position.set(7, -0.01, floorZ);
 floor.receiveShadow = true;
 scene.add(floor);
 
@@ -631,9 +645,12 @@ function buildSpecialArea(rx, rz, def, rack) {
 function buildEnvironment() {
     const wallMat = new THREE.MeshLambertMaterial({ color: 0xcdd0d4, side: THREE.DoubleSide });
 
-    // Dinding belakang (Z=38.5)
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(46, 14, 0.3), wallMat);
-    backWall.position.set(9, 7, 38.5);
+    // Dinding belakang. Expanded View uses a larger visual floor only for inspection.
+    const backWall = new THREE.Mesh(
+        new THREE.BoxGeometry(DISPLAY_EXPANDED ? 70 : 46, 14, 0.3),
+        wallMat
+    );
+    backWall.position.set(9, 7, DISPLAY_EXPANDED ? 52 : 38.5);
     backWall.receiveShadow = true;
     scene.add(backWall);
 
@@ -641,11 +658,12 @@ function buildEnvironment() {
     // Pasangan: (1,2) Z 0-3.3 | (3,4) Z 6.4-9.7 | (5,6) Z 12.8-16.1 |
     //           (7,8) Z 19.2-22.5 | (9,10) Z 25.6-28.9 | 11 Z 32
     const laneMat = new THREE.MeshBasicMaterial({ color: 0xffc107 });
-    const laneW   = 14;   // panjang garis aisle (melintang X, cukup untuk rak utama)
-    [4.4, 10.6, 16.8, 23.0, 30.0].forEach(lz => {
+    const laneW   = DISPLAY_EXPANDED ? 20 : 14;   // panjang garis aisle (melintang X)
+    [4.4, 10.6, 16.8, 23.0, 30.0].forEach(rawZ => {
+        const p = displayRackPosition(3, rawZ);
         const ln = new THREE.Mesh(new THREE.PlaneGeometry(laneW, 0.22), laneMat);
         ln.rotation.x = -Math.PI / 2;
-        ln.position.set(3, 0.03, lz);
+        ln.position.set(p.x, 0.03, p.z);
         scene.add(ln);
     });
 }
@@ -697,53 +715,65 @@ function itemCountForCell(cell) {
 
 // ── Mspart: render sel-sel dengan data blok/grup/kolom/baris ─────────────
 function buildMspartCells(rx, rz, rackCode, cells) {
-    const geo = new THREE.BoxGeometry(MSPART_CW, CH - 0.08, CD - 0.22);
+    const geo = new THREE.BoxGeometry(MSPART_CW, CH - 0.08, CD + 0.04);
+    const groupLevel = { A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8 };
+    const columns = new Map();
+
     cells.forEach(cell => {
+        const key = `${cell.blok}_${cell.grup}_${cell.kolom ?? 1}`;
+        if (!columns.has(key)) {
+            columns.set(key, {
+                sample: cell,
+                cellIds: [],
+                rowCount: 0,
+                filledRows: 0,
+                maxUtil: 0,
+            });
+        }
+        const col = columns.get(key);
+        col.cellIds.push(cell.cell_id);
+        col.rowCount++;
+        if ((cell.utilization ?? 0) > 0) col.filledRows++;
+        col.maxUtil = Math.max(col.maxUtil, cell.utilization ?? 0);
+    });
+
+    columns.forEach(col => {
+        const cell = col.sample;
         const gx  = GRUP_X[cell.grup]   ?? 0;
         const kx  = KOLOM_XS[(cell.kolom ?? 1) - 1] ?? 0;
-        const lv  = (cell.baris ?? cell.level ?? 1) - 1;
+        const lv  = (groupLevel[cell.grup] ?? 1) - 1;
         const y   = lv * CH + CH / 2;
 
         const mat = new THREE.MeshLambertMaterial({
-            color:       cellHex(cell),
-            emissive:    new THREE.Color(cellEmissive(cell)),
+            color:       0xfbbf24,
+            emissive:    new THREE.Color(0x3d1500),
             transparent: true,
-            opacity:     Math.max(cellOpacity(cell), 0.20),  // min 20% so it's always visible
+            opacity:     0,
             side:        THREE.DoubleSide,
             depthWrite:  false,
         });
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.renderOrder = 1;
+        mesh.renderOrder = 3;
         mesh.position.set(rx + gx + kx, y, rz);
         mesh.userData = {
             cellId:    cell.cell_id,
+            cellIds:   col.cellIds,
             cellCode:  cell.code,
             status:    cell.status,
-            util:      cell.utilization,
+            util:      col.maxUtil,
             rackW:     MSPART_CW,
             isMspart:  true,
             columnKey: rackCode + '_' + cell.grup + '_' + (cell.kolom ?? 1),
+            rowKey:    rackCode + '_' + cell.grup,
             blok:      cell.blok,
             grup:      cell.grup,
             kolom:     cell.kolom ?? 1,
-            baris:     cell.baris ?? cell.level ?? 1,
+            baris:     null,
+            rowCount:  col.rowCount,
+            filledRows: col.filledRows,
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
-
-        // Low-poly item inside if occupied
-        if ((cell.utilization ?? 0) > 0) {
-            const h      = hashCell(cell.code);
-            const iType  = h % ITEM_GEOS.length;
-            const ih     = ITEM_H[iType];
-            const im     = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
-            im.scale.set(0.55, 0.55, 0.55);
-            im.position.set(rx + gx + kx, lv * CH + 0.066 + ih * 0.55 / 2, rz);
-            im.rotation.y = ((h * 13) % 628) / 100;
-            im.castShadow = true;
-            scene.add(im);
-            itemMeshes.push(im);
-        }
     });
 }
 
@@ -981,10 +1011,36 @@ function buildRack(rx, rz, rack) {
     if (mspartCells.length > 0) {
         buildMspartCells(rx, rz, rack.rack_code, mspartCells);
     }
+    const mspartByGroup = {};
+    mspartCells.forEach(c => {
+        if (!c.grup) return;
+        if (!mspartByGroup[c.grup]) {
+            mspartByGroup[c.grup] = { used: 0, max: 0, blocked: 0, reserved: 0 };
+        }
+        mspartByGroup[c.grup].used += Number(c.capacity_used || 0);
+        mspartByGroup[c.grup].max  += Number(c.capacity_max || 0);
+        if (c.status === 'blocked')  mspartByGroup[c.grup].blocked++;
+        if (c.status === 'reserved') mspartByGroup[c.grup].reserved++;
+    });
+    const groupByLevel = { 1:'A', 2:'B', 3:'C', 4:'D', 5:'E', 6:'F', 7:'G', 8:'H' };
+    function visualCellForRegular(cell) {
+        const group = groupByLevel[cell.level ?? 1];
+        const agg = group ? mspartByGroup[group] : null;
+        if (!agg || agg.max <= 0) return cell;
+        const utilization = Math.round((agg.used / agg.max) * 100);
+        return {
+            ...cell,
+            status: agg.blocked > 0 ? 'blocked' : (agg.reserved > 0 ? 'reserved' : (agg.used <= 0 ? 'available' : (agg.used >= agg.max ? 'full' : 'partial'))),
+            capacity_used: agg.used,
+            capacity_max: agg.max,
+            utilization,
+        };
+    }
 
     // Cell panels — full geometry, colour & opacity encode status
     const cellGeo = isWide ? cellPanelGeoWide : cellPanelGeo;
-    regularCells.forEach(cell => {
+    regularCells.forEach(rawCell => {
+        const cell = visualCellForRegular(rawCell);
         const lvl = (cell.level ?? 1) - 1;
         const mat = new THREE.MeshLambertMaterial({
             color:       cellHex(cell),
@@ -1053,6 +1109,19 @@ function buildRack(rx, rz, rack) {
     });
 }
 
+function displayRackPosition(rx, rz) {
+    if (!DISPLAY_EXPANDED) return { x: rx, z: rz };
+
+    // Visual-only operator mode: spread racks around the layout centre so tight aisles
+    // are inspectable without changing physical coordinates or stored cell locations.
+    const cx = 3;
+    const cz = 17;
+    return {
+        x: cx + (rx - cx) * 1.25,
+        z: cz + (rz - cz) * 1.55,
+    };
+}
+
 function buildWarehouse(zones) {
     zones.forEach(zone => {
         const zc   = zone.zone_code || '?';
@@ -1062,15 +1131,17 @@ function buildWarehouse(zones) {
         // Label nama zona di posisi tetap sesuai layout baru
         const lpos = ZONE_LABEL_POS[zc];
         if (lpos) {
+            const lp = displayRackPosition(lpos[0], lpos[1]);
             const sp = makeSprite(zone.zone_name, 22, ZONE_LABEL[zc] ?? '#94a3b8');
             sp.scale.set(10, 2.4, 1);
-            sp.position.set(lpos[0], lpos[2] ?? 0.1, lpos[1]);
+            sp.position.set(lp.x, lpos[2] ?? 0.1, lp.z);
             scene.add(sp);
         }
 
         // Render setiap rak
         zone.racks.forEach(rack => {
-            buildRack(absX + rack.pos_x, absZ + rack.pos_z, rack);
+            const p = displayRackPosition(absX + rack.pos_x, absZ + rack.pos_z);
+            buildRack(p.x, p.z, rack);
         });
     });
 }
@@ -1108,7 +1179,8 @@ function applyHighlight(ids, reason, label) {
 
     let firstMesh = null;
     cellMeshes.forEach(mesh => {
-        if (!ids.has(mesh.userData.cellId)) return;
+        const meshIds = mesh.userData.cellIds || [mesh.userData.cellId];
+        if (!meshIds.some(id => ids.has(id))) return;
 
         mesh.userData._savedMat = mesh.material;
 
@@ -1226,14 +1298,32 @@ renderer.domElement.addEventListener('mousemove', function (e) {
     hoveredMeshes = [];
 
     if (hits.length) {
-        const m  = hits[0].object;
+        const m  = (hits.find(h => h.object.userData.isMspart) || hits[0]).object;
         const ud = m.userData;
         const hoverMat = new THREE.MeshLambertMaterial({
             color: 0xfbbf24, emissive: new THREE.Color(0x3d1500),
             transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false,
         });
 
-        if (ud.columnKey) {
+        if (ud.isMspart) {
+            // MSpart: hover the full blok-grup row across the existing K1-K7 shelf bays.
+            const rowMeshes = cellMeshes.filter(cm => cm.userData.isMspart && cm.userData.rowKey === ud.rowKey);
+            rowMeshes.forEach(cm => {
+                cm.userData._savedMat = cm.material;
+                cm.material    = hoverMat.clone();
+                cm.renderOrder = 2;
+                hoveredMeshes.push(cm);
+            });
+            const activeColumns = rowMeshes.length;
+            const filledColumns = rowMeshes.filter(cm => (cm.userData.filledRows ?? 0) > 0).length;
+            const activeRows = rowMeshes.reduce((total, cm) => total + (cm.userData.rowCount ?? 0), 0);
+            const filledRows = rowMeshes.reduce((total, cm) => total + (cm.userData.filledRows ?? 0), 0);
+            const rowFromGroup = {A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8}[ud.grup] || '-';
+            tooltip.innerHTML = `
+                <strong style="color:#fbbf24">Baris ${ud.blok}-${ud.grup} (R${rowFromGroup})</strong><br>
+                <span style="color:#94a3b8">${activeColumns} kolom aktif &nbsp;&middot;&nbsp; ${filledColumns} kolom terisi</span><br>
+                <span style="color:#64748b;font-size:10px">${activeRows} cell aktif &nbsp;&middot;&nbsp; ${filledRows} cell terisi</span>`;
+        } else if (ud.columnKey) {
             // ── Column hover: highlight all cells in the same column ──────────
             cellMeshes.forEach(cm => {
                 if (cm.userData.columnKey !== ud.columnKey) return;
@@ -1244,14 +1334,7 @@ renderer.domElement.addEventListener('mousemove', function (e) {
             });
             const colCells = cellMeshes.filter(cm => cm.userData.columnKey === ud.columnKey);
 
-            if (ud.isMspart) {
-                // Mspart: kolom = semua baris dengan blok+grup+kolom sama
-                const barisList = colCells.map(cm => cm.userData.baris).sort((a, b) => a - b);
-                tooltip.innerHTML = `
-                    <strong style="color:#fbbf24">Kolom ${ud.blok}-${ud.grup}-K${ud.kolom}</strong><br>
-                    <span style="color:#94a3b8">${barisList.length} baris (${barisList.join(', ')})</span><br>
-                    <span style="color:#64748b;font-size:10px">Klik untuk detail kolom</span>`;
-            } else if (colCells.length > 1) {
+            if (colCells.length > 1) {
                 // Rak vertikal / multi-sel: tampilkan ringkasan kolom
                 const filled = colCells.filter(cm => (cm.userData.util ?? 0) > 0).length;
                 tooltip.innerHTML = `
@@ -1301,70 +1384,116 @@ renderer.domElement.addEventListener('mouseleave', function () {
 // ── Click → Modal ─────────────────────────────────────────────────────────
 const DETAIL_BASE = '{{ rtrim(url("warehouse-3d/cell"), "/") }}';
 
+function showMspartColumnDetail(blok, grup, kolom) {
+    const rowFromGroup = {A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8}[grup] || '-';
+    $('#modalCellCode').text(`Blok ${blok} - Grup ${grup} - Baris ${rowFromGroup} - Kolom ${kolom}`);
+    $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
+    $('#cellModal').modal('show');
+
+    $.getJSON(COLUMN_DETAIL_URL, { blok, grup, kolom }, function (res) {
+        let rows = res.levels.length === 0
+            ? '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data.</td></tr>'
+            : res.levels.map(lv => {
+                const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
+                const itemHtml = !lv.stocks.length
+                    ? '<small class="text-muted">- kosong -</small>'
+                    : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span><small class="text-muted ml-1">(masuk: ${s.inbound_date||'-'})</small></div>`).join('');
+                return `<tr>
+                    <td class="text-center font-weight-bold" style="font-size:16px;color:#6f42c1">${lv.baris}</td>
+                    <td><span class="badge badge-light border">${lv.code}</span></td>
+                    <td class="text-center"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
+                    <td>${itemHtml}</td>
+                </tr>`;
+            }).join('');
+
+        $('#cellModalBody').html(`
+            <div class="row mx-0 border-bottom pb-2 pt-2 bg-light">
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Lokasi Kolom</small>
+                    <div class="font-weight-bold">Blok ${res.blok} &rsaquo; Grup ${res.grup} &rsaquo; Baris ${res.baris_rak} &rsaquo; Kolom ${res.kolom}</div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Jumlah Baris Aktif</small>
+                    <div class="font-weight-bold">${res.levels.length} baris</div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Total Item</small>
+                    <div class="font-weight-bold">${res.levels.reduce((t,l)=>t+l.stocks.length,0)} item</div>
+                </div>
+            </div>
+            <div class="p-2">
+                <strong class="d-block mb-2"><i class="fas fa-layer-group mr-1 text-primary"></i>Isi per Baris (Level)</strong>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="text-center" width="55">Baris</th>
+                                <th width="110">Kode Sel</th>
+                                <th class="text-center" width="90">Status</th>
+                                <th>Isi Item</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`);
+    }).fail(function () {
+        $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail kolom.</div>');
+    });
+}
+
 renderer.domElement.addEventListener('click', function (e) {
     toNDC(e);
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(cellMeshes);
     if (!hits.length) return;
 
-    const ud = hits[0].object.userData;
+    const ud = (hits.find(h => h.object.userData.isMspart) || hits[0]).object.userData;
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');
 
     if (ud.isMspart && ud.columnKey) {
-        // ── Column click: tampilkan semua baris dalam kolom ini ───────────
-        $('#modalCellCode').text(`Kolom ${ud.blok}-${ud.grup}-K${ud.kolom}`);
+        showMspartColumnDetail(ud.blok, ud.grup, ud.kolom);
+        return;
 
-        $.getJSON(COLUMN_DETAIL_URL, { blok: ud.blok, grup: ud.grup, kolom: ud.kolom }, function (res) {
-            let rows = res.levels.length === 0
-                ? '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data.</td></tr>'
-                : res.levels.map(lv => {
-                    const isEmpty = !lv.stocks.length;
-                    const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
-                    const itemHtml = isEmpty
-                        ? '<small class="text-muted">— kosong —</small>'
-                        : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span><small class="text-muted ml-1">(masuk: ${s.inbound_date||'—'})</small></div>`).join('');
-                    return `<tr>
-                        <td class="text-center font-weight-bold" style="font-size:16px;color:#6f42c1">${lv.baris}</td>
-                        <td><span class="badge badge-light border">${lv.code}</span></td>
-                        <td class="text-center"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
-                        <td>${itemHtml}</td>
-                    </tr>`;
-                }).join('');
+        // ── MSpart click: step 1 — tampilkan daftar kolom dalam grup ini ─
+        const rowFromGroup = {A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8}[ud.grup] || '—';
+        $('#modalCellCode').text(`Blok ${ud.blok} – Grup ${ud.grup} – Baris ${rowFromGroup}`);
+
+        $.getJSON(GRUP_DETAIL_URL, { blok: ud.blok, grup: ud.grup }, function (res) {
+            if (!res.columns || !res.columns.length) {
+                $('#cellModalBody').html('<div class="text-center text-muted py-3">Tidak ada kolom aktif.</div>');
+                return;
+            }
+
+            const colButtons = res.columns.map(col => {
+                const uc = col.util_pct >= 80 ? 'danger' : col.util_pct >= 40 ? 'warning' : 'success';
+                const fullBadge = col.full  > 0 ? `<span class="badge badge-danger ml-1">${col.full} full</span>`    : '';
+                const partBadge = col.partial > 0 ? `<span class="badge badge-warning ml-1">${col.partial} partial</span>` : '';
+                return `<button class="btn btn-outline-secondary btn-sm mb-2 mr-2 px-3 py-2 btnKolom text-left"
+                            data-blok="${res.blok}" data-grup="${res.grup}" data-kolom="${col.kolom}"
+                            style="min-width:130px;border-left:4px solid var(--bs-${uc},#28a745)">
+                    <div class="font-weight-bold">${col.label}</div>
+                    <small class="text-muted d-block">Baris ${res.baris_rak}</small>
+                    <div class="mt-1">
+                        <div class="progress" style="height:6px;width:100px">
+                            <div class="progress-bar bg-${uc}" style="width:${col.util_pct}%"></div>
+                        </div>
+                    </div>
+                    <small class="text-muted">${col.util_pct}% terpakai &nbsp;·&nbsp; ${col.total} baris</small>
+                    ${fullBadge}${partBadge}
+                </button>`;
+            }).join('');
 
             $('#cellModalBody').html(`
-                <div class="row mx-0 border-bottom pb-2 pt-2 bg-light">
-                    <div class="col-md-4 mb-2">
-                        <small class="text-muted">Lokasi Kolom</small>
-                        <div class="font-weight-bold">Blok ${res.blok} › Grup ${res.grup} › Kolom ${res.kolom}</div>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <small class="text-muted">Jumlah Baris Aktif</small>
-                        <div class="font-weight-bold">${res.levels.length} baris</div>
-                    </div>
-                    <div class="col-md-4 mb-2">
-                        <small class="text-muted">Total Item</small>
-                        <div class="font-weight-bold">${res.levels.reduce((t,l)=>t+l.stocks.length,0)} item</div>
-                    </div>
+                <div class="px-3 pt-2 pb-1 bg-light border-bottom">
+                    <div class="font-weight-bold"><i class="fas fa-th-large mr-1 text-primary"></i>${res.label}</div>
+                    <small class="text-muted">Blok ${res.blok} · Grup ${res.grup} · Baris ${res.baris_rak} · Pilih kolom untuk melihat isi cell:</small>
                 </div>
-                <div class="p-2">
-                    <strong class="d-block mb-2"><i class="fas fa-layer-group mr-1 text-primary"></i>Isi per Baris (Level)</strong>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered mb-0">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th class="text-center" width="55">Baris</th>
-                                    <th width="110">Kode Sel</th>
-                                    <th class="text-center" width="90">Status</th>
-                                    <th>Isi Item</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>
-                </div>`);
+                <div class="p-3">${colButtons}</div>`);
+
         }).fail(function () {
-            $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail kolom.</div>');
+            $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat data grup.</div>');
         });
 
     } else {
@@ -1378,7 +1507,7 @@ renderer.domElement.addEventListener('click', function (e) {
             const dispBlok  = c.blok  != null ? c.blok  : c.rack;
             const dispGrup  = c.grup  != null ? c.grup  : (_lvl[c.level] || c.level);
             const dispKolom = c.kolom != null ? c.kolom : c.column;
-            const dispBaris = c.baris != null ? c.baris : '—';
+            const dispBaris = c.baris_rak != null ? c.baris_rak : (c.baris != null ? c.baris : '—');
             let rows = res.stocks.length === 0
                 ? '<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada stok di cell ini.</td></tr>'
                 : res.stocks.map((s, i) => `
@@ -1447,6 +1576,68 @@ renderer.domElement.addEventListener('click', function (e) {
             $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail cell.</div>');
         });
     }
+});
+
+// ── MSpart step 2: klik kolom → detail baris ──────────────────────────────
+$(document).on('click', '.btnKolom', function () {
+    const blok  = $(this).data('blok');
+    const grup  = $(this).data('grup');
+    const kolom = $(this).data('kolom');
+
+    const rowFromGroup = {A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8}[grup] || '—';
+    $('#modalCellCode').text(`Blok ${blok} - Grup ${grup} - Baris ${rowFromGroup} - Kolom ${kolom}`);
+    $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
+
+    $.getJSON(COLUMN_DETAIL_URL, { blok, grup, kolom }, function (res) {
+        let rows = res.levels.length === 0
+            ? '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data.</td></tr>'
+            : res.levels.map(lv => {
+                const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
+                const itemHtml = !lv.stocks.length
+                    ? '<small class="text-muted">— kosong —</small>'
+                    : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span><small class="text-muted ml-1">(masuk: ${s.inbound_date||'—'})</small></div>`).join('');
+                return `<tr>
+                    <td class="text-center font-weight-bold" style="font-size:16px;color:#6f42c1">${lv.baris}</td>
+                    <td><span class="badge badge-light border">${lv.code}</span></td>
+                    <td class="text-center"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
+                    <td>${itemHtml}</td>
+                </tr>`;
+            }).join('');
+
+        $('#cellModalBody').html(`
+            <div class="row mx-0 border-bottom pb-2 pt-2 bg-light">
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Lokasi Kolom</small>
+                    <div class="font-weight-bold">Blok ${res.blok} › Grup ${res.grup} › Baris ${res.baris_rak} › Kolom ${res.kolom}</div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Jumlah Baris Aktif</small>
+                    <div class="font-weight-bold">${res.levels.length} baris</div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Total Item</small>
+                    <div class="font-weight-bold">${res.levels.reduce((t,l)=>t+l.stocks.length,0)} item</div>
+                </div>
+            </div>
+            <div class="p-2">
+                <strong class="d-block mb-2"><i class="fas fa-layer-group mr-1 text-primary"></i>Isi per Baris (Level)</strong>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="text-center" width="55">Baris</th>
+                                <th width="110">Kode Sel</th>
+                                <th class="text-center" width="90">Status</th>
+                                <th>Isi Item</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`);
+    }).fail(function () {
+        $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail kolom.</div>');
+    });
 });
 
 // ── Resize ────────────────────────────────────────────────────────────────

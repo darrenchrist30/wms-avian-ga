@@ -57,8 +57,8 @@ class PutAwayController extends Controller
                 ->withQueryString();
         }
 
-        // Riwayat completed — disembunyikan kalau filter aktif saja
-        if ($filterStatus === 'put_away') {
+        // Riwayat completed — hanya tampil kalau filter 'completed' dipilih eksplisit
+        if ($filterStatus !== 'completed') {
             $completedOrders = $empty;
         } else {
             $completedOrders = (clone $base)
@@ -71,6 +71,33 @@ class PutAwayController extends Controller
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 
         return view('putaway.index', compact('orders', 'completedOrders', 'warehouses'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Queue — Consolidated put-away list across all pending orders
+    // GET /putaway/queue
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function queue()
+    {
+        $items = GaRecommendationDetail::with([
+            'gaRecommendation.inboundOrder',
+            'inboundOrderItem.item.unit',
+            'inboundOrderItem.item.category',
+            'cell.rack.zone',
+        ])
+        ->whereHas('gaRecommendation', fn($q) =>
+            $q->where('status', 'accepted')
+              ->whereHas('inboundOrder', fn($q2) => $q2->where('status', 'put_away'))
+        )
+        ->whereHas('inboundOrderItem', fn($q) => $q->where('status', 'pending'))
+        ->get()
+        ->sortBy(fn($d) => $d->cell?->code ?? 'ZZZ')
+        ->values();
+
+        $totalOrders = $items->pluck('gaRecommendation.inbound_order_id')->unique()->count();
+
+        return view('putaway.queue', compact('items', 'totalOrders'));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

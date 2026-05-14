@@ -140,7 +140,7 @@ class InboundReceiveService
                     'inbound_order_id'  => $inbound->id,
                     'item_id'           => $line['item']->id,
                     'quantity_ordered'  => $line['quantity'],
-                    'quantity_received' => 0,
+                    'quantity_received' => $line['quantity'],
                     'status'            => 'pending',
                     'notes'             => $line['notes'],
                 ]);

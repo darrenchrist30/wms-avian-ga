@@ -502,12 +502,12 @@
         }
 
         .capacity-card .panel-body {
-            min-height: 360px;
+            min-height: unset;
         }
 
         .capacity-card .donut-wrap {
-            max-width: 210px;
-            height: 170px;
+            max-width: 260px;
+            height: 220px;
             margin-left: auto;
             margin-right: auto;
         }
@@ -716,6 +716,7 @@
                 </div>
             @endif
 
+            @if(!auth()->user()->hasRole('operator'))
             @if ($pendingGaRun > 0)
                 <div class="col-6 col-md-3 mb-2">
                     <a href="{{ route('inbound.orders.index', ['status' => 'draft']) }}"
@@ -784,6 +785,7 @@
                         </div>
                     </a>
                 </div>
+            @endif
             @endif
 
             @if ($pendingPutAway > 0)
@@ -1031,7 +1033,6 @@
             <div class="panel-card capacity-card">
                 <div class="panel-header">
                     <h6><i class="fas fa-th-large mr-1 text-success"></i> Utilisasi Kapasitas Gudang</h6>
-                    <span style="font-size:12px;color:#6b7280;">Total & per zona</span>
                 </div>
                 <div class="panel-body">
                     @php
@@ -1060,21 +1061,6 @@
                             <div class="sub">Terisi</div>
                         </div>
                     </div>
-                    <!-- Progress bars per zona -->
-                    @php $zoneColors = ['#0d8564','#3b82f6','#f59e0b','#8b5cf6','#ef4444']; @endphp
-                    @foreach ($zones as $i => $zone)
-                        <div class="zone-row">
-                            <div class="zone-label">
-                                <span>{{ $zone['name'] }}</span>
-                                <span>{{ $zone['percent'] }}%</span>
-                            </div>
-                            <div class="zone-bar">
-                                <div class="zone-fill"
-                                    style="width:{{ $zone['percent'] }}%;background:{{ $zoneColors[$i % count($zoneColors)] }};">
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
                 </div>
             </div>
         </div>
@@ -1428,6 +1414,7 @@
         </div>
 
         {{-- Statistik Genetic Algorithm (real) --}}
+        @if(!auth()->user()->hasRole('operator'))
         <div class="col-md-4">
             <div class="panel-card">
                 <div class="panel-header">
@@ -1491,6 +1478,7 @@
                 </div>
             </div>
         </div>
+        @endif
 
         {{-- KPI Proses WMS (real) --}}
         <div class="col-md-3">
@@ -1499,6 +1487,7 @@
                     <h6><i class="fas fa-bullseye mr-1 text-danger"></i> KPI Proses WMS</h6>
                 </div>
                 <div class="panel-body">
+                    @if(!auth()->user()->hasRole('operator'))
                     <div class="zone-row">
                         <div class="zone-label">
                             <span>GA Acceptance Rate
@@ -1525,6 +1514,7 @@
                             <div class="zone-fill" style="width:{{ $followGaRate }}%;background:#3b82f6;"></div>
                         </div>
                     </div>
+                    @endif
                     <div class="zone-row">
                         <div class="zone-label">
                             <span>Order Completion (bln ini)</span>
@@ -1543,6 +1533,7 @@
                             <div class="zone-fill" style="width:{{ $utilizationPct }}%;background:#f59e0b;"></div>
                         </div>
                     </div>
+                    @if(!auth()->user()->hasRole('operator'))
                     <div class="zone-row">
                         <div class="zone-label">
                             <span>Avg GA Fitness Score</span>
@@ -1552,6 +1543,7 @@
                             <div class="zone-fill" style="width:{{ $gaAvgFitness }}%;background:#14b8a6;"></div>
                         </div>
                     </div>
+                    @endif
                     <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:10px;color:#9ca3af">
                         {{-- <i class="fas fa-info-circle mr-1"></i> --}}
                         {{-- Semua metrik dihitung dari data transaksi real di sistem. --}}
@@ -1561,6 +1553,7 @@
         </div>
     </div>
 
+    @if(!auth()->user()->hasRole('operator'))
     {{-- GA Analytics --}}
     <p class="section-title"><i class="fas fa-dna mr-1"></i> Analitik Genetic Algorithm</p>
     <div class="row">
@@ -1616,7 +1609,7 @@
             </div>
         </div>
     </div>
-
+    @endif
 
 @endsection
 

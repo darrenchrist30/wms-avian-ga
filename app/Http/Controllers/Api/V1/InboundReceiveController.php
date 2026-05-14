@@ -7,6 +7,7 @@ use App\Http\Requests\Api\V1\InboundReceiveRequest;
 use App\Http\Resources\Api\V1\InboundTransactionResource;
 use App\Models\InboundOrder;
 use App\Models\User;
+use App\Notifications\NewInboundBatchNotification;
 use App\Notifications\NewInboundOrderNotification;
 use App\Services\InboundReceiveService;
 use Illuminate\Http\JsonResponse;
@@ -84,6 +85,115 @@ class InboundReceiveController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    // ───────────────────────────────────────────────────────────────────────
+    // POST /api/v1/inbound/batch-receive
+    // ───────────────────────────────────────────────────────────────────────
+    /**
+     * Terima banyak Delivery Order sekaligus (maks 50 DO per request).
+     *
+     * Payload:
+     * {
+     *   "orders": [
+     *     {
+     *       "warehouse_code": "WH-001",
+     *       "do_number":      "DO-2024-001",
+     *       "do_date":        "2024-05-14",
+     *       "items": [
+     *         { "sku": "AVN-001", "quantity": 10 }
+     *       ]
+     *     },
+     *     { ... }
+     *   ]
+     * }
+     *
+     * Response 207 Multi-Status — satu summary + per-DO result (created/skipped/error).
+     */
+    public function batchReceive(Request $request): JsonResponse
+    {
+        $request->validate([
+            'orders'                    => ['required', 'array', 'min:1', 'max:50'],
+            'orders.*.warehouse_code'   => ['required', 'string', 'max:50', 'exists:warehouses,code'],
+            'orders.*.do_number'        => ['required', 'string', 'max:100'],
+            'orders.*.do_date'          => ['required', 'date_format:Y-m-d'],
+            'orders.*.notes'            => ['nullable', 'string', 'max:1000'],
+            'orders.*.supplier_erp_id'  => ['nullable', 'string', 'max:100'],
+            'orders.*.supplier_code'    => ['nullable', 'string', 'max:50'],
+            'orders.*.items'            => ['required', 'array', 'min:1', 'max:500'],
+            'orders.*.items.*.sku'      => ['required', 'string', 'max:100'],
+            'orders.*.items.*.quantity' => ['required', 'integer', 'min:1', 'max:999999'],
+            'orders.*.items.*.notes'    => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $results      = [];
+        $created      = 0;
+        $skipped      = 0;
+        $errors       = 0;
+        $newOrders    = [];   // collect created orders for one batch notification
+
+        foreach ($request->orders as $orderData) {
+            try {
+                $result = $this->service->receive($orderData);
+
+                if ($result['is_new']) {
+                    $created++;
+                    $status  = 'created';
+                    $message = 'DO berhasil dibuat.';
+                    $newOrders[] = [
+                        'id'        => $result['transaction']->id,
+                        'do_number' => $result['transaction']->do_number,
+                    ];
+                } else {
+                    $skipped++;
+                    $status  = 'skipped';
+                    $message = 'DO sudah ada sebelumnya (idempotent).';
+                }
+
+                $entry = [
+                    'do_number' => $orderData['do_number'],
+                    'status'    => $status,
+                    'message'   => $message,
+                    'id'        => $result['transaction']->id,
+                    'data'      => new InboundTransactionResource($result['transaction']),
+                ];
+
+                if (!empty($result['unmatched_items'])) {
+                    $count = count($result['unmatched_items']);
+                    $entry['warnings'] = [
+                        'message'         => "{$count} item tidak ditemukan di master data.",
+                        'unmatched_items' => $result['unmatched_items'],
+                    ];
+                }
+
+                $results[] = $entry;
+
+            } catch (\Exception $e) {
+                $errors++;
+                $results[] = [
+                    'do_number' => $orderData['do_number'],
+                    'status'    => 'error',
+                    'message'   => $e->getMessage(),
+                ];
+            }
+        }
+
+        // Send one batch notification for all newly created DOs
+        if (!empty($newOrders)) {
+            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor']))->get();
+            Notification::send($notifUsers, new NewInboundBatchNotification($newOrders));
+        }
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'total'   => count($results),
+                'created' => $created,
+                'skipped' => $skipped,
+                'errors'  => $errors,
+            ],
+            'results' => $results,
+        ], 207);
     }
 
     // ───────────────────────────────────────────────────────────────────────

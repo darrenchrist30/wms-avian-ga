@@ -5,13 +5,18 @@
 @section('content')
     <div class="container-fluid">
 
-        <div class="row mb-2">
-            <div class="col-md-12">
-                <h4 class="mt-2">
+        <div class="row mb-2 align-items-center">
+            <div class="col">
+                <h4 class="mt-2 mb-0">
                     <i class="fas fa-dolly-flatbed mr-2 text-primary"></i>
                     Put-Away — Penempatan Barang
                 </h4>
-                <p class="text-muted mb-0">Daftar inbound order yang sudah disetujui GA dan siap di-put-away oleh operator.</p>
+                <p class="text-muted mb-0 mt-1">Daftar inbound order yang sudah disetujui GA dan siap di-put-away oleh operator.</p>
+            </div>
+            <div class="col-auto mt-2">
+                <a href="{{ route('putaway.queue') }}" class="btn btn-warning btn-sm shadow-sm">
+                    <i class="fas fa-stream mr-1"></i> Put-Away Queue
+                </a>
             </div>
         </div>
 
@@ -36,8 +41,7 @@
                                 <i class="fas fa-tasks mr-1"></i> Status
                             </label>
                             <select name="status" class="form-control form-control-sm" onchange="this.form.submit()">
-                                <option value="">Semua</option>
-                                <option value="put_away" {{ request('status') === 'put_away' ? 'selected' : '' }}>
+                                <option value="put_away" {{ request('status', 'put_away') === 'put_away' ? 'selected' : '' }}>
                                     Sedang Berjalan
                                 </option>
                                 <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>
@@ -141,13 +145,9 @@
                                 </div>
                                 <div class="card-body py-3">
                                     <div class="row text-sm mb-2">
-                                        <div class="col-6">
+                                        <div class="col-12">
                                             <small class="text-muted">Gudang</small>
                                             <div class="font-weight-bold">{{ $order->warehouse?->name ?? '-' }}</div>
-                                        </div>
-                                        <div class="col-6">
-                                            <small class="text-muted">Diterima Oleh</small>
-                                            <div class="font-weight-bold">{{ $order->receivedBy?->name ?? '-' }}</div>
                                         </div>
                                     </div>
                                     <div class="mt-2">
@@ -213,13 +213,9 @@
                             </div>
                             <div class="card-body py-3">
                                 <div class="row text-sm mb-2">
-                                    <div class="col-6">
+                                    <div class="col-12">
                                         <small class="text-muted">Gudang</small>
                                         <div class="font-weight-bold">{{ $order->warehouse?->name ?? '-' }}</div>
-                                    </div>
-                                    <div class="col-6">
-                                        <small class="text-muted">Diterima Oleh</small>
-                                        <div class="font-weight-bold">{{ $order->receivedBy?->name ?? '-' }}</div>
                                     </div>
                                 </div>
                                 <div class="mt-2">

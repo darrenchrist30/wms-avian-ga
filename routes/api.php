@@ -74,6 +74,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('receive',       [InboundReceiveController::class, 'receive'])
                 ->name('receive');
 
+            Route::post('batch-receive', [InboundReceiveController::class, 'batchReceive'])
+                ->name('batch-receive');
+
             Route::get('/',              [InboundReceiveController::class, 'index'])
                 ->name('index');
 

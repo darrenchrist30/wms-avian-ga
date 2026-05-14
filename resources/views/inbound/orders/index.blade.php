@@ -57,19 +57,6 @@
                                 </div>
                                 <div class="col-sm-12 col-md-4">
                                     <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Supplier</label>
-                                        <div class="col-sm-8">
-                                            <select class="form-control form-control-sm" id="filter-supplier">
-                                                <option value="">Semua Supplier</option>
-                                                @foreach ($suppliers as $sup)
-                                                    <option value="{{ $sup->id }}">{{ $sup->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-sm-12 col-md-4">
-                                    <div class="form-group row">
                                         <label class="col-sm-4 col-form-label small font-weight-bold">Warehouse</label>
                                         <div class="col-sm-8">
                                             <select class="form-control form-control-sm" id="filter-warehouse">
@@ -94,7 +81,6 @@
                                     <th width="50" class="text-center">#</th>
                                     <th width="150">No. Surat Jalan</th>
                                     <th width="100" class="text-center">Tgl SJ</th>
-                                    <th>Supplier</th>
                                     <th width="160">Warehouse</th>
                                     <th width="60" class="text-center">Items</th>
                                     <th width="110" class="text-center">Status</th>
@@ -137,7 +123,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>No. Surat Jalan</th>
-                                        <th class="text-center">Fitness</th>
+                                        @if(!auth()->user()->hasRole('operator'))<th class="text-center">Fitness</th>@endif
                                         <th class="text-center">Hasil</th>
                                         <th class="text-center">Aksi</th>
                                     </tr>
@@ -165,6 +151,7 @@
             var routeDestroy = "{{ route('inbound.orders.destroy', ':id') }}";
             var routeBatchGa = "{{ route('inbound.orders.batch-ga') }}";
             var csrfToken    = $('meta[name="csrf-token"]').attr('content');
+            var isOperator   = {{ auth()->user()->hasRole('operator') ? 'true' : 'false' }};
 
             var selectedIds  = {};  // { id: do_number }
 
@@ -178,7 +165,6 @@
                     url: baseURL,
                     data: function(d) {
                         d.status       = $('#filter-status').val();
-                        d.supplier_id  = $('#filter-supplier').val();
                         d.warehouse_id = $('#filter-warehouse').val();
                     },
                     type: 'GET'
@@ -189,7 +175,6 @@
                     { data: 'DT_RowIndex',   name: 'DT_RowIndex',   orderable: false, searchable: false, className: 'text-center' },
                     { data: 'do_number',     name: 'do_number' },
                     { data: 'do_date',       name: 'do_date',       className: 'text-center' },
-                    { data: 'supplier.name', name: 'supplier.name', defaultContent: '<span class="text-muted">-</span>' },
                     { data: 'warehouse.name',name: 'warehouse.name',defaultContent: '-' },
                     { data: 'items_count',   name: 'items_count',   orderable: false, className: 'text-center' },
                     { data: 'status_badge',  name: 'status',        orderable: false, searchable: false, className: 'text-center' },
@@ -321,12 +306,13 @@
                         statusBadge = '<span class="badge badge-danger">Gagal</span>';
                     }
 
-                    var fitness = r.fitness_score ? '<strong>' + r.fitness_score + '</strong>/100' : '-';
+                    var fitnessCell = isOperator ? '' :
+                        '<td class="text-center">' + (r.fitness_score ? '<strong>' + r.fitness_score + '</strong>/100' : '-') + '</td>';
 
                     rows += '<tr>' +
                         '<td>' + (i + 1) + '</td>' +
                         '<td><code>' + r.do_number + '</code><br><small class="text-muted">' + r.message + '</small></td>' +
-                        '<td class="text-center">' + fitness + '</td>' +
+                        fitnessCell +
                         '<td class="text-center">' + statusBadge + '</td>' +
                         '<td class="text-center">' + actionBtn + '</td>' +
                         '</tr>';
@@ -353,13 +339,14 @@
 
             // ── Refresh & Filter ─────────────────────────────────────────
             $('.btnRefresh').on('click', function() {
-                $('#filter-status, #filter-supplier, #filter-warehouse').val('');
+                $('#filter-status').val('inbound');
+                $('#filter-warehouse').val('');
                 selectedIds = {};
                 updateBatchButton();
                 table.ajax.reload();
             });
 
-            $('#filter-status, #filter-supplier, #filter-warehouse').on('change', function() {
+            $('#filter-status, #filter-warehouse').on('change', function() {
                 table.ajax.reload();
             });
 

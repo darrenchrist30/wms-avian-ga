@@ -2,16 +2,18 @@
 
 namespace App\Notifications;
 
-use App\Models\InboundOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
 
-class NewInboundOrderNotification extends Notification
+class NewInboundBatchNotification extends Notification
 {
     use Queueable;
 
+    /**
+     * @param  array  $orders   [['id' => int, 'do_number' => string], ...]
+     */
     public function __construct(
-        public readonly InboundOrder $order
+        public readonly array $orders
     ) {}
 
     public function via(object $notifiable): array
@@ -21,12 +23,14 @@ class NewInboundOrderNotification extends Notification
 
     public function toDatabase(object $notifiable): array
     {
+        $count = count($this->orders);
+
         return [
-            'type'    => 'new_inbound',
+            'type'    => 'new_inbound_batch',
             'icon'    => 'fas fa-truck-loading',
             'color'   => 'primary',
             'title'   => 'Inbound Baru Masuk',
-            'message' => '1 DO baru masuk dari ERP — menunggu proses GA.',
+            'message' => "{$count} DO baru masuk dari ERP — menunggu proses GA.",
             'url'     => route('inbound.orders.index') . '?status=inbound',
         ];
     }

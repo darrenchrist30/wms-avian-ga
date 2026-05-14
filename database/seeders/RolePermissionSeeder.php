@@ -44,8 +44,7 @@ class RolePermissionSeeder extends Seeder
             'putaway'    => ['view', 'insert', 'update', 'override'],
             'stock'      => ['view', 'insert', 'update', 'delete'],
             'movement'   => ['view', 'insert'],
-            'opname'     => ['view', 'insert', 'update'],
-            'report'     => ['view', 'export'],
+'report'     => ['view', 'export'],
             'user'       => ['view', 'insert', 'update', 'delete'],
             'role'       => ['view', 'insert', 'update', 'delete'],
         ];

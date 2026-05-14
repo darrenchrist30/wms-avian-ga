@@ -68,7 +68,10 @@ class Warehouse3DController extends Controller
         };
 
         $zones = Zone::with([
-            'racks'                   => fn($q) => $q->orderBy('code'),
+            'racks'                   => fn($q) => $q
+                ->where('is_active', true)
+                ->whereRaw("code NOT REGEXP '^[0-9]+[A-H]$'")
+                ->orderBy('code'),
             'racks.cells'             => $cellLoader,
             'racks.cells.dominantCategory',
             'racks.cells.stocks'      => $stockLoader,
@@ -77,16 +80,17 @@ class Warehouse3DController extends Controller
         ->orderBy('name')
         ->get();
 
-        // Sub-racks: codes matching /^\d+[A-G]$/ (mspart layout racks like "1A", "4G")
+        // Sub-racks: codes matching /^\d+[A-H]$/ (mspart layout racks like "1A", "4G", "3H")
         $subRacks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
-            ->whereRaw("code REGEXP '^[0-9]+[A-G]$'")
+            ->where('is_active', true)
+            ->whereRaw("code REGEXP '^[0-9]+[A-H]$'")
             ->with([
                 'cells'              => $cellLoader,
                 'cells.dominantCategory',
                 'cells.stocks'       => $stockLoader,
             ])
             ->get()
-            ->groupBy(fn($r) => preg_replace('/[A-G]$/', '', $r->code));  // group by blok number
+            ->groupBy(fn($r) => preg_replace('/[A-H]$/', '', $r->code));  // group by blok number
 
         $mapCell = function ($cell) {
             $utilPct = $cell->capacity_max > 0
@@ -151,12 +155,55 @@ class Warehouse3DController extends Controller
         return response()->json($data);
     }
 
+    // ─── Detail grup mspart (semua kolom dalam satu blok-grup) ─────────────
+    public function grupDetail(Request $request)
+    {
+        $blok = (int) $request->input('blok');
+        $grup = strtoupper(trim($request->input('grup', '')));
+        $barisRak = $this->grupToRackRow($grup);
+
+        if (!$blok || !$grup) {
+            return response()->json(['error' => 'blok dan grup wajib diisi.'], 422);
+        }
+
+        $columns = collect(range(1, 7))->map(function ($kolom) use ($blok, $grup, $barisRak) {
+            $cells   = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->where('is_active', true)->get();
+            $total   = $cells->count();
+            $full    = $cells->where('status', 'full')->count();
+            $partial = $cells->where('status', 'partial')->count();
+            $capUsed = $cells->sum('capacity_used');
+            $capMax  = $cells->sum('capacity_max');
+            $util    = $capMax > 0 ? round($capUsed / $capMax * 100) : 0;
+            return [
+                'kolom'    => $kolom,
+                'label'    => "K{$kolom}",
+                'baris_rak'=> $barisRak,
+                'total'    => $total,
+                'full'     => $full,
+                'partial'  => $partial,
+                'empty'    => $total - $full - $partial,
+                'util_pct' => $util,
+                'cap_used' => $capUsed,
+                'cap_max'  => $capMax,
+            ];
+        });
+
+        return response()->json([
+            'blok'    => $blok,
+            'grup'    => $grup,
+            'baris_rak' => $barisRak,
+            'label'   => "Blok {$blok} – Grup {$grup} – Baris {$barisRak}",
+            'columns' => $columns,
+        ]);
+    }
+
     // ─── Detail kolom mspart (semua baris dalam satu kolom fisik) ───────────
     public function columnDetail(Request $request)
     {
         $blok  = (int) $request->input('blok');
         $grup  = strtoupper(trim($request->input('grup', '')));
         $kolom = (int) $request->input('kolom');
+        $barisRak = $this->grupToRackRow($grup);
 
         if (!$blok || !$grup || !$kolom) {
             return response()->json(['error' => 'blok, grup, kolom wajib diisi.'], 422);
@@ -193,10 +240,17 @@ class Warehouse3DController extends Controller
         return response()->json([
             'blok'   => $blok,
             'grup'   => $grup,
+            'baris_rak' => $barisRak,
             'kolom'  => $kolom,
-            'label'  => "Kolom {$blok}-{$grup}-{$kolom}",
+            'label'  => "Blok {$blok} – Grup {$grup} – Baris {$barisRak} – Kolom {$kolom}",
             'levels' => $result,
         ]);
+    }
+
+    private function grupToRackRow(string $grup): ?int
+    {
+        $map = array_flip(range('A', 'H'));
+        return isset($map[$grup]) ? $map[$grup] + 1 : null;
     }
 
     // ─── Cell list berisi item (untuk highlight pencarian SKU) ──────────────
@@ -268,6 +322,7 @@ class Warehouse3DController extends Controller
                 'column'        => $cell->column,
                 'blok'          => $cell->blok,
                 'grup'          => $cell->grup,
+                'baris_rak'     => $cell->grup ? $this->grupToRackRow(strtoupper($cell->grup)) : null,
                 'kolom'         => $cell->kolom,
                 'baris'         => $cell->baris,
             ],

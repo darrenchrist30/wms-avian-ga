@@ -1106,13 +1106,6 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="{{ route('location.zones.index') }}"
-                                        class="nav-link {{ request()->routeIs('location.zones*') ? 'active' : '' }}">
-                                        <i class="fas fa-vector-square nav-icon" style="font-size:12px;"></i>
-                                        <p>Zona Penyimpanan</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
                                     <a href="{{ route('location.racks.index') }}"
                                         class="nav-link {{ request()->routeIs('location.racks*') ? 'active' : '' }}">
                                         <i class="fas fa-th-large nav-icon" style="font-size:12px;"></i>
@@ -1134,6 +1127,15 @@
                                                 style="font-size:9px;">Tablet</span></p>
                                     </a>
                                 </li>
+                                @if(auth()->user()->hasRole('admin'))
+                                <li class="nav-item">
+                                    <a href="{{ route('location.mspart.import') }}"
+                                        class="nav-link {{ request()->routeIs('location.mspart*') ? 'active' : '' }}">
+                                        <i class="fas fa-file-import nav-icon" style="font-size:12px;color:#f6993f;"></i>
+                                        <p>Import MSpart</p>
+                                    </a>
+                                </li>
+                                @endif
                             </ul>
                         </li>
 
@@ -1231,6 +1233,13 @@
                                         </p>
                                     </a>
                                 </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('putaway.queue') }}"
+                                        class="nav-link {{ request()->routeIs('putaway.queue') ? 'active' : '' }}">
+                                        <i class="fas fa-stream nav-icon" style="font-size:12px;"></i>
+                                        <p>Put-Away Queue</p>
+                                    </a>
+                                </li>
                             </ul>
                         </li>
 
@@ -1302,16 +1311,6 @@
                             </ul>
                         </li>
 
-                        {{-- ═══════════════════════════════
-                             STOCK OPNAME
-                        ═══════════════════════════════ --}}
-                        <li class="nav-item {{ request()->is('opname*') ? 'menu-open' : '' }}">
-                            <a href="{{ route('opname.index') }}"
-                                class="nav-link {{ request()->routeIs('opname.*') ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-clipboard-check"></i>
-                                <p>Stock Opname</p>
-                            </a>
-                        </li>
 
                         {{-- ═══════════════════════════════
                              5. VISUALISASI 3D
@@ -1366,6 +1365,7 @@
                                         <p>Laporan Mutasi Stok</p>
                                     </a>
                                 </li>
+                                @if(!auth()->user()->hasRole('operator'))
                                 <li class="nav-item">
                                     <a href="{{ route('reports.ga-effectiveness') }}"
                                         class="nav-link {{ request()->routeIs('reports.ga-effectiveness') ? 'active' : '' }}">
@@ -1373,12 +1373,14 @@
                                         <p>Kinerja Genetic Algorithm</p>
                                     </a>
                                 </li>
+                                @endif
                             </ul>
                         </li>
 
                         {{-- ═══════════════════════════════
                              8. PENGATURAN SISTEM
                         ═══════════════════════════════ --}}
+                        @if(!auth()->user()->hasRole('operator'))
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">SISTEM</li>
 
                         @if (auth()->user()?->isAdmin())
@@ -1431,6 +1433,7 @@
                                 </ul>
                             </li>
 
+                        @endif
                         @endif
                     </ul>
                 </nav>

@@ -27,13 +27,14 @@ class ImportMspartLayout extends Command
                             {--mspart=      : Path ke MSpart.sql (default: Downloads)}
                             {--stock=       : Path ke StockSpart.sql (default: Downloads)}
                             {--warehouse=   : ID gudang target (default: gudang pertama)}
+                            {--sync-stock   : Pindahkan ulang stock IMPORT/MSPART ke cell MSPART yang benar}
                             {--dry-run      : Preview tanpa menyimpan ke database}';
 
     protected $description = 'Import lokasi fisik mspart (blok/grup/kolom/baris) ke sub-rak WMS';
 
     private bool $dryRun = false;
     private array $numToLetter = ['1' => 'A', '2' => 'B', '3' => 'C', '4' => 'D', '5' => 'E', '6' => 'F', '7' => 'G'];
-    private array $validGrup   = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+    private array $validGrup   = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
     public function handle(): int
     {
@@ -80,7 +81,8 @@ class ImportMspartLayout extends Command
         $mspartRows = $this->parseSqlInserts($mspartPath);
         $this->line("  Total baris    : " . count($mspartRows));
 
-        // Filter active + has valid location
+        // Filter active + has blok/grup. Kolom/baris is validated separately so
+        // bad physical coordinates can be reported instead of silently corrected.
         $located = array_filter($mspartRows, function ($r) {
             if (($r['isdel'] ?? '1') !== '0') return false;
             $blok = trim($r['blok'] ?? '');
@@ -89,7 +91,7 @@ class ImportMspartLayout extends Command
             if (isset($this->numToLetter[$grup])) $grup = $this->numToLetter[$grup];
             return in_array($grup, $this->validGrup);
         });
-        $this->line("  Aktif + punya lokasi: " . count($located));
+        $this->line("  Aktif + punya blok/grup: " . count($located));
         $this->newLine();
 
         if (empty($located)) {
@@ -99,23 +101,51 @@ class ImportMspartLayout extends Command
 
         // 4. Build location map: kode → [blok, grup, kolom, baris]
         $locationMap = [];
+        $invalidLocations = [];
         foreach ($located as $r) {
             $kode = trim($r['kode'] ?? '');
             if (!$kode) continue;
 
             $blok  = (int) trim($r['blok']);
             $grup  = strtoupper(trim($r['grup']));
-            $kolom = (int) (trim($r['kolom'] ?? '1') ?: '1');
-            $baris = (int) (trim($r['baris'] ?? '1') ?: '1');
+            $kolomRaw = trim((string) ($r['kolom'] ?? ''));
+            $barisRaw = trim((string) ($r['baris'] ?? ''));
+            $kolom = ctype_digit($kolomRaw) ? (int) $kolomRaw : 0;
+            $baris = ctype_digit($barisRaw) ? (int) $barisRaw : 0;
 
             if (isset($this->numToLetter[$grup])) {
                 $grup = $this->numToLetter[$grup];
             }
 
-            $kolom = max(1, min(7, $kolom));
-            $baris = max(1, min(9, $baris));
+            if ($kolom < 1 || $kolom > 7 || $baris < 1 || $baris > 9) {
+                $invalidLocations[] = [
+                    'kode' => $kode,
+                    'nama' => trim($r['nama'] ?? ''),
+                    'blok' => $blok,
+                    'grup' => $grup,
+                    'kolom' => $kolomRaw === '' ? 'NULL' : $kolomRaw,
+                    'baris' => $barisRaw === '' ? 'NULL' : $barisRaw,
+                ];
+                continue;
+            }
 
             $locationMap[$kode] = compact('blok', 'grup', 'kolom', 'baris');
+        }
+
+        $this->line('  Lokasi valid 4 atribut: ' . count($locationMap));
+        if ($invalidLocations) {
+            $this->warn('  Lokasi invalid (kolom harus 1-7, baris harus 1-9): ' . count($invalidLocations));
+            foreach (array_slice($invalidLocations, 0, 25) as $bad) {
+                $this->line("    - {$bad['kode']} {$bad['nama']} => {$bad['blok']}-{$bad['grup']}-{$bad['kolom']}-{$bad['baris']}");
+            }
+            if (count($invalidLocations) > 25) {
+                $this->line('    ... ' . (count($invalidLocations) - 25) . ' item lain');
+            }
+        }
+
+        if (empty($locationMap)) {
+            $this->warn('Tidak ada item dengan 4 atribut lokasi valid. Periksa blok/grup/kolom/baris di MSpart.sql.');
+            return self::SUCCESS;
         }
 
         // 5. Aggregate stock from StockSpart.sql
@@ -132,12 +162,26 @@ class ImportMspartLayout extends Command
             $this->line("  Item dengan stok > 0: " . count(array_filter($stockAgg)));
             $this->newLine();
         }
+        $syncStock = (bool) $this->option('sync-stock') && !empty($stockAgg);
 
-        // 6. Find unique (blok, grup) pairs
+        // 6. Find physical (blok, grup) pairs. Empty shelf groups must exist too
+        // so every visible rack bay can be hovered by column even when it has no stock.
         $pairs = [];
         foreach ($locationMap as $loc) {
             $key = $loc['blok'] . '_' . $loc['grup'];
             $pairs[$key] = ['blok' => $loc['blok'], 'grup' => $loc['grup']];
+        }
+        $physicalBlocks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+            ->where('is_active', true)
+            ->whereIn('code', array_map('strval', range(1, 11)))
+            ->pluck('code')
+            ->map(fn($code) => (int) $code)
+            ->all();
+        foreach ($physicalBlocks as $blok) {
+            foreach ($this->validGrup as $grup) {
+                $key = $blok . '_' . $grup;
+                $pairs[$key] = ['blok' => $blok, 'grup' => $grup];
+            }
         }
         $this->line('Pasangan (blok, grup) unik: ' . count($pairs));
 
@@ -187,6 +231,9 @@ class ImportMspartLayout extends Command
                 }
                 $racksCreated++;
             } else {
+                if (!$this->dryRun && !$subRack->is_active) {
+                    $subRack->update(['is_active' => true]);
+                }
                 $racksReused++;
             }
 
@@ -195,6 +242,31 @@ class ImportMspartLayout extends Command
 
         $this->line("  Sub-rak dibuat : {$racksCreated}");
         $this->line("  Sub-rak dipakai: {$racksReused}");
+
+        $obsoleteDeactivated = 0;
+        $validSubCodes = array_map(fn($pair) => $pair['blok'] . $pair['grup'], $pairs);
+        $obsoleteSubRacks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+            ->whereRaw("code REGEXP '^[0-9]+[A-H]$'")
+            ->whereNotIn('code', $validSubCodes)
+            ->withCount(['cells as stock_records_count' => function ($q) {
+                $q->join('stock_records', 'stock_records.cell_id', '=', 'cells.id');
+            }])
+            ->get();
+
+        foreach ($obsoleteSubRacks as $rack) {
+            if ($rack->stock_records_count > 0) {
+                $this->warn("  Sub-rak {$rack->code} tidak ada lokasi valid, tetapi masih punya stok. Tidak dinonaktifkan.");
+                continue;
+            }
+            if (!$this->dryRun) {
+                Cell::where('rack_id', $rack->id)->update(['is_active' => false, 'capacity_used' => 0, 'status' => 'available']);
+                $rack->update(['is_active' => false]);
+            }
+            $obsoleteDeactivated++;
+        }
+        if ($obsoleteDeactivated > 0) {
+            $this->line("  Sub-rak invalid dinonaktifkan: {$obsoleteDeactivated}");
+        }
         $this->newLine();
 
         // 8. Create cells per (kolom, baris) in each sub-rack
@@ -202,12 +274,23 @@ class ImportMspartLayout extends Command
         $cellsCreated = 0;
         $cellsReused  = 0;
 
-        // Collect all unique (blok, grup, kolom, baris) combos
+        // Build the full physical grid for each blok-grup pair: 7 columns x 9 rows.
+        // Empty cells must exist so the 3D plan can hover/select every physical column.
         $cellSpecs = [];
-        foreach ($locationMap as $loc) {
-            $key  = $loc['blok'] . '_' . $loc['grup'];
-            $cKey = $key . '_' . $loc['kolom'] . '_' . $loc['baris'];
-            $cellSpecs[$cKey] = $loc;
+        foreach ($pairs as $pair) {
+            for ($kolom = 1; $kolom <= 7; $kolom++) {
+                for ($baris = 1; $baris <= 9; $baris++) {
+                    $loc = [
+                        'blok' => $pair['blok'],
+                        'grup' => $pair['grup'],
+                        'kolom' => $kolom,
+                        'baris' => $baris,
+                    ];
+                    $key  = $loc['blok'] . '_' . $loc['grup'];
+                    $cKey = $key . '_' . $loc['kolom'] . '_' . $loc['baris'];
+                    $cellSpecs[$cKey] = $loc;
+                }
+            }
         }
 
         $cellMap = [];  // "blok_grup_kolom_baris" => cell_id
@@ -243,12 +326,13 @@ class ImportMspartLayout extends Command
                 }
                 $cellsCreated++;
             } else {
-                if (!$this->dryRun && ($cell->blok !== $loc['blok'] || $cell->grup !== $loc['grup'])) {
+                if (!$this->dryRun) {
                     $cell->update([
                         'blok'  => $loc['blok'],
                         'grup'  => $loc['grup'],
                         'kolom' => $loc['kolom'],
                         'baris' => $loc['baris'],
+                        'is_active' => true,
                     ]);
                 }
                 $cellsReused++;
@@ -268,6 +352,10 @@ class ImportMspartLayout extends Command
             $this->info('Menghubungkan item ke sel...');
             $assigned = 0;
             $skipped  = 0;
+            $synced   = 0;
+            $removed  = 0;
+            $invalidRemoved = 0;
+            $touchedCellIds = [];
 
             foreach ($locationMap as $kode => $loc) {
                 $item = Item::where('sku', $kode)->first();
@@ -280,13 +368,28 @@ class ImportMspartLayout extends Command
                 $qty = (int) round($stockAgg[$kode] ?? 0);
                 if ($qty <= 0 && !empty($stockAgg)) { $skipped++; continue; }
 
-                // Skip if stock already assigned to this cell
-                if (Stock::where('item_id', $item->id)->where('cell_id', $cellId)->exists()) {
-                    $skipped++;
-                    continue;
+                if (!$syncStock) {
+                    // Skip if stock already assigned to this cell
+                    if (Stock::where('item_id', $item->id)->where('cell_id', $cellId)->exists()) {
+                        $skipped++;
+                        continue;
+                    }
                 }
 
                 if (!$this->dryRun) {
+                    if ($syncStock) {
+                        $stale = Stock::where('item_id', $item->id)
+                            ->where('cell_id', '!=', $cellId)
+                            ->where(function ($q) {
+                                $q->where('batch_no', 'like', 'IMPORT-%')
+                                  ->orWhere('batch_no', 'like', 'MSPART-%');
+                            });
+                        $oldCellIds = $stale->pluck('cell_id')->all();
+                        $deleted = $stale->delete();
+                        $removed += $deleted;
+                        $touchedCellIds = array_merge($touchedCellIds, $oldCellIds);
+                    }
+
                     Stock::updateOrCreate(
                         ['item_id' => $item->id, 'cell_id' => $cellId],
                         [
@@ -304,12 +407,43 @@ class ImportMspartLayout extends Command
                         'capacity_used' => $used,
                         'status'        => $used > 0 ? 'partial' : 'available',
                     ]);
+                    $touchedCellIds[] = $cellId;
                 }
-                $assigned++;
+                $syncStock ? $synced++ : $assigned++;
             }
 
             $this->line("  Item dihubungkan : {$assigned}");
+            if ($syncStock && $invalidLocations) {
+                foreach ($invalidLocations as $bad) {
+                    $item = Item::where('sku', $bad['kode'])->first();
+                    if (!$item) continue;
+                    if (!$this->dryRun) {
+                        $stale = Stock::where('item_id', $item->id)
+                            ->where('batch_no', 'like', 'MSPART-%')
+                            ->whereHas('cell', fn($q) => $q->whereNotNull('grup'));
+                        $oldCellIds = $stale->pluck('cell_id')->all();
+                        $deleted = $stale->delete();
+                        $invalidRemoved += $deleted;
+                        $touchedCellIds = array_merge($touchedCellIds, $oldCellIds);
+                    }
+                }
+            }
+            if ($syncStock) {
+                $this->line("  Stock disinkron  : {$synced}");
+                $this->line("  Stock lama hapus : {$removed}");
+                $this->line("  Stock invalid hapus: {$invalidRemoved}");
+            }
             $this->line("  Item dilewati    : {$skipped}");
+
+            if (!$this->dryRun && $syncStock && $touchedCellIds) {
+                foreach (array_unique(array_filter($touchedCellIds)) as $cid) {
+                    $used = Stock::where('cell_id', $cid)->where('status', 'available')->count();
+                    Cell::where('id', $cid)->update([
+                        'capacity_used' => $used,
+                        'status'        => $used > 0 ? 'partial' : 'available',
+                    ]);
+                }
+            }
         }
 
         $this->newLine();
