@@ -34,9 +34,6 @@ class InboundReceiveRequest extends FormRequest
             'warehouse_code'  => ['required', 'string', 'max:50', 'exists:warehouses,code'],
             'do_number'       => ['required', 'string', 'max:100'],
             'do_date'         => ['required', 'date_format:Y-m-d'],
-            'erp_reference'   => ['nullable', 'string', 'max:100'],
-            'ref_doc_spk'     => ['nullable', 'string', 'max:100'],
-            'batch_header'    => ['nullable', 'string', 'max:100'],
             'notes'           => ['nullable', 'string', 'max:1000'],
 
             // ── Identifikasi Supplier (opsional) ────────────────────────────
@@ -48,30 +45,10 @@ class InboundReceiveRequest extends FormRequest
             'items'                 => ['required', 'array', 'min:1', 'max:500'],
 
             // Identifikasi item: kirim erp_item_code (kode item di ERP) atau sku
-            'items.*.erp_item_code' => ['nullable', 'string', 'max:100'],
-            'items.*.sku'           => ['nullable', 'string', 'max:100'],
+            'items.*.sku'           => ['required', 'string', 'max:100'],
             'items.*.quantity'      => ['required', 'integer', 'min:1', 'max:999999'],
-            'items.*.lpn'           => ['nullable', 'string', 'max:100'],
             'items.*.notes'         => ['nullable', 'string', 'max:500'],
         ];
-    }
-
-    /**
-     * Validasi tambahan: tiap item HARUS punya erp_item_code ATAU sku.
-     * Tidak bisa keduanya kosong.
-     */
-    public function withValidator(Validator $validator): void
-    {
-        $validator->after(function (Validator $v) {
-            foreach ($this->input('items', []) as $index => $item) {
-                if (empty($item['erp_item_code']) && empty($item['sku'])) {
-                    $v->errors()->add(
-                        "items.{$index}",
-                        "Item ke-" . ($index + 1) . ": field 'erp_item_code' atau 'sku' wajib diisi."
-                    );
-                }
-            }
-        });
     }
 
     public function messages(): array

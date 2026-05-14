@@ -526,9 +526,8 @@
                                 </div>
                                 <div class="col-md-3 mb-1">
                                     <span class="badge badge-secondary">4</span>
-                                    <strong> Tidak ada QR?</strong><br>
-                                    <span class="text-muted">Klik <strong>"Lanjut tanpa scan"</strong> →
-                                        sistem pakai rekomendasi GA langsung. Konfirmasi manual muncul.</span>
+                                    <strong> Tidak ada QR di rak?</strong><br>
+                                    <span class="text-muted">Hubungi supervisor untuk cetak & tempel label QR pada rak. Scan QR <strong>wajib</strong> sebelum konfirmasi.</span>
                                 </div>
                             </div>
                         </div>
@@ -1121,21 +1120,10 @@
                         {{-- Status auto-confirm (muncul sebentar sebelum modal tutup) --}}
                         <div id="autoConfirmStatus" class="text-center py-2" style="display:none"></div>
 
-                        {{-- ── DIVIDER + SKIP ── --}}
-                        <div class="d-flex align-items-center my-3">
-                            <hr style="flex:1;margin:0">
-                            <span class="text-muted px-2" style="font-size:11px;white-space:nowrap">atau</span>
-                            <hr style="flex:1;margin:0">
+                        <div class="alert alert-warning py-2 px-3 mt-3 mb-0" style="border-radius:6px;font-size:12px">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                            <strong>Wajib scan QR di rak fisik</strong> sebelum konfirmasi penempatan.
                         </div>
-                        <button type="button" id="btnSkipScan" class="btn btn-outline-secondary btn-block"
-                            style="font-size:13px">
-                            <i class="fas fa-forward mr-1"></i>
-                            Lanjut tanpa scan — pakai rekomendasi GA
-                            <span class="badge badge-primary ml-1" id="skipGaCellCode" style="font-size:11px"></span>
-                        </button>
-                        <small class="text-muted d-block text-center mt-2" style="font-size:11px">
-                            Pilih ini jika QR belum tersedia di rak fisik
-                        </small>
                     </div>
 
                     {{-- ════════════════════════════════════
@@ -1796,13 +1784,6 @@
             }
         });
 
-        // ── Skip scan — pakai GA langsung ────────────────────────────────────────────
-        $('#btnSkipScan').on('click', function() {
-            if (modalGaCell) {
-                showConfirmPhase(modalGaCell);
-            }
-        });
-
         // ── Scan ulang (balik ke phase 1) ────────────────────────────────────────────
         $('#btnRescan').on('click', showScanPhase);
 
@@ -1838,22 +1819,9 @@
             $('#confirmItemName').text(itemName);
             $('#confirmItemQty').text(qty);
 
-            // Tombol skip: tampilkan kode GA di label
-            if (modalGaCell && !isOverride) {
-                $('#skipGaCellCode').text(gaCell).show();
-                $('#btnSkipScan').show();
-            } else {
-                $('#btnSkipScan').hide(); // Override wajib scan
-            }
-
-            // Jika sudah ada cell tersimpan dari "Ganti Cell" (bukan override) → langsung Phase 2
-            if (!isOverride && selectedCellMap[detailId]) {
-                $('#modalConfirm').modal('show');
-                showConfirmPhase(selectedCellMap[detailId]);
-            } else {
-                showScanPhase();
-                $('#modalConfirm').modal('show');
-            }
+            // Selalu mulai dari Phase 1 — scan QR wajib
+            showScanPhase();
+            $('#modalConfirm').modal('show');
         }
 
         $(document).on('click', '.btnConfirm', function() {
@@ -1914,7 +1882,22 @@
                 return;
             }
 
-            doSaveConfirm(cellId, qty, notes, modalCell?.code || '');
+            const cellCode = modalCell?.code || cellId;
+            Swal.fire({
+                title: 'Konfirmasi Penempatan?',
+                html: 'Simpan item ke cell <strong>' + cellCode + '</strong><br>Jumlah: <strong>' + qty + ' unit</strong>',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fas fa-check-circle mr-1"></i> Ya, Simpan',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    doSaveConfirm(cellId, qty, notes, cellCode);
+                }
+            });
         });
 
         // ══════════════════════════════════════════════════════════════════════

@@ -92,41 +92,6 @@
                             </div>
                         </div>
 
-                        {{-- Info lokasi --}}
-                        <div class="text-center mb-2" style="border-top:1px solid #eee; padding-top:6px;">
-                            <table style="width:100%; font-size:10px;">
-                                <tr>
-                                    <td style="color:#6c757d;">Rak</td>
-                                    <td class="font-weight-bold text-right">{{ $cell->rack?->code ?? '—' }}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color:#6c757d;">Level</td>
-                                    <td class="font-weight-bold text-right">{{ chr(64 + $cell->level) }}</td>
-                                </tr>
-                                <tr>
-                                    <td style="color:#6c757d;">Kapasitas</td>
-                                    <td class="font-weight-bold text-right">{{ $cell->capacity_max }} unit</td>
-                                </tr>
-                                @if($cell->dominantCategory)
-                                <tr>
-                                    <td style="color:#6c757d;">Kategori</td>
-                                    <td class="text-right">
-                                        <span style="background:{{ $cell->dominantCategory->color_code ?? '#6c757d' }};
-                                            color:#fff; padding:1px 5px; border-radius:3px; font-size:9px;">
-                                            {{ $cell->dominantCategory->name }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                @endif
-                            </table>
-                        </div>
-
-                        {{-- Footer label --}}
-                        <div class="text-center" style="border-top:1px solid #eee; padding-top:6px;">
-                            <small style="font-size:9px; color:#6c757d;" id="labelFooterNote">
-                                <i class="fas fa-qrcode"></i> Scan label ini untuk lihat isi &amp; stok cell
-                            </small>
-                        </div>
                     </div>
 
                     <div class="mt-3 text-muted small">
@@ -261,7 +226,7 @@
 <script src="{{ asset('js/qrious.min.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script>
-const CELL_CODE = '{{ $cell->qr_code ?? $cell->code }}';
+const CELL_CODE = '{{ url("/c/" . ($cell->qr_code ?? $cell->code)) }}';
 let currentFormat = 'qr';
 
 // ─── Render QR Code ───────────────────────────────────────────────────────────
@@ -298,7 +263,6 @@ function setFormat(format) {
         $('#btnQr').removeClass('btn-outline-secondary').addClass('btn-success');
         $('#btnBarcode').removeClass('btn-success').addClass('btn-outline-secondary');
         $('#formatNote').text('QR Code cocok untuk scan via kamera tablet — bisa dari berbagai sudut');
-        $('#labelFooterNote').text('Scan QR untuk lihat isi cell');
     } else {
         $('#wrapQr').hide();
         $('#wrapBarcode').show();
@@ -306,7 +270,6 @@ function setFormat(format) {
         $('#btnBarcode').removeClass('btn-outline-secondary').addClass('btn-success');
         $('#btnQr').removeClass('btn-success').addClass('btn-outline-secondary');
         $('#formatNote').text('Barcode Code128 cocok untuk scanner fisik/pistol — scan satu arah horizontal');
-        $('#labelFooterNote').text('Scan barcode untuk lihat isi cell');
     }
 }
 </script>

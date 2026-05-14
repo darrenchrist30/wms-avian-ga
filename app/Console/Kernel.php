@@ -15,7 +15,28 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule)
     {
-        // $schedule->command('inspire')->hourly();
+        // Kirim ringkasan alert WA setiap hari yang dikonfigurasi (default: Senin jam 08:00)
+        $day  = config('services.fonnte.schedule_day', 'monday');
+        $time = config('services.fonnte.schedule_time', '08:00');
+
+        $schedule->command('wms:send-wa-alert')
+            ->weeklyOn($this->dayToNumber($day), $time)
+            ->withoutOverlapping()
+            ->runInBackground();
+    }
+
+    private function dayToNumber(string $day): int
+    {
+        return match (strtolower($day)) {
+            'sunday'    => 0,
+            'monday'    => 1,
+            'tuesday'   => 2,
+            'wednesday' => 3,
+            'thursday'  => 4,
+            'friday'    => 5,
+            'saturday'  => 6,
+            default     => 1,
+        };
     }
 
     /**

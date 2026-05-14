@@ -168,24 +168,6 @@ body {
 
         <div class="lbl-code">{{ $cell->code }}</div>
 
-        <table class="lbl-info-table">
-            <tr>
-                <td>Rak</td>
-                <td>{{ $cell->rack->code ?? $rack->code }}</td>
-            </tr>
-            <tr>
-                <td>Level</td>
-                <td>{{ chr(64 + $cell->level) }}</td>
-            </tr>
-            <tr>
-                <td>Kapasitas</td>
-                <td>{{ number_format($cell->capacity_max) }} unit</td>
-            </tr>
-        </table>
-
-        <div class="lbl-footer">
-            Scan QR untuk detail &amp; stok cell
-        </div>
     </div>
     @endforeach
 </div>
@@ -194,7 +176,7 @@ body {
 <script>
 const cellData = @json($cells->map(fn($c) => [
     'id' => $c->id,
-    'qr' => $c->qr_code ?? $c->code,
+    'qr' => url('/c/' . ($c->qr_code ?? $c->code)),
 ]));
 
 cellData.forEach(function (cell) {

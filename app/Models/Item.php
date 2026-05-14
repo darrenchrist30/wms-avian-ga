@@ -16,7 +16,7 @@ class Item extends Model
     }
 
     protected $fillable = [
-        'category_id', 'unit_id', 'sku', 'erp_item_code', 'name', 'item_size', 'barcode',
+        'category_id', 'unit_id', 'sku', 'erp_item_code', 'name', 'merk', 'item_size', 'barcode',
         'description', 'min_stock', 'max_stock', 'reorder_point', 'movement_type',
         'weight_kg', 'volume_m3', 'image', 'is_active', 'deadstock_threshold_days',
     ];

@@ -355,6 +355,14 @@ const WIDE_RACK_CODES     = new Set(['1','2','3','4','5','6','7','8','9','10','1
 const VERTICAL_RACK_CODES = new Set(['12','13','14','15']);
 const VW = 32.0; // panjang Z rak vertikal (sama dengan span rak 1–11: Z=0 s/d Z=32)
 
+// ── Mspart layout constants ────────────────────────────────────────────────
+// Grup X offset within wide rack (A=leftmost at +6, G=rightmost at -6)
+const GRUP_X    = { A:6, B:4, C:2, D:0, E:-2, F:-4, G:-6 };
+// Kolom offset within a grup (kolom 1/2/3 → left/center/right in 2m span)
+const KOLOM_XS  = [-0.60, 0, 0.60];
+const MSPART_CW = 0.52;  // width of each mspart cell panel
+const COLUMN_DETAIL_URL = '{{ route("warehouse3d.column-detail") }}';
+
 const ZONE_LABEL = { A: '#4fc3f7', B: '#ffb74d', C: '#ef9a9a' };
 
 function cellHex(cell) {
@@ -596,11 +604,13 @@ function buildSpecialArea(rx, rz, def, rack) {
         mesh.renderOrder = 1;
         mesh.position.set(rx, topY + cellH / 2, rz);
         mesh.userData = {
-            cellId:   cell.cell_id,
-            cellCode: cell.code,
-            status:   cell.status,
-            util:     cell.utilization,
-            rackW:    AW,
+            cellId:    cell.cell_id,
+            cellCode:  cell.code,
+            status:    cell.status,
+            util:      cell.utilization,
+            rackW:     AW,
+            columnKey: rack.rack_code + '_lv' + (cell.level ?? 1),
+            rackCode:  rack.rack_code,
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
@@ -685,17 +695,70 @@ function itemCountForCell(cell) {
     return 4;
 }
 
+// ── Mspart: render sel-sel dengan data blok/grup/kolom/baris ─────────────
+function buildMspartCells(rx, rz, rackCode, cells) {
+    const geo = new THREE.BoxGeometry(MSPART_CW, CH - 0.08, CD - 0.22);
+    cells.forEach(cell => {
+        const gx  = GRUP_X[cell.grup]   ?? 0;
+        const kx  = KOLOM_XS[(cell.kolom ?? 1) - 1] ?? 0;
+        const lv  = (cell.baris ?? cell.level ?? 1) - 1;
+        const y   = lv * CH + CH / 2;
+
+        const mat = new THREE.MeshLambertMaterial({
+            color:       cellHex(cell),
+            emissive:    new THREE.Color(cellEmissive(cell)),
+            transparent: true,
+            opacity:     Math.max(cellOpacity(cell), 0.20),  // min 20% so it's always visible
+            side:        THREE.DoubleSide,
+            depthWrite:  false,
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.renderOrder = 1;
+        mesh.position.set(rx + gx + kx, y, rz);
+        mesh.userData = {
+            cellId:    cell.cell_id,
+            cellCode:  cell.code,
+            status:    cell.status,
+            util:      cell.utilization,
+            rackW:     MSPART_CW,
+            isMspart:  true,
+            columnKey: rackCode + '_' + cell.grup + '_' + (cell.kolom ?? 1),
+            blok:      cell.blok,
+            grup:      cell.grup,
+            kolom:     cell.kolom ?? 1,
+            baris:     cell.baris ?? cell.level ?? 1,
+        };
+        scene.add(mesh);
+        cellMeshes.push(mesh);
+
+        // Low-poly item inside if occupied
+        if ((cell.utilization ?? 0) > 0) {
+            const h      = hashCell(cell.code);
+            const iType  = h % ITEM_GEOS.length;
+            const ih     = ITEM_H[iType];
+            const im     = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
+            im.scale.set(0.55, 0.55, 0.55);
+            im.position.set(rx + gx + kx, lv * CH + 0.066 + ih * 0.55 / 2, rz);
+            im.rotation.y = ((h * 13) % 628) / 100;
+            im.castShadow = true;
+            scene.add(im);
+            itemMeshes.push(im);
+        }
+    });
+}
+
 // ── Build Scene ───────────────────────────────────────────────────────────
 const cellMeshes = [];
 const itemMeshes = [];   // non-interactive item models; cleared alongside cells
-let hoveredMesh = null, hoveredOrigMat = null;
+let hoveredMeshes = [];  // supports single-cell and column-group hover
 
 function clearScene() {
-    // clearHighlight() is a function declaration — safe to call before its source line
     if (typeof clearHighlight === 'function') clearHighlight();
+    hoveredMeshes.forEach(m => { delete m.userData._savedMat; });
+    hoveredMeshes = [];
     cellMeshes.forEach(m => { scene.remove(m); m.material.dispose(); });
     cellMeshes.length = 0;
-    itemMeshes.forEach(m => scene.remove(m));   // shared mats — don't dispose
+    itemMeshes.forEach(m => scene.remove(m));
     itemMeshes.length = 0;
 }
 
@@ -802,11 +865,13 @@ function buildVerticalRack(rx, rz, rack) {
         mesh.renderOrder = 1;
         mesh.position.set(rx, lvl * CH + CH / 2, rz);
         mesh.userData = {
-            cellId:   cell.cell_id,
-            cellCode: cell.code,
-            status:   cell.status,
-            util:     cell.utilization,
-            rackW:    CW,
+            cellId:    cell.cell_id,
+            cellCode:  cell.code,
+            status:    cell.status,
+            util:      cell.utilization,
+            rackW:     CW,
+            columnKey: rack.rack_code,
+            rackCode:  rack.rack_code,
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
@@ -910,9 +975,16 @@ function buildRack(rx, rz, rack) {
     lbl.userData.scaleWide   = isWide;
     scene.add(lbl);
 
+    // ── Mspart cells (have blok/grup/kolom/baris): rendered as column panels ─
+    const mspartCells  = rack.cells.filter(c => c.grup != null);
+    const regularCells = rack.cells.filter(c => c.grup == null);
+    if (mspartCells.length > 0) {
+        buildMspartCells(rx, rz, rack.rack_code, mspartCells);
+    }
+
     // Cell panels — full geometry, colour & opacity encode status
     const cellGeo = isWide ? cellPanelGeoWide : cellPanelGeo;
-    rack.cells.forEach(cell => {
+    regularCells.forEach(cell => {
         const lvl = (cell.level ?? 1) - 1;
         const mat = new THREE.MeshLambertMaterial({
             color:       cellHex(cell),
@@ -926,11 +998,13 @@ function buildRack(rx, rz, rack) {
         mesh.renderOrder = 1;
         mesh.position.set(rx, lvl * CH + CH / 2, rz);
         mesh.userData = {
-            cellId:   cell.cell_id,
-            cellCode: cell.code,
-            status:   cell.status,
-            util:     cell.utilization,
-            rackW:    RW,
+            cellId:    cell.cell_id,
+            cellCode:  cell.code,
+            status:    cell.status,
+            util:      cell.utilization,
+            rackW:     RW,
+            columnKey: rack.rack_code + '_lv' + (cell.level ?? 1),
+            rackCode:  rack.rack_code,
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
@@ -1141,27 +1215,70 @@ renderer.domElement.addEventListener('mousemove', function (e) {
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(cellMeshes);
 
-    if (hoveredMesh) {
-        hoveredMesh.material = hoveredOrigMat;
-        hoveredMesh = hoveredOrigMat = null;
-    }
+    // Restore all previously hovered meshes
+    hoveredMeshes.forEach(m => {
+        if (m.userData._savedMat) {
+            m.material    = m.userData._savedMat;
+            m.renderOrder = 1;
+            delete m.userData._savedMat;
+        }
+    });
+    hoveredMeshes = [];
 
     if (hits.length) {
         const m  = hits[0].object;
-        hoveredOrigMat = m.material;
-        hoveredMesh    = m;
-        m.material     = new THREE.MeshLambertMaterial({
+        const ud = m.userData;
+        const hoverMat = new THREE.MeshLambertMaterial({
             color: 0xfbbf24, emissive: new THREE.Color(0x3d1500),
             transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false,
         });
 
+        if (ud.columnKey) {
+            // ── Column hover: highlight all cells in the same column ──────────
+            cellMeshes.forEach(cm => {
+                if (cm.userData.columnKey !== ud.columnKey) return;
+                cm.userData._savedMat = cm.material;
+                cm.material    = hoverMat.clone();
+                cm.renderOrder = 2;
+                hoveredMeshes.push(cm);
+            });
+            const colCells = cellMeshes.filter(cm => cm.userData.columnKey === ud.columnKey);
+
+            if (ud.isMspart) {
+                // Mspart: kolom = semua baris dengan blok+grup+kolom sama
+                const barisList = colCells.map(cm => cm.userData.baris).sort((a, b) => a - b);
+                tooltip.innerHTML = `
+                    <strong style="color:#fbbf24">Kolom ${ud.blok}-${ud.grup}-K${ud.kolom}</strong><br>
+                    <span style="color:#94a3b8">${barisList.length} baris (${barisList.join(', ')})</span><br>
+                    <span style="color:#64748b;font-size:10px">Klik untuk detail kolom</span>`;
+            } else if (colCells.length > 1) {
+                // Rak vertikal / multi-sel: tampilkan ringkasan kolom
+                const filled = colCells.filter(cm => (cm.userData.util ?? 0) > 0).length;
+                tooltip.innerHTML = `
+                    <strong style="color:#fbbf24">Rak ${ud.rackCode}</strong><br>
+                    <span style="color:#94a3b8">${colCells.length} level · ${filled} terisi</span><br>
+                    <span style="color:#64748b;font-size:10px">Klik sel untuk detail</span>`;
+            } else {
+                // Sel tunggal (wide rack per group, special area)
+                tooltip.innerHTML = `
+                    <strong style="color:#fbbf24">${ud.cellCode}</strong><br>
+                    Status: <span style="color:#94a3b8">${ud.status}</span><br>
+                    Terisi: <span style="color:#94a3b8">${ud.util}%</span>`;
+            }
+        } else {
+            // ── Fallback: single-cell hover ───────────────────────────────────
+            m.userData._savedMat = m.material;
+            m.material    = hoverMat;
+            m.renderOrder = 2;
+            hoveredMeshes = [m];
+            tooltip.innerHTML = `<strong style="color:#fbbf24">${ud.cellCode}</strong><br>
+                Status: <span style="color:#94a3b8">${ud.status}</span><br>
+                Terisi: <span style="color:#94a3b8">${ud.util}%</span>`;
+        }
+
         tooltip.style.display = 'block';
         tooltip.style.left    = (e.offsetX + 16) + 'px';
         tooltip.style.top     = (e.offsetY + 14) + 'px';
-        const ud = m.userData;
-        tooltip.innerHTML = `<strong style="color:#fbbf24">${ud.cellCode}</strong><br>
-            Status: <span style="color:#94a3b8">${ud.status}</span><br>
-            Terisi: <span style="color:#94a3b8">${ud.util}%</span>`;
         renderer.domElement.style.cursor = 'pointer';
     } else {
         tooltip.style.display = 'none';
@@ -1171,6 +1288,14 @@ renderer.domElement.addEventListener('mousemove', function (e) {
 
 renderer.domElement.addEventListener('mouseleave', function () {
     tooltip.style.display = 'none';
+    hoveredMeshes.forEach(m => {
+        if (m.userData._savedMat) {
+            m.material    = m.userData._savedMat;
+            m.renderOrder = 1;
+            delete m.userData._savedMat;
+        }
+    });
+    hoveredMeshes = [];
 });
 
 // ── Click → Modal ─────────────────────────────────────────────────────────
@@ -1183,68 +1308,145 @@ renderer.domElement.addEventListener('click', function (e) {
     if (!hits.length) return;
 
     const ud = hits[0].object.userData;
-    $('#modalCellCode').text(ud.cellCode);
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');
 
-    $.getJSON(DETAIL_BASE + '/' + ud.cellId, function (res) {
-        const c = res.cell;
-        const uc = c.utilization >= 80 ? 'danger' : c.utilization >= 40 ? 'warning' : 'success';
-        let rows = res.stocks.length === 0
-            ? '<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada stok di cell ini.</td></tr>'
-            : res.stocks.map((s, i) => `
-                <tr class="${i===0?'table-success':''}">
-                    <td class="text-center">${i+1}</td>
-                    <td><strong>${s.item_name}</strong>${i===0?'<span class="badge badge-success ml-1" style="font-size:9px">FIFO</span>':''}<br><small class="text-muted">${s.sku}</small></td>
-                    <td class="text-center font-weight-bold">${s.quantity.toLocaleString('id')} <small>${s.unit}</small></td>
-                    <td class="text-center"><small>${s.inbound_date||'—'}</small></td>
-                    <td class="text-center"><small>${s.expiry_date||'—'}</small></td>
-                    <td><small>${s.lpn||'—'}</small></td>
-                </tr>`).join('');
+    if (ud.isMspart && ud.columnKey) {
+        // ── Column click: tampilkan semua baris dalam kolom ini ───────────
+        $('#modalCellCode').text(`Kolom ${ud.blok}-${ud.grup}-K${ud.kolom}`);
 
-        $('#cellModalBody').html(`
-            <div class="row mx-0 border-bottom pb-3 pt-2">
-                <div class="col-md-4 mb-2">
-                    <small class="text-muted">Lokasi</small>
-                    <div class="font-weight-bold">${c.warehouse} › ${c.zone} › Rak ${c.rack} › ${c.code}</div>
-                </div>
-                <div class="col-md-2 mb-2">
-                    <small class="text-muted">Level / Kolom</small>
-                    <div class="font-weight-bold">L${c.level} / K${c.column}</div>
-                </div>
-                <div class="col-md-2 mb-2">
-                    <small class="text-muted">Status</small>
-                    <div><span class="badge badge-${c.status==='available'?'success':c.status==='full'?'danger':'warning'} px-2">${c.status}</span></div>
-                </div>
-                <div class="col-md-4 mb-2">
-                    <small class="text-muted">Kapasitas — ${c.utilization}% terpakai</small>
-                    <div class="progress mt-1" style="height:8px">
-                        <div class="progress-bar bg-${uc}" style="width:${c.utilization}%"></div>
+        $.getJSON(COLUMN_DETAIL_URL, { blok: ud.blok, grup: ud.grup, kolom: ud.kolom }, function (res) {
+            let rows = res.levels.length === 0
+                ? '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data.</td></tr>'
+                : res.levels.map(lv => {
+                    const isEmpty = !lv.stocks.length;
+                    const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
+                    const itemHtml = isEmpty
+                        ? '<small class="text-muted">— kosong —</small>'
+                        : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span><small class="text-muted ml-1">(masuk: ${s.inbound_date||'—'})</small></div>`).join('');
+                    return `<tr>
+                        <td class="text-center font-weight-bold" style="font-size:16px;color:#6f42c1">${lv.baris}</td>
+                        <td><span class="badge badge-light border">${lv.code}</span></td>
+                        <td class="text-center"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
+                        <td>${itemHtml}</td>
+                    </tr>`;
+                }).join('');
+
+            $('#cellModalBody').html(`
+                <div class="row mx-0 border-bottom pb-2 pt-2 bg-light">
+                    <div class="col-md-4 mb-2">
+                        <small class="text-muted">Lokasi Kolom</small>
+                        <div class="font-weight-bold">Blok ${res.blok} › Grup ${res.grup} › Kolom ${res.kolom}</div>
                     </div>
-                    <small class="text-muted">${c.capacity_used} / ${c.capacity_max}</small>
+                    <div class="col-md-4 mb-2">
+                        <small class="text-muted">Jumlah Baris Aktif</small>
+                        <div class="font-weight-bold">${res.levels.length} baris</div>
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <small class="text-muted">Total Item</small>
+                        <div class="font-weight-bold">${res.levels.reduce((t,l)=>t+l.stocks.length,0)} item</div>
+                    </div>
                 </div>
-            </div>
-            <div class="p-2">
-                <strong class="d-block mb-2"><i class="fas fa-boxes mr-1 text-primary"></i>Isi Stok (FIFO)</strong>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered mb-0">
-                        <thead class="thead-light">
-                            <tr>
-                                <th class="text-center" width="35">#</th>
-                                <th>Item</th>
-                                <th class="text-center" width="90">Qty</th>
-                                <th class="text-center" width="105">Tgl Masuk</th>
-                                <th class="text-center" width="105">Kadaluarsa</th>
-                                <th width="100">LPN</th>
-                            </tr>
-                        </thead>
-                        <tbody>${rows}</tbody>
-                    </table>
+                <div class="p-2">
+                    <strong class="d-block mb-2"><i class="fas fa-layer-group mr-1 text-primary"></i>Isi per Baris (Level)</strong>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th class="text-center" width="55">Baris</th>
+                                    <th width="110">Kode Sel</th>
+                                    <th class="text-center" width="90">Status</th>
+                                    <th>Isi Item</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`);
+        }).fail(function () {
+            $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail kolom.</div>');
+        });
+
+    } else {
+        // ── Single-cell click: tampilkan detail satu sel ──────────────────
+        $('#modalCellCode').text(ud.cellCode);
+
+        $.getJSON(DETAIL_BASE + '/' + ud.cellId, function (res) {
+            const c  = res.cell;
+            const uc = c.utilization >= 80 ? 'danger' : c.utilization >= 40 ? 'warning' : 'success';
+            const _lvl = ['','A','B','C','D','E','F','G'];
+            const dispBlok  = c.blok  != null ? c.blok  : c.rack;
+            const dispGrup  = c.grup  != null ? c.grup  : (_lvl[c.level] || c.level);
+            const dispKolom = c.kolom != null ? c.kolom : c.column;
+            const dispBaris = c.baris != null ? c.baris : '—';
+            let rows = res.stocks.length === 0
+                ? '<tr><td colspan="6" class="text-center text-muted py-3">Tidak ada stok di cell ini.</td></tr>'
+                : res.stocks.map((s, i) => `
+                    <tr class="${i===0?'table-success':''}">
+                        <td class="text-center">${i+1}</td>
+                        <td><strong>${s.item_name}</strong>${i===0?'<span class="badge badge-success ml-1" style="font-size:9px">FIFO</span>':''}<br><small class="text-muted">${s.sku}</small></td>
+                        <td class="text-center font-weight-bold">${s.quantity.toLocaleString('id')} <small>${s.unit}</small></td>
+                        <td class="text-center"><small>${s.inbound_date||'—'}</small></td>
+                        <td class="text-center"><small>${s.expiry_date||'—'}</small></td>
+                        <td><small>${s.lpn||'—'}</small></td>
+                    </tr>`).join('');
+
+            $('#cellModalBody').html(`
+                <div class="row mx-0 border-bottom pb-3 pt-2">
+                    <div class="col-md-4 mb-2">
+                        <small class="text-muted">Lokasi</small>
+                        <div class="font-weight-bold">${c.warehouse} › ${c.zone} › Rak ${c.rack} › ${c.code}</div>
+                    </div>
+                    <div class="col-md-1 mb-2">
+                        <small class="text-muted">Blok</small>
+                        <div class="font-weight-bold">${dispBlok}</div>
+                    </div>
+                    <div class="col-md-1 mb-2">
+                        <small class="text-muted">Grup</small>
+                        <div class="font-weight-bold">${dispGrup}</div>
+                    </div>
+                    <div class="col-md-1 mb-2">
+                        <small class="text-muted">Kolom</small>
+                        <div class="font-weight-bold">${dispKolom}</div>
+                    </div>
+                    <div class="col-md-1 mb-2">
+                        <small class="text-muted">Baris</small>
+                        <div class="font-weight-bold">${dispBaris}</div>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <small class="text-muted">Status</small>
+                        <div><span class="badge badge-${c.status==='available'?'success':c.status==='full'?'danger':'warning'} px-2">${c.status}</span></div>
+                    </div>
+                    <div class="col-md-2 mb-2">
+                        <small class="text-muted">Kapasitas — ${c.utilization}% terpakai</small>
+                        <div class="progress mt-1" style="height:8px">
+                            <div class="progress-bar bg-${uc}" style="width:${c.utilization}%"></div>
+                        </div>
+                        <small class="text-muted">${c.capacity_used} / ${c.capacity_max}</small>
+                    </div>
                 </div>
-            </div>`);
-    }).fail(function () {
-        $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail cell.</div>');
-    });
+                <div class="p-2">
+                    <strong class="d-block mb-2"><i class="fas fa-boxes mr-1 text-primary"></i>Isi Stok (FIFO)</strong>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th class="text-center" width="35">#</th>
+                                    <th>Item</th>
+                                    <th class="text-center" width="90">Qty</th>
+                                    <th class="text-center" width="105">Tgl Masuk</th>
+                                    <th class="text-center" width="105">Kadaluarsa</th>
+                                    <th width="100">LPN</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`);
+        }).fail(function () {
+            $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail cell.</div>');
+        });
+    }
 });
 
 // ── Resize ────────────────────────────────────────────────────────────────

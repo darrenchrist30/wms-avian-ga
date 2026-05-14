@@ -111,7 +111,7 @@ class GaService
         // Quantity akan dipecah setelah sistem mengetahui existing cell dan kapasitasnya.
         $rawDetails = $order->items()
             ->with('item.category')
-            ->whereIn('status', ['pending', 'recommended', 'partial_put_away'])
+            ->whereIn('status', ['pending', 'partial_put_away'])
             ->where('quantity_received', '>', 0)
             ->get();
 
@@ -392,16 +392,9 @@ class GaService
                 'fc_split_score'         => $gene['fc_split']      ?? null,
             ]);
 
-            // Update status inbound_detail → 'recommended'
-            InboundOrderItem::where('id', $gene['inbound_detail_id'])
-                ->update(['status' => 'recommended']);
         }
 
-        // Update status order → 'recommended'
-        $order->update([
-            'status'       => 'recommended',
-            'processed_at' => now(),
-        ]);
+        $order->update(['processed_at' => now()]);
 
         return $recommendation->load('details');
     }

@@ -73,6 +73,19 @@
                                             </div>
 
                                             <div class="form-group row">
+                                                <label class="col-sm-4 col-form-label">Merk</label>
+                                                <div class="col-sm-8">
+                                                    <input type="text" name="merk"
+                                                        class="form-control @error('merk') is-invalid @enderror"
+                                                        value="{{ old('merk', $data->merk ?? '') }}"
+                                                        placeholder="Merk / pabrikan sparepart" maxlength="100">
+                                                    @error('merk')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">Kategori <span class="text-danger">*</span></label>
                                                 <div class="col-sm-8">
                                                     <select name="category_id" class="form-control @error('category_id') is-invalid @enderror">

@@ -235,6 +235,12 @@ class PutAwayService
      */
     public function resolveCellByQr(string $qrCode): Cell
     {
+        // QR labels now encode a URL (e.g. https://domain/c/A-01-01).
+        // Extract just the code segment so old and new label formats both work.
+        if (str_contains($qrCode, '/c/')) {
+            $qrCode = trim(last(explode('/c/', $qrCode)), '/ ');
+        }
+
         $cell = Cell::where(function ($q) use ($qrCode) {
             $q->where('qr_code', $qrCode)
                 ->orWhere('code', $qrCode)

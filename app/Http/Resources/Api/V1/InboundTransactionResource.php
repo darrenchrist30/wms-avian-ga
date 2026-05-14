@@ -69,13 +69,10 @@ class InboundTransactionResource extends JsonResource
     private function statusLabel(): string
     {
         return match($this->status) {
-            'draft'       => 'Diterima — Menunggu Proses GA',
-            'processing'  => 'Sedang Diproses GA',
-            'recommended' => 'Rekomendasi Lokasi Tersedia',
-            'put_away'    => 'Sedang Put-Away oleh Operator',
-            'completed'   => 'Selesai — Semua Item Tersimpan',
-            'cancelled'   => 'Dibatalkan',
-            default       => $this->status,
+            'inbound'   => 'Diterima — Menunggu Proses GA',
+            'put_away'  => 'Sedang Put-Away oleh Operator',
+            'completed' => 'Selesai — Semua Item Tersimpan',
+            default     => $this->status,
         };
     }
 }

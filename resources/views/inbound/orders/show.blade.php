@@ -45,34 +45,26 @@
 @php
     /* ─── Status meta ─── */
     $statusMeta = [
-        'draft'       => ['secondary', 'Draft',          'fas fa-inbox'],
-        'processing'  => ['warning',   'Qty Confirmed',  'fas fa-clipboard-check'],
-        'recommended' => ['info',      'Menunggu Review','fas fa-lightbulb'],
-        'put_away'    => ['primary',   'Put-Away',       'fas fa-dolly'],
-        'completed'   => ['success',   'Completed',      'fas fa-check-circle'],
-        'cancelled'   => ['danger',    'Cancelled',      'fas fa-ban'],
+        'inbound'   => ['warning', 'Inbound',   'fas fa-inbox'],
+        'put_away'  => ['primary', 'Put-Away',  'fas fa-dolly'],
+        'completed' => ['success', 'Completed', 'fas fa-check-circle'],
     ];
     [$sCls, $sLabel, $sIcon] = $statusMeta[$order->status] ?? ['secondary', ucfirst($order->status), 'fas fa-circle'];
 
     /* ─── Stepper mapping ─── */
-    $steps = ['draft','recommended','put_away','completed'];
+    $steps = ['inbound', 'put_away', 'completed'];
     $stepIdx = array_search($order->status, $steps);
-    if ($order->status === 'processing') $stepIdx = 1;
     $stepIdx = $stepIdx === false ? 0 : $stepIdx;
 
     /* ─── Supervisor/admin check ─── */
     $isSupervisor = auth()->user()->isAdmin() || auth()->user()->isSupervisor();
 
     /* ─── Item stats ─── */
-    $totalOrdered   = $order->items->sum('quantity_ordered');
-    $totalReceived  = $order->items->sum('quantity_received');
-    $totalPutAway   = $order->items->where('status','put_away')->count();
-    $totalItems     = $order->items->count();
-    $progressPct    = $totalItems > 0 ? round($totalPutAway / $totalItems * 100) : 0;
-    $qtyConfirmed   = $totalReceived > 0;
-    $hasQtyDiff     = $order->items->contains(
-        fn($i) => $i->quantity_received > 0 && $i->quantity_received != $i->quantity_ordered
-    );
+    $totalOrdered = $order->items->sum('quantity_ordered');
+    $totalReceived = $order->items->sum('quantity_received');
+    $totalPutAway = $order->items->where('status', 'put_away')->count();
+    $totalItems   = $order->items->count();
+    $progressPct  = $totalItems > 0 ? round($totalPutAway / $totalItems * 100) : 0;
 @endphp
 
 <div class="container-fluid pb-4">
@@ -96,57 +88,26 @@
     {{-- ACTION TOOLBAR --}}
     <div class="action-toolbar d-flex flex-wrap" style="gap:6px;">
 
-        {{-- DRAFT: Edit --}}
-        @if ($order->status === 'draft')
+        {{-- INBOUND: Edit --}}
+        @if ($order->status === 'inbound')
         <a href="{{ route('inbound.orders.edit', $order->id) }}"
            class="btn btn-sm btn-outline-warning" title="Edit header order">
             <i class="fas fa-edit mr-1"></i>Edit
         </a>
         @endif
 
-        {{-- DRAFT: Konfirmasi Qty Fisik --}}
-        @if ($order->status === 'draft')
-        <button class="btn btn-sm btn-secondary" id="btnConfirmQty"
-            data-url="{{ route('inbound.orders.confirm-qty', $order->id) }}">
-            <i class="fas fa-clipboard-check mr-1"></i>Konfirmasi Qty Fisik
-        </button>
-        @endif
-
-        {{-- DRAFT: Jalankan GA — disabled jika qty fisik belum dikonfirmasi --}}
-        @if ($order->status === 'draft')
-        @if ($qtyConfirmed)
+        {{-- INBOUND: Jalankan GA --}}
+        @if ($order->status === 'inbound')
         <button class="btn btn-sm btn-primary" id="btnProcessGA"
             data-url="{{ route('inbound.orders.process-ga', $order->id) }}">
             <i class="fas fa-dna mr-1"></i>Jalankan GA
         </button>
-        @else
-        <button class="btn btn-sm btn-primary" disabled
-            data-toggle="tooltip" data-placement="bottom"
-            title="Konfirmasi qty fisik terlebih dahulu sebelum menjalankan GA">
-            <i class="fas fa-dna mr-1"></i>Jalankan GA
-            <i class="fas fa-lock ml-1" style="font-size:10px;opacity:.7"></i>
-        </button>
-        @endif
-        @endif
-
-        {{-- RECOMMENDED + pending_review: Supervisor accept / reject --}}
-        @if ($order->status === 'recommended' && $latestGa && $latestGa->status === 'pending_review' && $isSupervisor)
-        <button class="btn btn-sm btn-success" id="btnAcceptGa"
-            data-url="{{ route('inbound.orders.ga.accept', [$order->id, $latestGa->id]) }}">
-            <i class="fas fa-check-circle mr-1"></i>Setujui Rekomendasi
-        </button>
-        <button class="btn btn-sm btn-outline-danger" id="btnRejectGa"
-            data-url="{{ route('inbound.orders.ga.reject', [$order->id, $latestGa->id]) }}">
-            <i class="fas fa-redo mr-1"></i>Tolak &amp; Ulangi GA
-        </button>
         @endif
 
         {{-- PUT_AWAY: Lanjutkan --}}
-        @if ($order->status === 'put_away' ||
-             ($order->status === 'recommended' && $latestGa && $latestGa->status === 'accepted'))
+        @if ($order->status === 'put_away')
         <a href="{{ route('putaway.show', $order->id) }}" class="btn btn-sm btn-primary">
-            <i class="fas fa-dolly mr-1"></i>
-            {{ $order->status === 'put_away' ? 'Lanjutkan Put-Away' : 'Mulai Put-Away' }}
+            <i class="fas fa-dolly mr-1"></i>Lanjutkan Put-Away
         </a>
         @endif
 
@@ -161,18 +122,6 @@
     </div>
 </div>
 
-{{-- Alert: belum konfirmasi qty → GA terkunci --}}
-@if ($order->status === 'draft' && !$qtyConfirmed)
-<div class="alert alert-warning py-2 px-3 mb-3 d-flex align-items-center" style="border-radius:8px;border-left:4px solid #ffc107">
-    <i class="fas fa-lock mr-2" style="font-size:16px;color:#856404"></i>
-    <span>
-        <strong>Qty fisik belum dikonfirmasi.</strong>
-        Isi kolom <em>Qty Terima</em> pada tabel di bawah, lalu klik
-        <strong>Konfirmasi Qty Fisik</strong> sebelum menjalankan GA.
-    </span>
-</div>
-@endif
-
 {{-- ══════════════════════════════════════════════════════
      2. STATUS STEPPER
 ══════════════════════════════════════════════════════ --}}
@@ -181,10 +130,9 @@
         <ul class="wms-stepper">
             @php
                 $stepDefs = [
-                    ['label'=>'DO Diterima',    'icon'=>'fas fa-inbox'],
-                    ['label'=>'Review GA',      'icon'=>'fas fa-dna'],
-                    ['label'=>'Put-Away',       'icon'=>'fas fa-dolly'],
-                    ['label'=>'Selesai',        'icon'=>'fas fa-check-circle'],
+                    ['label'=>'DO Diterima', 'icon'=>'fas fa-inbox'],
+                    ['label'=>'GA & Put-Away','icon'=>'fas fa-dna'],
+                    ['label'=>'Selesai',     'icon'=>'fas fa-check-circle'],
                 ];
             @endphp
             @foreach ($stepDefs as $si => $step)
@@ -239,22 +187,11 @@
                 </div>
             </div>
 
-            @if ($order->supplier)
-            <div class="col-6 col-md-3 info-block mb-3">
-                <small>Supplier</small>
-                <div class="val">
-                    <i class="fas fa-industry text-secondary mr-1"></i>
-                    {{ $order->supplier->name }}
-                </div>
-            </div>
-            @endif
 
-            @if ($order->erp_reference)
             <div class="col-6 col-md-2 info-block mb-3">
-                <small>Referensi ERP</small>
-                <div class="val">{{ $order->erp_reference }}</div>
+                <small>No. DO</small>
+                <div class="val">{{ $order->do_number }}</div>
             </div>
-            @endif
 
             @if ($order->ref_doc_spk)
             <div class="col-6 col-md-2 info-block mb-3">
@@ -347,21 +284,10 @@
             Detail Item
             <span class="badge badge-primary ml-1">{{ $totalItems }}</span>
         </span>
-        @if ($order->status === 'draft')
-            @if ($qtyConfirmed)
-            <span class="badge badge-success px-2 py-1">
-                <i class="fas fa-check-circle mr-1"></i>Qty Fisik Terkonfirmasi
-                @if ($hasQtyDiff)
-                    <span class="badge badge-warning ml-1 text-dark" style="font-size:9px">
-                        Ada Selisih
-                    </span>
-                @endif
-            </span>
-            @else
-            <span class="badge badge-warning">
-                <i class="fas fa-pencil-alt mr-1"></i>Mode Input Qty — isi jumlah barang yang diterima secara fisik
-            </span>
-            @endif
+        @if ($order->status === 'inbound')
+        <span class="badge badge-warning px-2 py-1">
+            <i class="fas fa-clock mr-1"></i>Menunggu Proses GA
+        </span>
         @endif
     </div>
     <div class="card-body p-0">
@@ -379,7 +305,7 @@
                         <th width="220">SKU / Nama Item</th>
                         <th width="130">Kategori</th>
                         <th class="text-center" width="60">Satuan</th>
-                        <th width="130">LPN / Barcode</th>
+                        <th width="120">Merk</th>
                         <th class="text-center" width="90">
                             <i class="fas fa-file-invoice mr-1 text-muted" title="Qty dari surat jalan"></i>
                             Qty DO
@@ -387,9 +313,6 @@
                         <th class="text-center" width="120">
                             <i class="fas fa-hand-paper mr-1 text-warning" title="Qty fisik di dock"></i>
                             Qty Terima
-                            @if ($order->status === 'draft')
-                            <i class="fas fa-edit text-warning ml-1" title="Bisa diubah"></i>
-                            @endif
                         </th>
                         <th class="text-center" width="70">Selisih</th>
                         <th class="text-center" width="110">Status</th>
@@ -400,10 +323,8 @@
                     @foreach ($order->items as $i => $itm)
                     @php
                         $iStatusMap = [
-                            'pending'     => ['secondary', 'Pending'],
-                            'recommended' => ['info',      'Direkomendasi GA'],
-                            'put_away'    => ['success',   'Put Away'],
-                            'cancelled'   => ['danger',    'Dibatalkan'],
+                            'pending'  => ['secondary', 'Pending'],
+                            'put_away' => ['success',   'Put Away'],
                         ];
                         [$iCls, $iLabel] = $iStatusMap[$itm->status] ?? ['secondary', ucfirst($itm->status)];
                         $diff    = $itm->quantity_received - $itm->quantity_ordered;
@@ -431,25 +352,15 @@
                             <span class="badge badge-light border">{{ $itm->item?->unit->code ?? '-' }}</span>
                         </td>
                         <td>
-                            @if ($itm->lpn)
-                                <code class="small">{{ $itm->lpn }}</code>
+                            @if ($itm->item?->merk)
+                                <span class="small font-weight-bold">{{ $itm->item->merk }}</span>
                             @else
                                 <span class="text-muted small">—</span>
                             @endif
                         </td>
                         <td class="text-center font-weight-bold">{{ number_format($itm->quantity_ordered) }}</td>
                         <td class="text-center">
-                            @if ($order->status === 'draft')
-                                <input type="number"
-                                    class="form-control form-control-sm text-center qty-received-input"
-                                    data-detail-id="{{ $itm->id }}"
-                                    value="{{ $itm->quantity_received }}"
-                                    min="0"
-                                    max="{{ $itm->quantity_ordered * 2 }}"
-                                    style="width:85px;margin:auto;">
-                            @else
-                                <span class="font-weight-bold">{{ number_format($itm->quantity_received) }}</span>
-                            @endif
+                            <span class="font-weight-bold">{{ number_format($itm->quantity_received) }}</span>
                         </td>
                         <td class="text-center">
                             @if ($itm->quantity_received == 0)
@@ -466,8 +377,6 @@
                             <span class="badge badge-{{ $iCls }}" style="font-size:11px;">
                                 @if ($itm->status === 'put_away')
                                     <i class="fas fa-check mr-1"></i>
-                                @elseif ($itm->status === 'recommended')
-                                    <i class="fas fa-map-marker-alt mr-1"></i>
                                 @endif
                                 {{ $iLabel }}
                             </span>
@@ -499,17 +408,6 @@
             </table>
         </div>
 
-        {{-- PANDUAN QTY (hanya draft) --}}
-        @if ($order->status === 'draft')
-        <div class="px-3 py-2 bg-light border-top">
-            <small class="text-muted">
-                <i class="fas fa-info-circle text-primary mr-1"></i>
-                Isi kolom <strong>Qty Terima</strong> sesuai jumlah fisik barang yang ada di dock.
-                Jika ada barang yang tidak datang, isi <strong>0</strong>.
-                Setelah selesai, klik <strong>"Konfirmasi Qty Fisik"</strong>.
-            </small>
-        </div>
-        @endif
     </div>
 </div>
         @endif
@@ -520,12 +418,10 @@
 @if ($latestGa)
 @php
     $gaStatusCfg = [
-        'accepted'       => ['success',  'Diterima (Auto)',    'fas fa-check-circle'],
-        'rejected'       => ['danger',   'Ditolak',            'fas fa-times-circle'],
-        'pending'        => ['info',     'Menunggu Review',    'fas fa-hourglass-half'],
-        'pending_review' => ['warning',  'Perlu Review SPV',   'fas fa-exclamation-triangle'],
+        'accepted' => ['success', 'Diterima (Auto)', 'fas fa-check-circle'],
+        'rejected' => ['danger',  'Ditolak',          'fas fa-times-circle'],
     ];
-    [$gaCl, $gaLbl, $gaIco] = $gaStatusCfg[$latestGa->status] ?? ['secondary','—','fas fa-circle'];
+    [$gaCl, $gaLbl, $gaIco] = $gaStatusCfg[$latestGa->status] ?? ['secondary', '—', 'fas fa-circle'];
 
     $fcDefs = [
         'fc_cap_score'   => ['FC_CAP',   'Kapasitas Cell',            35, '#3b82f6'],
@@ -770,46 +666,13 @@
         </div>
         @endif
 
-        {{-- Alert: pending_review — perlu persetujuan Supervisor --}}
-        @if ($latestGa->status === 'pending_review')
-        <div class="alert alert-warning mt-3 mb-0 py-2 d-flex align-items-start">
-            <i class="fas fa-exclamation-triangle mr-2 mt-1" style="font-size:18px;"></i>
-            <div>
-                <strong>Rekomendasi GA memerlukan persetujuan Supervisor.</strong><br>
-                <span class="text-muted" style="font-size:12px;">
-                    Alasan: {{ $latestGa->review_reason ?? '—' }}
-                </span><br>
-                @if ($isSupervisor)
-                <small class="text-dark">Gunakan tombol <strong>Setujui</strong> atau <strong>Tolak</strong> di atas untuk menangani.</small>
-                @else
-                <small class="text-dark">Supervisor akan segera mereview rekomendasi ini. Silakan tunggu notifikasi.</small>
-                @endif
-            </div>
-        </div>
-        @endif
-
-        {{-- Alert: accepted (auto atau manual) --}}
+        {{-- Alert: accepted (auto) --}}
         @if ($latestGa->status === 'accepted')
         <div class="alert alert-success mt-3 mb-0 py-2">
             <i class="fas fa-check-circle mr-1"></i>
-            Rekomendasi GA <strong>diterima</strong> oleh
-            {{ $latestGa->acceptedBy->name ?? 'sistem' }}
+            Rekomendasi GA <strong>diterima otomatis</strong>
             pada {{ $latestGa->accepted_at?->format('d M Y, H:i') ?? '' }}.
             Operator dapat langsung melakukan <a href="{{ route('putaway.show', $order->id) }}"><strong>Put-Away</strong></a>.
-        </div>
-        @endif
-
-        {{-- Alert: rejected --}}
-        @if ($latestGa->status === 'rejected')
-        <div class="alert alert-danger mt-3 mb-0 py-2">
-            <i class="fas fa-times-circle mr-1"></i>
-            Rekomendasi ini telah <strong>ditolak</strong>
-            oleh {{ $latestGa->rejectedBy->name ?? '—' }}
-            pada {{ $latestGa->rejected_at?->format('d M Y, H:i') ?? '' }}.
-            @if ($latestGa->rejection_reason)
-            <br><small class="text-muted">Alasan: {{ $latestGa->rejection_reason }}</small>
-            @endif
-            <br>Status order dikembalikan ke Draft. Jalankan GA ulang dengan klik <strong>"Jalankan GA"</strong>.
         </div>
         @endif
 
@@ -818,9 +681,9 @@
 @endif
 
 {{-- ══════════════════════════════════════════════════════
-     7. PANDUAN ALUR (tampil jika draft, belum ada tindakan)
+     7. PANDUAN ALUR (tampil jika inbound, belum ada GA)
 ══════════════════════════════════════════════════════ --}}
-@if ($order->status === 'draft' && !$latestGa)
+@if ($order->status === 'inbound' && !$latestGa)
 <div class="card mb-3 card-secondary card-outline">
     <div class="card-header py-2">
         <span class="font-weight-bold">
@@ -828,35 +691,24 @@
         </span>
     </div>
     <div class="card-body py-3">
-        <div class="row text-center">
-            <div class="col-md-4 mb-3">
-                <div class="rounded border p-3 h-100">
-                    <i class="fas fa-clipboard-check fa-2x text-secondary mb-2 d-block"></i>
-                    <strong>Step 1 — Operator</strong>
-                    <p class="small text-muted mt-1 mb-0">
-                        Isi kolom <em>Qty Terima</em> pada tabel item di atas sesuai jumlah fisik,
-                        lalu klik <strong>Konfirmasi Qty Fisik</strong>.
-                    </p>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
+        <div class="row text-center justify-content-center">
+            <div class="col-md-5 mb-3">
                 <div class="rounded border border-primary p-3 h-100">
                     <i class="fas fa-dna fa-2x text-primary mb-2 d-block"></i>
-                    <strong>Step 2 — Jalankan GA</strong>
+                    <strong>Step 1 — Jalankan GA</strong>
                     <p class="small text-muted mt-1 mb-0">
                         Klik <strong>Jalankan GA</strong> untuk mendapatkan rekomendasi penempatan optimal.
-                        Jika hasil valid, sistem otomatis menerima dan langsung siap <em>put-away</em>.
-                        Jika fitness rendah, Supervisor akan dinotifikasi untuk review.
+                        Sistem otomatis menerima hasil GA dan order langsung siap <em>put-away</em>.
                     </p>
                 </div>
             </div>
-            <div class="col-md-4 mb-3">
+            <div class="col-md-5 mb-3">
                 <div class="rounded border p-3 h-100">
                     <i class="fas fa-dolly fa-2x text-success mb-2 d-block"></i>
-                    <strong>Step 3 — Put-Away</strong>
+                    <strong>Step 2 — Put-Away</strong>
                     <p class="small text-muted mt-1 mb-0">
                         Operator put-away barang ke cell yang direkomendasikan GA dengan scan QR.
-                        Jika ada exception, Supervisor dapat meng-override lokasi.
+                        Supervisor dapat meng-override lokasi jika diperlukan.
                     </p>
                 </div>
             </div>
@@ -929,9 +781,6 @@
 <script>
 const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
-// Bootstrap tooltip untuk tombol GA yang di-disabled
-$('[data-toggle="tooltip"]').tooltip();
-
 // ── Helper: tampilkan loading spinner lalu navigasi ──────────────────────────
 function showNavLoader(navigateFn) {
     Swal.fire({
@@ -943,48 +792,6 @@ function showNavLoader(navigateFn) {
     });
     setTimeout(navigateFn, 250);
 }
-
-// ── KONFIRMASI QTY FISIK ─────────────────────────────────────────────────────
-$('#btnConfirmQty').on('click', function () {
-    const url = $(this).data('url');
-    const quantities = {};
-    $('.qty-received-input').each(function () {
-        quantities[$(this).data('detail-id')] = parseInt($(this).val()) || 0;
-    });
-
-    // Validasi: minimal 1 item qty > 0
-    const allZero = Object.values(quantities).every(v => v === 0);
-
-    Swal.fire({
-        title: 'Konfirmasi Penerimaan Fisik?',
-        html: allZero
-            ? '<div class="alert alert-warning">Semua qty = 0. Order akan <strong>dibatalkan</strong> otomatis.</div>'
-            : 'Pastikan jumlah sudah sesuai kondisi fisik barang di dock.',
-        icon: allZero ? 'warning' : 'question',
-        showCancelButton: true,
-        confirmButtonColor: allZero ? '#dc3545' : '#6c757d',
-        confirmButtonText: 'Ya, Simpan',
-        cancelButtonText: 'Batal'
-    }).then(result => {
-        if (!result.isConfirmed) return;
-        $.ajax({
-            url, method: 'POST',
-            data: { _token: csrfToken, quantities },
-            success(res) {
-                if (res.status === 'warning') {
-                    Swal.fire('Order Dibatalkan', res.message, 'warning')
-                        .then(() => showNavLoader(() => { window.location.href = res.redirect; }));
-                } else {
-                    Swal.fire('Tersimpan!', res.message, 'success')
-                        .then(() => showNavLoader(() => location.reload()));
-                }
-            },
-            error(xhr) {
-                Swal.fire('Gagal', xhr.responseJSON?.message || 'Terjadi kesalahan.', 'error');
-            }
-        });
-    });
-});
 
 // ── JALANKAN GA ──────────────────────────────────────────────────────────────
 $('#btnProcessGA').on('click', function () {
@@ -1015,26 +822,20 @@ $('#btnProcessGA').on('click', function () {
             data: { _token: csrfToken },
             timeout: 180000,
             success(res) {
-                if (res.status === 'success' && res.data?.auto_accepted) {
-                    // GA valid & auto-accepted — langsung ke put-away
+                if (res.status === 'success') {
                     Swal.fire({
                         icon: 'success',
                         title: 'GA Selesai & Diterima Otomatis!',
                         html: res.message + '<br><small class="text-muted">Mengalihkan ke halaman put-away…</small>',
                         timer: 2500,
                         showConfirmButton: false,
-                    }).then(() => showNavLoader(() => { window.location.href = res.data.redirect || location.href; }));
-                } else if (res.status === 'warning') {
-                    // GA selesai tapi fitness rendah — perlu review supervisor
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'GA Selesai — Perlu Review Supervisor',
-                        html: res.message + '<br><small class="text-muted">Supervisor telah dinotifikasi.</small>',
-                    }).then(() => showNavLoader(() => location.reload()));
+                    }).then(() => showNavLoader(() => {
+                        window.location.href = res.data?.redirect || location.href;
+                    }));
                 } else {
                     Swal.fire({
-                        icon: 'success',
-                        title: 'GA Selesai!',
+                        icon: 'info',
+                        title: 'Info',
                         text: res.message,
                     }).then(() => showNavLoader(() => location.reload()));
                 }
@@ -1042,63 +843,6 @@ $('#btnProcessGA').on('click', function () {
             error(xhr) {
                 Swal.fire('GA Gagal', xhr.responseJSON?.message || 'Terjadi kesalahan saat menjalankan GA.', 'error')
                     .then(() => showNavLoader(() => location.reload()));
-            }
-        });
-    });
-});
-
-// ── ACCEPT GA ────────────────────────────────────────────────────────────────
-$('#btnAcceptGa').on('click', function () {
-    const url = $(this).data('url');
-    Swal.fire({
-        title: 'Terima Rekomendasi GA?',
-        html: 'Rekomendasi penempatan akan diterima dan operator dapat memulai proses <strong>put-away</strong>.',
-        icon: 'question',
-        showCancelButton: true,
-        confirmButtonColor: '#28a745',
-        confirmButtonText: '<i class="fas fa-check mr-1"></i>Ya, Terima',
-        cancelButtonText: 'Batal'
-    }).then(result => {
-        if (!result.isConfirmed) return;
-        $.ajax({
-            url, method: 'POST',
-            data: { _token: csrfToken },
-            success(res) {
-                Swal.fire('Diterima!', res.message, 'success')
-                    .then(() => showNavLoader(() => { window.location.href = res.redirect || location.href; }));
-            },
-            error(xhr) {
-                Swal.fire('Gagal', xhr.responseJSON?.message || 'Terjadi kesalahan.', 'error');
-            }
-        });
-    });
-});
-
-// ── REJECT GA ────────────────────────────────────────────────────────────────
-$('#btnRejectGa').on('click', function () {
-    const url = $(this).data('url');
-    Swal.fire({
-        title: 'Tolak Rekomendasi GA?',
-        html: '<p>Rekomendasi akan ditolak dan status order dikembalikan ke <strong>Draft</strong>.</p>'
-            + '<p class="text-muted small">Supervisor dapat menjalankan GA ulang setelahnya.</p>',
-        icon: 'warning',
-        input: 'text',
-        inputPlaceholder: 'Alasan penolakan (opsional)...',
-        showCancelButton: true,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Ya, Tolak',
-        cancelButtonText: 'Batal'
-    }).then(result => {
-        if (!result.isConfirmed) return;
-        $.ajax({
-            url, method: 'POST',
-            data: { _token: csrfToken, reason: result.value },
-            success(res) {
-                Swal.fire('Ditolak', res.message, 'info')
-                    .then(() => showNavLoader(() => location.reload()));
-            },
-            error(xhr) {
-                Swal.fire('Gagal', xhr.responseJSON?.message || 'Terjadi kesalahan.', 'error');
             }
         });
     });

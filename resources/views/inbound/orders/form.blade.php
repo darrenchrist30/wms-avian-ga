@@ -143,18 +143,6 @@
                                                 </div>
                                             </div>
 
-                                            <div class="form-group row">
-                                                <label class="col-sm-4 col-form-label">Ref. ERP</label>
-                                                <div class="col-sm-8">
-                                                    <input type="text" name="erp_reference"
-                                                        class="form-control @error('erp_reference') is-invalid @enderror"
-                                                        value="{{ old('erp_reference', $data->erp_reference ?? '') }}"
-                                                        placeholder="Nomor dokumen di ERP">
-                                                    @error('erp_reference')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 

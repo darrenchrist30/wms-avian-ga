@@ -95,7 +95,6 @@ class InboundReceiveService
                 $resolvedLines[] = [
                     'item'     => $item,
                     'quantity' => (int) $line['quantity'],
-                    'lpn'      => $line['lpn'] ?? null,
                     'notes'    => $line['notes'] ?? null,
                 ];
             } else {
@@ -130,12 +129,9 @@ class InboundReceiveService
                 'supplier_id'   => $supplier?->id,
                 'do_number'     => $data['do_number'],
                 'do_date'       => $data['do_date'],
-                'erp_reference' => $data['erp_reference'] ?? null,
-                'ref_doc_spk'   => $data['ref_doc_spk'] ?? null,
-                'batch_header'  => $data['batch_header'] ?? null,
                 'notes'         => $data['notes'] ?? null,
                 'received_at'   => now(),
-                'status'        => 'draft',
+                'status'        => 'inbound',
             ]);
 
             // Buat baris detail per item
@@ -143,7 +139,6 @@ class InboundReceiveService
                 InboundOrderItem::create([
                     'inbound_order_id'  => $inbound->id,
                     'item_id'           => $line['item']->id,
-                    'lpn'               => $line['lpn'],
                     'quantity_ordered'  => $line['quantity'],
                     'quantity_received' => 0,
                     'status'            => 'pending',

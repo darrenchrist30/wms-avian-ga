@@ -28,7 +28,7 @@ class PutAwayController extends Controller
     public function index(Request $request)
     {
         $search       = trim($request->input('search', ''));
-        $filterStatus = $request->input('status', '');  // '' | 'recommended' | 'put_away' | 'completed'
+        $filterStatus = $request->input('status', '');  // '' | 'put_away' | 'completed'
         $warehouseId  = $request->input('warehouse_id', '');
 
         $empty = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
@@ -46,9 +46,9 @@ class PutAwayController extends Controller
         if ($filterStatus === 'completed') {
             $orders = $empty;
         } else {
-            $activeStatuses = in_array($filterStatus, ['recommended', 'put_away'])
-                ? [$filterStatus]
-                : ['recommended', 'put_away'];
+            $activeStatuses = $filterStatus === 'put_away'
+                ? ['put_away']
+                : ['put_away'];
 
             $orders = (clone $base)
                 ->whereIn('status', $activeStatuses)
@@ -58,7 +58,7 @@ class PutAwayController extends Controller
         }
 
         // Riwayat completed — disembunyikan kalau filter aktif saja
-        if (in_array($filterStatus, ['recommended', 'put_away'])) {
+        if ($filterStatus === 'put_away') {
             $completedOrders = $empty;
         } else {
             $completedOrders = (clone $base)
@@ -90,7 +90,7 @@ class PutAwayController extends Controller
             'items.putAwayConfirmations.user',
         ])->findOrFail($orderId);
 
-        if (!in_array($order->status, ['recommended', 'put_away', 'completed'])) {
+        if (!in_array($order->status, ['put_away', 'completed'])) {
             return redirect()->route('inbound.orders.show', $orderId)
                 ->with('error', 'Order ini belum siap untuk put-away.');
         }

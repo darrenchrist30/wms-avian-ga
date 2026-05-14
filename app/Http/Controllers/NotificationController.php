@@ -46,13 +46,13 @@ class NotificationController extends Controller
     {
         $counts = [];
 
-        // DO menunggu konfirmasi qty (status: draft, sudah ada items)
-        $counts['inbound_draft'] = InboundOrder::where('status', 'draft')
+        // DO belum diproses GA (status: inbound)
+        $counts['inbound_draft'] = InboundOrder::where('status', 'inbound')
             ->whereHas('items')
             ->count();
 
-        // DO siap put-away (status: recommended atau put_away)
-        $counts['putaway_pending'] = InboundOrder::whereIn('status', ['recommended', 'put_away'])
+        // DO siap put-away (status: put_away)
+        $counts['putaway_pending'] = InboundOrder::where('status', 'put_away')
             ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
             ->count();
 

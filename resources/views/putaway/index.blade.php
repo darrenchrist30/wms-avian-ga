@@ -37,9 +37,6 @@
                             </label>
                             <select name="status" class="form-control form-control-sm" onchange="this.form.submit()">
                                 <option value="">Semua</option>
-                                <option value="recommended" {{ request('status') === 'recommended' ? 'selected' : '' }}>
-                                    Menunggu Review
-                                </option>
                                 <option value="put_away" {{ request('status') === 'put_away' ? 'selected' : '' }}>
                                     Sedang Berjalan
                                 </option>
@@ -85,9 +82,8 @@
         @if (request('status') !== 'completed')
 
             @php $filterLabel = match(request('status')) {
-                'recommended' => 'Menunggu Review',
-                'put_away'    => 'Sedang Berjalan',
-                default       => 'Aktif',
+                'put_away' => 'Sedang Berjalan',
+                default    => 'Aktif',
             }; @endphp
 
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -130,9 +126,9 @@
                             $total = $order->items_count;
                             $pct = $total > 0 ? round(($done / $total) * 100) : 0;
                             $isPartial = $order->status === 'put_away';
-                            $cardBorder = $isPartial ? 'border-warning' : 'border-primary';
-                            $badgeCls = $isPartial ? 'badge-warning text-dark' : 'badge-primary';
-                            $badgeTxt = $isPartial ? 'Sedang Berjalan' : 'Menunggu Review';
+                            $cardBorder = 'border-warning';
+                            $badgeCls = 'badge-warning text-dark';
+                            $badgeTxt = 'Sedang Berjalan';
                         @endphp
                         <div class="col-md-6 col-lg-4 mb-4">
                             <div class="card {{ $cardBorder }} shadow-sm h-100">

@@ -16,6 +16,15 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 /*
 |--------------------------------------------------------------------------
+| Public Cell Detail (no auth — scan QR label)
+|--------------------------------------------------------------------------
+*/
+Route::get('/c/{code}', [\App\Http\Controllers\PublicCellController::class, 'show'])
+    ->name('public.cell')
+    ->middleware('throttle:60,1');
+
+/*
+|--------------------------------------------------------------------------
 | Protected Routes (auth + active user)
 |--------------------------------------------------------------------------
 */
@@ -24,6 +33,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     // Dashboard
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('dashboard/trend', [DashboardController::class, 'trendData'])->name('dashboard.trend');
+    Route::post('dashboard/send-wa-alert', [DashboardController::class, 'sendWaAlert'])->name('dashboard.send-wa-alert');
 
     // Notifications
     Route::prefix('notifications')->name('notifications.')->group(function () {
@@ -93,14 +103,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::resource('orders', \App\Http\Controllers\Inbound\InboundOrderController::class);
         Route::post('orders/{order}/sync-erp', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'syncFromErp'])
             ->name('orders.sync-erp');
-        Route::post('orders/{order}/confirm-qty', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'confirmQty'])
-            ->name('orders.confirm-qty');
         Route::post('orders/{order}/process-ga', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'processGA'])
             ->name('orders.process-ga')->middleware('role:admin,supervisor,operator');
-        Route::post('orders/{order}/ga/{recommendation}/accept', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'acceptGa'])
-            ->name('orders.ga.accept')->middleware('role:admin,supervisor');
-        Route::post('orders/{order}/ga/{recommendation}/reject', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'rejectGa'])
-            ->name('orders.ga.reject')->middleware('role:admin,supervisor');
+        Route::post('orders/batch-ga', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'batchProcessGA'])
+            ->name('orders.batch-ga')->middleware('role:admin,supervisor,operator');
     });
 
     /*
@@ -136,16 +142,22 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::post('transfer', [\App\Http\Controllers\Stock\StockController::class, 'transfer'])
             ->name('transfer')->middleware('role:admin,supervisor');
 
-        Route::middleware('role:admin,supervisor,operator')->group(function () {
-            Route::get('fifo-picking/datatable',    [\App\Http\Controllers\Stock\FifoPickingController::class, 'datatable'])->name('fifo-picking.datatable');
-            Route::get('fifo-picking/search-items', [\App\Http\Controllers\Stock\FifoPickingController::class, 'searchItems'])->name('fifo-picking.search-items');
-            Route::get('fifo-picking/create',       [\App\Http\Controllers\Stock\FifoPickingController::class, 'create'])->name('fifo-picking.create');
-            Route::get('fifo-picking',              [\App\Http\Controllers\Stock\FifoPickingController::class, 'index'])->name('fifo-picking.index');
-            Route::post('fifo-picking/preview',     [\App\Http\Controllers\Stock\FifoPickingController::class, 'preview'])->name('fifo-picking.preview');
-            Route::post('fifo-picking/confirm',     [\App\Http\Controllers\Stock\FifoPickingController::class, 'confirm'])->name('fifo-picking.confirm');
-        });
-
         Route::get('{item}', [\App\Http\Controllers\Stock\StockController::class, 'show'])->name('show');
+    });
+
+    /*
+    |------------------------------------------------------------------
+    | Outbound (FIFO Picking)
+    |------------------------------------------------------------------
+    */
+    Route::prefix('outbound')->name('outbound.')->middleware('role:admin,supervisor,operator')->group(function () {
+        Route::get('/',              [\App\Http\Controllers\Outbound\OutboundController::class, 'index'])->name('index');
+        Route::get('datatable',      [\App\Http\Controllers\Outbound\OutboundController::class, 'datatable'])->name('datatable');
+        Route::get('search-items',   [\App\Http\Controllers\Outbound\OutboundController::class, 'searchItems'])->name('search-items');
+        Route::get('find-item',      [\App\Http\Controllers\Outbound\OutboundController::class, 'findItem'])->name('find-item');
+        Route::get('create',         [\App\Http\Controllers\Outbound\OutboundController::class, 'create'])->name('create');
+        Route::post('batch-preview', [\App\Http\Controllers\Outbound\OutboundController::class, 'batchPreview'])->name('batch-preview');
+        Route::post('batch-confirm', [\App\Http\Controllers\Outbound\OutboundController::class, 'batchConfirm'])->name('batch-confirm');
     });
 
     /*
@@ -158,6 +170,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('data', [\App\Http\Controllers\Warehouse3DController::class, 'data'])->name('data');
         Route::get('cell/{cell}', [\App\Http\Controllers\Warehouse3DController::class, 'cellDetail'])->name('cell-detail');
         Route::get('cells-by-item', [\App\Http\Controllers\Warehouse3DController::class, 'cellsByItem'])->name('cells-by-item');
+        Route::get('column', [\App\Http\Controllers\Warehouse3DController::class, 'columnDetail'])->name('column-detail');
     });
 
     /*

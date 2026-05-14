@@ -43,9 +43,14 @@
             --radius: 8px;
         }
 
+        body,
+        .wrapper {
+            background: #f0f2f5 !important;
+        }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif !important;
-            background: var(--body-bg) !important;
+            background: #f0f2f5 !important;
             margin: 0 !important;
             padding: 0 !important;
             font-size: 14px;
@@ -1229,17 +1234,30 @@
                             </ul>
                         </li>
 
-                        {{-- ═══ 4. PENGELUARAN (coming soon) ═══ --}}
-                        <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">PENGELUARAN
-                        </li>
+                        {{-- ═══ 4. OUTBOUND ═══ --}}
+                        <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">OUTBOUND</li>
 
-                        <li class="nav-item">
-                            <a href="#" class="nav-link disabled" style="opacity:.45;cursor:not-allowed;"
-                                title="Modul pengeluaran belum tersedia">
-                                <i class="nav-icon fas fa-hand-holding-box"></i>
-                                <p>Permintaan Sparepart <span class="badge badge-secondary ml-1"
-                                        style="font-size:9px;">soon</span></p>
+                        <li class="nav-item {{ request()->is('outbound*') ? 'menu-open' : '' }}">
+                            <a href="#" class="nav-link {{ request()->is('outbound*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-sign-out-alt" style="color:#dc3545;"></i>
+                                <p>Pengambilan Barang <i class="right fas fa-angle-left"></i></p>
                             </a>
+                            <ul class="nav nav-treeview">
+                                <li class="nav-item">
+                                    <a href="{{ route('outbound.index') }}"
+                                        class="nav-link {{ request()->routeIs('outbound.index') ? 'active' : '' }}">
+                                        <i class="fas fa-history nav-icon" style="font-size:12px;"></i>
+                                        <p>Riwayat Outbound</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('outbound.create') }}"
+                                        class="nav-link {{ request()->routeIs('outbound.create') ? 'active' : '' }}">
+                                        <i class="fas fa-plus-circle nav-icon" style="font-size:12px;color:#dc3545;"></i>
+                                        <p>Outbound Baru</p>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
 
                         {{-- ═══ 5. INVENTORI & STOK ═══ --}}
@@ -1279,14 +1297,6 @@
                                         <i class="fas fa-calendar-times nav-icon"
                                             style="font-size:12px;color:#ef4444;"></i>
                                         <p>Mendekati Kadaluarsa</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="{{ route('stock.fifo-picking.index') }}"
-                                        class="nav-link {{ request()->routeIs('stock.fifo-picking.*') ? 'active' : '' }}">
-                                        <i class="fas fa-sort-amount-up-alt nav-icon"
-                                            style="font-size:12px;color:#0d8564;"></i>
-                                        <p>FIFO Picking</p>
                                     </a>
                                 </li>
                             </ul>
@@ -1831,6 +1841,171 @@
     </style>
 
     @stack('scripts')
+
+    {{-- ══════════════════════════════════════════════════════════════════
+         GLOBAL CELL QR SCANNER
+         Operator bisa scan QR cell dari halaman mana pun (gun scanner
+         atau kamera). Popup muncul tanpa navigasi meninggalkan halaman.
+    ══════════════════════════════════════════════════════════════════════ --}}
+
+    {{-- Modal cell detail --}}
+    <div class="modal fade" id="globalCellModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-scrollable" style="max-width:460px;" role="document">
+            <div class="modal-content" style="border-radius:12px;overflow:hidden;">
+                <div class="modal-header py-2" style="background:#1a2332;color:#fff;">
+                    <h6 class="modal-title font-weight-bold mb-0" id="globalCellModalTitle">
+                        <i class="fas fa-map-marker-alt mr-1"></i> —
+                    </h6>
+                    <button type="button" class="close" data-dismiss="modal" style="color:#fff;opacity:.8;">&times;</button>
+                </div>
+                <div class="modal-body py-3 px-3" id="globalCellModalBody" style="min-height:80px;">
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-spinner fa-spin mr-1"></i> Memuat…
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <a id="globalCellModalLink" href="#" target="_blank" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-external-link-alt mr-1"></i> Buka Halaman Penuh
+                    </a>
+                    <button type="button" class="btn btn-sm btn-secondary" data-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        // ── Scanner gun buffer ─────────────────────────────────────────────
+        // Scanner guns send keystrokes very fast (~10ms apart) followed by Enter.
+        // We accumulate characters and process on Enter.
+        let buf = '', timer = null;
+        const TIMEOUT_MS = 200; // reset buffer if gap > 200ms (human typing is slower)
+
+        document.addEventListener('keydown', function (e) {
+            // Skip when typing in any input / textarea / select
+            const tag = document.activeElement && document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+            // Skip modifier-only and function keys
+            if (e.key.length > 1 && e.key !== 'Enter') return;
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            clearTimeout(timer);
+
+            if (e.key === 'Enter') {
+                const code = buf.trim();
+                buf = '';
+                if (code.length > 1) fetchCellAndShow(code);
+            } else {
+                buf += e.key;
+                timer = setTimeout(function () { buf = ''; }, TIMEOUT_MS);
+            }
+        });
+
+        // ── Camera scan (html5-qrcode) — expose global hook ───────────────
+        // Pages that use the camera scanner can call this function directly.
+        window.globalCellScan = function (raw) { fetchCellAndShow(raw); };
+
+        // ── Fetch cell detail via JSON ─────────────────────────────────────
+        function fetchCellAndShow(raw) {
+            // Extract code from URL format: http://domain/c/CODE
+            let code = raw;
+            if (raw.indexOf('/c/') !== -1) {
+                code = raw.split('/c/').pop().split(/[/?# ]/)[0];
+            }
+            if (!code) return;
+
+            // Show modal with loading state immediately
+            $('#globalCellModalTitle').html('<i class="fas fa-map-marker-alt mr-1"></i> ' + escHtml(code));
+            $('#globalCellModalBody').html('<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin mr-1"></i> Memuat…</div>');
+            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(code));
+            $('#globalCellModal').modal('show');
+
+            fetch('/c/' + encodeURIComponent(code), {
+                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data.success) {
+                    // Not a cell — silently dismiss
+                    $('#globalCellModal').modal('hide');
+                    return;
+                }
+                renderCellModal(data.cell, data.stocks);
+            })
+            .catch(function () { $('#globalCellModal').modal('hide'); });
+        }
+
+        // ── Render modal content ───────────────────────────────────────────
+        function renderCellModal(cell, stocks) {
+            $('#globalCellModalTitle').html(
+                '<i class="fas fa-map-marker-alt mr-1"></i> ' + escHtml(cell.code) +
+                (cell.label && cell.label !== cell.code ? ' <small style="font-weight:400;opacity:.75">· ' + escHtml(cell.label) + '</small>' : '')
+            );
+            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(cell.code));
+
+            const capPct = cell.capacity_max > 0
+                ? Math.min(100, Math.round(cell.capacity_used / cell.capacity_max * 100))
+                : 0;
+            const barColor = capPct >= 90 ? '#dc3545' : (capPct >= 70 ? '#ffc107' : '#28a745');
+
+            const statusMap = {
+                available: ['#d4edda','#155724','Tersedia'],
+                full:      ['#f8d7da','#721c24','Penuh'],
+                partial:   ['#fff3cd','#856404','Sebagian'],
+            };
+            const [sBg, sFg, sLabel] = statusMap[cell.status] || ['#e2e3e5','#383d41', cell.status];
+
+            let locationHtml = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">';
+            locationHtml += '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">' + escHtml(cell.warehouse) + '</span>';
+            locationHtml += '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">Rak ' + escHtml(cell.rack) + '</span>';
+            if (cell.level) locationHtml += '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">Level ' + escHtml(String(cell.level)) + '</span>';
+            locationHtml += '<span class="badge" style="background:' + sBg + ';color:' + sFg + ';font-size:11px;">' + sLabel + '</span>';
+            locationHtml += '</div>';
+
+            let capHtml = '';
+            if (cell.capacity_max > 0) {
+                capHtml = '<div style="margin-bottom:12px;">'
+                    + '<div style="height:8px;background:#e9ecef;border-radius:4px;overflow:hidden;">'
+                    + '<div style="height:100%;width:' + capPct + '%;background:' + barColor + ';border-radius:4px;"></div></div>'
+                    + '<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:3px;">'
+                    + '<span>Terisi: <strong>' + cell.capacity_used + '</strong></span>'
+                    + '<span>' + capPct + '%</span>'
+                    + '<span>Maks: <strong>' + cell.capacity_max + '</strong></span></div></div>';
+            }
+
+            let stocksHtml = '<div style="font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">'
+                + '<i class="fas fa-boxes mr-1"></i> Isi Cell (' + stocks.length + ' item)</div>';
+
+            if (stocks.length === 0) {
+                stocksHtml += '<p class="text-muted text-center py-2 mb-0" style="font-size:13px;">Cell kosong.</p>';
+            } else {
+                stocks.forEach(function (s, i) {
+                    stocksHtml += '<div style="display:flex;align-items:flex-start;padding:10px 0;'
+                        + (i < stocks.length - 1 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">'
+                        + '<div style="flex:1;min-width:0;">'
+                        + '<div style="font-weight:700;font-size:13px;">' + escHtml(s.item_name) + '</div>'
+                        + '<div style="font-size:11px;color:#6c757d;">' + escHtml(s.item_sku)
+                        + (s.item_merk ? ' · ' + escHtml(s.item_merk) : '') + '</div>'
+                        + (s.category ? '<span style="display:inline-block;margin-top:3px;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600;background:' + escHtml(s.category_color) + ';color:#fff;">' + escHtml(s.category) + '</span>' : '')
+                        + '</div>'
+                        + '<div style="text-align:right;margin-left:12px;flex-shrink:0;">'
+                        + '<div style="font-size:22px;font-weight:800;color:#28a745;line-height:1;">' + s.quantity + '</div>'
+                        + '<div style="font-size:10px;color:#6c757d;">' + escHtml(s.unit) + '</div>'
+                        + '<div style="font-size:10px;color:#adb5bd;">' + escHtml(s.inbound_date) + '</div>'
+                        + '</div></div>';
+                });
+            }
+
+            $('#globalCellModalBody').html(locationHtml + capHtml + stocksHtml);
+        }
+
+        function escHtml(str) {
+            if (!str && str !== 0) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+    })();
+    </script>
 </body>
 
 </html>

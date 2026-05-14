@@ -22,6 +22,17 @@
             transform: translateY(-3px);
         }
 
+        a.kpi-link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        a.kpi-link:hover {
+            text-decoration: none;
+            color: inherit;
+        }
+
         .kpi-card .kpi-icon {
             position: absolute;
             right: 18px;
@@ -606,6 +617,20 @@
         </div>
     </div>
 
+    {{-- Flash message dari kirim WA --}}
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+            <i class="fab fa-whatsapp mr-1"></i> {{ session('success') }}
+            <button type="button" class="close py-2" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+    @endif
+    @if(session('info'))
+        <div class="alert alert-info alert-dismissible fade show py-2" role="alert">
+            <i class="fas fa-info-circle mr-1"></i> {{ session('info') }}
+            <button type="button" class="close py-2" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+    @endif
+
     {{-- ══════════════════════════════════════════════════════
      ACTION REQUIRED — Hanya tampil jika ada yang pending
 ══════════════════════════════════════════════════════ --}}
@@ -803,76 +828,84 @@
     <p class="section-title"><i class="fas fa-tachometer-alt mr-1"></i> Ringkasan Utama</p>
     <div class="row">
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-green">
-                <i class="fas fa-boxes kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($totalItems) }}</div>
-                <div class="kpi-label">Total SKU / Item</div>
-                <div class="kpi-trend"><span class="up">▲ Aktif</span></div>
-            </div>
+            <a href="{{ route('master.items.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-green">
+                    <i class="fas fa-boxes kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($totalItems) }}</div>
+                    <div class="kpi-label">Total SKU / Item</div>
+                    <div class="kpi-trend"><span class="up">▲ Aktif</span></div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-blue">
-                <i class="fas fa-layer-group kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($usedCells) }}</div>
-                <div class="kpi-label">Cell Terisi / {{ number_format($totalCells) }} Total</div>
-                <div class="kpi-trend"><span class="up">{{ $utilizationPct }}%</span> utilisasi</div>
-            </div>
+            <a href="{{ route('location.cells.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-blue">
+                    <i class="fas fa-layer-group kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($usedCells) }}</div>
+                    <div class="kpi-label">Cell Terisi / {{ number_format($totalCells) }} Total</div>
+                    <div class="kpi-trend"><span class="up">{{ $utilizationPct }}%</span> utilisasi</div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-teal">
-                <i class="fas fa-sign-in-alt kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($inboundToday) }}</div>
-                <div class="kpi-label">Inbound Hari Ini</div>
-                <div class="kpi-trend"><span class="up">Surat jalan diterima</span></div>
-            </div>
+            <a href="{{ route('inbound.orders.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-teal">
+                    <i class="fas fa-sign-in-alt kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($inboundToday) }}</div>
+                    <div class="kpi-label">Inbound Hari Ini</div>
+                    <div class="kpi-trend"><span class="up">Surat jalan diterima</span></div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-orange">
-                <i class="fas fa-dolly kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($putAwayTodayTotal) }}</div>
-                <div class="kpi-label">Put-Away Selesai Hari Ini</div>
-                <div class="kpi-trend"><span class="up">Konfirmasi penempatan barang</span></div>
-            </div>
+            <a href="{{ route('putaway.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-orange">
+                    <i class="fas fa-dolly kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($putAwayTodayTotal) }}</div>
+                    <div class="kpi-label">Put-Away Selesai Hari Ini</div>
+                    <div class="kpi-trend"><span class="up">Konfirmasi penempatan barang</span></div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-amber">
-                <i class="fas fa-exclamation-triangle kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($lowStockItems) }}</div>
-                <div class="kpi-label">Item Stok Menipis</div>
-                <div class="kpi-trend"><span class="down">▼ Perlu reorder segera</span></div>
-            </div>
+            <a href="{{ route('stock.low-stock') }}" class="kpi-link">
+                <div class="kpi-card kpi-amber">
+                    <i class="fas fa-exclamation-triangle kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($lowStockItems) }}</div>
+                    <div class="kpi-label">Item Stok Menipis</div>
+                    <div class="kpi-trend"><span class="down">▼ Perlu reorder segera</span></div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-red">
-                <i class="fas fa-calendar-times kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($nearExpiryItems) }}</div>
-                <div class="kpi-label">Item Mendekati Kadaluarsa</div>
-                <div class="kpi-trend"><span class="down">▼ ≤ 30 hari</span></div>
-            </div>
+            <a href="{{ route('inbound.orders.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-purple">
+                    <i class="fas fa-clipboard-list kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($activeOrders) }}</div>
+                    <div class="kpi-label">Order Inbound Aktif</div>
+                    <div class="kpi-trend"><span class="up">Sedang diproses</span></div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-purple">
-                <i class="fas fa-clipboard-list kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($activeOrders) }}</div>
-                <div class="kpi-label">Order Inbound Aktif</div>
-                <div class="kpi-trend"><span class="up">Sedang diproses</span></div>
-            </div>
+            <a href="{{ route('stock.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-slate">
+                    <i class="fas fa-cubes kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($totalStockQty) }}</div>
+                    <div class="kpi-label">Total Stok Tersedia (unit)</div>
+                    <div class="kpi-trend"><span class="up">Semua SKU aktif · status available</span></div>
+                </div>
+            </a>
         </div>
         <div class="col-6 col-md-3">
-            <div class="kpi-card kpi-slate">
-                <i class="fas fa-cubes kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($totalStockQty) }}</div>
-                <div class="kpi-label">Total Stok Tersedia (unit)</div>
-                <div class="kpi-trend"><span class="up">Semua SKU aktif · status available</span></div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="kpi-card" style="background:linear-gradient(135deg,#374151,#1f2937);">
-                <i class="fas fa-hourglass-half kpi-icon"></i>
-                <div class="kpi-value">{{ number_format($deadstockCount) }}</div>
-                <div class="kpi-label">Item Deadstock</div>
-                <div class="kpi-trend"><span class="down">▼ Tidak bergerak ≥ 90 hari</span></div>
-            </div>
+            <a href="#deadstock-section" class="kpi-link">
+                <div class="kpi-card" style="background:linear-gradient(135deg,#374151,#1f2937);">
+                    <i class="fas fa-hourglass-half kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($deadstockCount) }}</div>
+                    <div class="kpi-label">Item Deadstock</div>
+                    <div class="kpi-trend"><span class="down">▼ Tidak bergerak ≥ {{ $deadstockDays }} hari</span></div>
+                </div>
+            </a>
         </div>
     </div>
 
@@ -926,7 +959,7 @@
     {{-- Process Queue --}}
     <p class="section-title"><i class="fas fa-route mr-1"></i> Antrian Proses Inbound</p>
     <div class="row process-row">
-        <div class="col-md-5">
+        <div class="col-md-7">
             <div class="panel-card process-card">
                 <div class="panel-header">
                     <h6><i class="fas fa-filter mr-1 text-primary"></i> Status DO Berjalan</h6>
@@ -951,37 +984,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
-            <div class="panel-card process-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-hourglass-half mr-1 text-warning"></i> Bottleneck Proses</h6>
-                    <span style="font-size:12px;color:#6b7280;">Tertahan & usia terlama</span>
-                </div>
-                <div class="panel-body">
-                    <div id="chartBottleneck" class="hc-chart" style="height:145px;"></div>
-                    <div class="bottleneck-list">
-                        @foreach ($bottleneckSummary as $b)
-                            <div class="bottleneck-chip {{ $b['count'] > 0 ? 'has-link' : '' }}">
-                                <div class="chip-label">{{ $b['label'] }}</div>
-                                <div class="chip-value" style="color:{{ $b['color'] }}">{{ number_format($b['count']) }}</div>
-                                <div class="chip-sub">
-                                    Terlama {{ $b['oldest_days'] }} hari
-                                    @if ($b['count'] > 0)
-                                    &nbsp;·&nbsp;<span style="color:{{ $b['color'] }};font-weight:600;">{{ $b['url_label'] }} →</span>
-                                    @endif
-                                </div>
-                                @if ($b['count'] > 0)
-                                <a href="{{ $b['url'] }}" aria-label="{{ $b['url_label'] }}"
-                                   style="position:absolute;top:0;left:0;right:0;bottom:0;border-radius:8px;z-index:1;"></a>
-                                @endif
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
+        <div class="col-md-5">
             <div class="panel-card process-card">
                 <div class="panel-header">
                     <h6><i class="fas fa-stopwatch mr-1 text-danger"></i> DO Terlama</h6>
@@ -1024,9 +1027,7 @@
 
     <p class="section-title"><i class="fas fa-chart-bar mr-1"></i> Kapasitas & Arus Barang</p>
     <div class="row capacity-row dashboard-section">
-
-        {{-- Utilisasi per Zona Penyimpanan --}}
-        <div class="col-md-4">
+        <div class="col-md-7">
             <div class="panel-card capacity-card">
                 <div class="panel-header">
                     <h6><i class="fas fa-th-large mr-1 text-success"></i> Utilisasi Kapasitas Gudang</h6>
@@ -1078,49 +1079,8 @@
             </div>
         </div>
 
-        {{-- Grafik Inbound vs Outbound 7 hari --}}
-        <div class="col-md-5">
-            <div class="panel-card capacity-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-exchange-alt mr-1 text-primary"></i> Arus Barang – 7 Hari Terakhir</h6>
-                    <span style="font-size:12px;color:#6b7280;">Unit barang masuk / keluar</span>
-                </div>
-                <div class="panel-body">
-                    @php
-                        $inbound7Total = array_sum($chartInbound);
-                        $outbound7Total = array_sum($chartOutbound);
-                        $netFlow7 = $inbound7Total - $outbound7Total;
-                    @endphp
-                    <div class="capacity-stats">
-                        <div class="capacity-stat">
-                            <strong style="color:#0d8564">{{ number_format($inbound7Total) }}</strong>
-                            <span>Inbound</span>
-                        </div>
-                        <div class="capacity-stat">
-                            <strong style="color:#3b82f6">{{ number_format($outbound7Total) }}</strong>
-                            <span>Pergerakan Keluar</span>
-                        </div>
-                        <div class="capacity-stat">
-                            <strong style="color:{{ $netFlow7 >= 0 ? '#0d8564' : '#ef4444' }}">{{ number_format($netFlow7) }}</strong>
-                            <span>Net Flow</span>
-                        </div>
-                    </div>
-                    <div class="chart-box flow">
-                        @if($inbound7Total + $outbound7Total === 0)
-                            <div class="chart-empty"><div><i class="fas fa-exchange-alt"></i>Belum ada transaksi pada periode ini.</div></div>
-                        @else
-                            <div id="chartInOut" class="hc-chart"></div>
-                        @endif
-                    </div>
-                    <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:11px;color:#6b7280;">
-                        Menampilkan qty penerimaan barang harian. Pergerakan keluar dicatat dari stock movement apabila tersedia.
-                    </div>
-                </div>
-            </div>
-        </div>
-
         {{-- Order Status Breakdown (real) --}}
-        <div class="col-md-3">
+        <div class="col-md-5">
             @php
                 $statusDef = [
                     'draft'       => ['label' => 'Draft',           'color' => '#6b7280'],
@@ -1170,134 +1130,13 @@
     </div>
 
     {{-- ══════════════════════════════════════════════════════
-     ROW 3 — STOK PER KATEGORI + TOP 5 SKU PALING AKTIF
-══════════════════════════════════════════════════════ --}}
-    <div class="row dashboard-section">
-        {{-- Stok tersedia per kategori (real) --}}
-        <div class="col-md-8">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-layer-group mr-1" style="color:#14b8a6;"></i> Stok Tersedia per Kategori Item
-                    </h6>
-                    <span style="font-size:12px;color:#6b7280;">Total unit status <em>available</em> di gudang</span>
-                </div>
-                <div class="panel-body">
-                    @if ($stockByCategory->isEmpty())
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
-                            Belum ada data stok tersedia.
-                        </div>
-                    @else
-                        @php $maxQty = $stockByCategory->max('total_qty') ?: 1; @endphp
-                        <div class="row">
-                            <div class="col-md-5 d-flex align-items-center justify-content-center">
-                                <div style="position:relative;width:200px;height:200px">
-                                    <div id="chartCategoryStock" class="hc-chart" style="width:200px;height:200px;"></div>
-                                    <div
-                                        style="position:absolute;inset:0;display:flex;flex-direction:column;
-                                                align-items:center;justify-content:center;">
-                                        <div style="font-size:22px;font-weight:700;color:#1f2937">
-                                            {{ number_format($stockByCategory->sum('total_qty')) }}
-                                        </div>
-                                        <div style="font-size:10px;color:#6b7280">unit total</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-7">
-                                @foreach ($stockByCategory as $cat)
-                                    @php
-                                        $color = $cat->color_code ?: '#6b7280';
-                                        $pct = $maxQty > 0 ? round(($cat->total_qty / $maxQty) * 100) : 0;
-                                    @endphp
-                                    <div class="zone-row">
-                                        <div class="zone-label">
-                                            <span style="font-size:12px">
-                                                <span style="color:{{ $color }}">●</span>
-                                                {{ $cat->name }}
-                                                <span class="text-muted">({{ $cat->item_count }} SKU)</span>
-                                            </span>
-                                            <span style="font-size:12px;font-weight:600;color:#374151">
-                                                {{ number_format($cat->total_qty) }}
-                                            </span>
-                                        </div>
-                                        <div class="zone-bar">
-                                            <div class="zone-fill"
-                                                style="width:{{ $pct }}%;background:{{ $color }};"></div>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        {{-- Top 5 SKU Paling Aktif (real) --}}
-        <div class="col-md-4">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6>
-                        <i class="fas fa-fire mr-1" style="color:#f97316;"></i> Top 5 SKU Paling Aktif
-                        <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
-                           data-toggle="tooltip" data-placement="top"
-                           title="Peringkat berdasarkan total quantity seluruh pergerakan stok (inbound & transfer). Semakin tinggi total qty, semakin aktif SKU tersebut bergerak di gudang."></i>
-                    </h6>
-                    <span style="font-size:11px;color:#6b7280">by total qty movement</span>
-                </div>
-                <div class="panel-body" style="padding-top:8px;">
-                    @if ($topMovedItems->isEmpty())
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
-                            Belum ada pergerakan stok.
-                        </div>
-                    @else
-                        @php $maxMoved = $topMovedItems->max('total_qty') ?: 1; @endphp
-                        @foreach ($topMovedItems as $idx => $mv)
-                            @php $pct = round($mv->total_qty / $maxMoved * 100); @endphp
-                            <div class="mb-3">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <div style="flex:1;min-width:0">
-                                        <span class="badge badge-secondary mr-1"
-                                            style="font-size:10px">{{ $idx + 1 }}</span>
-                                        <strong
-                                            style="font-size:12px">{{ \Illuminate\Support\Str::limit($mv->item?->name ?? '–', 22) }}</strong>
-                                        <br>
-                                        <small class="text-muted" style="font-size:10px">
-                                            <code>{{ $mv->item?->sku ?? '–' }}</code>
-                                            &middot; {{ $mv->movement_count }}× gerakan
-                                        </small>
-                                    </div>
-                                    <div class="text-right ml-2">
-                                        <strong
-                                            style="font-size:14px;color:#f97316">{{ number_format($mv->total_qty) }}</strong>
-                                        <div style="font-size:10px;color:#6b7280">{{ $mv->item?->unit?->name ?? 'unit' }}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="zone-bar">
-                                    <div class="zone-fill"
-                                        style="width:{{ $pct }}%;background:#f97316;opacity:.7"></div>
-                                </div>
-                            </div>
-                        @endforeach
-                        <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:11px;color:#9ca3af;">
-                            <i class="fas fa-info-circle mr-1"></i>Diurutkan berdasarkan total qty inbound &amp; transfer movement.
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ══════════════════════════════════════════════════════
      ROW 4 — ALERT STOK + PENERIMAAN TERJADWAL + QUICK ACCESS
 ══════════════════════════════════════════════════════ --}}
     <p class="section-title"><i class="fas fa-bell mr-1"></i> Peringatan & Jadwal</p>
     <div class="row">
 
         {{-- Alert & Notifikasi (dinamis) --}}
-        <div class="col-md-4">
+        <div class="col-md-12">
             <div class="panel-card">
                 <div class="panel-header">
                     <h6><i class="fas fa-bell mr-1 text-danger"></i> Alert &amp; Notifikasi</h6>
@@ -1308,9 +1147,20 @@
                             ($nearExpiryItems > 0 ? 1 : 0) +
                             ($deadstockCount > 0 ? 1 : 0);
                     @endphp
-                    <span class="badge badge-danger" style="font-size:11px;">
-                        {{ $totalAlerts }} Aktif
-                    </span>
+                    <div class="d-flex align-items-center" style="gap:8px;">
+                        <span class="badge badge-danger" style="font-size:11px;">
+                            {{ $totalAlerts }} Aktif
+                        </span>
+                        <form method="POST" action="{{ route('dashboard.send-wa-alert') }}" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-sm"
+                                style="background:#25d366;color:#fff;font-size:12px;padding:3px 10px;border-radius:6px;"
+                                onclick="return confirm('Kirim ringkasan alert ke WhatsApp supervisor sekarang?')"
+                                title="Jadwal otomatis: setiap {{ ucfirst(config('services.fonnte.schedule_day','Senin')) }} {{ config('services.fonnte.schedule_time','08:00') }}">
+                                <i class="fab fa-whatsapp mr-1"></i>Kirim WA Sekarang
+                            </button>
+                        </form>
+                    </div>
                 </div>
                 <div class="panel-body" style="padding-top:8px;">
 
@@ -1365,7 +1215,7 @@
                             <div>
                                 <div class="alert-item-text">
                                     <strong>Deadstock:</strong>
-                                    {{ number_format($deadstockCount) }} SKU tidak bergerak ≥ 90 hari
+                                    {{ number_format($deadstockCount) }} SKU tidak bergerak ≥ {{ $deadstockDays }} hari
                                 </div>
                                 <div class="alert-item-time">Cek tabel Deadstock di bawah</div>
                             </div>
@@ -1382,239 +1232,15 @@
             </div>
         </div>
 
-        {{-- Jadwal Penerimaan Barang --}}
-        <div class="col-md-5">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-truck mr-1 text-success"></i> Jadwal Penerimaan Barang</h6>
-                    <a href="{{ route('inbound.orders.index') }}" style="font-size:12px;color:#0d8564;">Lihat Semua →</a>
-                </div>
-                <div class="panel-body" style="padding-top:4px;">
-                    <table class="table mb-0 wms-table">
-                        <thead>
-                            <tr>
-                                <th>No. Ref</th>
-                                <th>Supplier / Tujuan</th>
-                                <th>ETA/ETD</th>
-                                <th>Item</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($scheduledInbound as $order)
-                                @php
-                                    $statusMap = [
-                                        'draft'       => ['label' => 'Draft',          'class' => 'badge-pending'],
-                                        'processing'  => ['label' => 'Qty Confirmed',  'class' => 'badge-processing'],
-                                        'recommended' => ['label' => 'Menunggu Review','class' => 'badge-info'],
-                                        'put_away'    => ['label' => 'Put-Away',       'class' => 'badge-transit'],
-                                        'completed'   => ['label' => 'Completed',      'class' => 'badge-completed'],
-                                    ];
-                                    $st = $statusMap[$order->status] ?? [
-                                        'label' => ucfirst($order->status),
-                                        'class' => 'badge-pending',
-                                    ];
-                                @endphp
-                                <tr>
-                                    <td><strong>{{ $order->do_number }}</strong></td>
-                                    <td>{{ $order->supplier?->name ?? '–' }}</td>
-                                    <td>{{ $order->do_date ? \Carbon\Carbon::parse($order->do_date)->format('d M, H:i') : '–' }}
-                                    </td>
-                                    <td>{{ number_format($order->items?->sum('quantity') ?? 0) }} unit</td>
-                                    <td><span class="badge-status {{ $st['class'] }}">{{ $st['label'] }}</span></td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="text-center text-muted py-3">Tidak ada jadwal penerimaan
-                                        aktif.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        {{-- Quick Access --}}
-        <div class="col-md-3">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-bolt mr-1" style="color:#f59e0b;"></i> Akses Cepat</h6>
-                </div>
-                <div class="panel-body">
-                    <div class="row">
-                        <div class="col-6 mb-3">
-                            <a href="{{ route('inbound.orders.index') }}" class="quick-btn">
-                                <i class="fas fa-sign-in-alt text-success"></i>
-                                <span>Terima Barang</span>
-                            </a>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <a href="{{ route('putaway.index') }}" class="quick-btn">
-                                <i class="fas fa-dolly-flatbed text-primary"></i>
-                                <span>Put-Away</span>
-                            </a>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <a href="{{ route('stock.index') }}" class="quick-btn">
-                                <i class="fas fa-boxes" style="color:#8b5cf6;"></i>
-                                <span>Lihat Stok</span>
-                            </a>
-                        </div>
-                        <div class="col-6 mb-3">
-                            <a href="{{ route('location.cells.index') }}" class="quick-btn">
-                                <i class="fas fa-th-large" style="color:#14b8a6;"></i>
-                                <span>Lokasi Cell</span>
-                            </a>
-                        </div>
-                        <div class="col-6">
-                            <a href="{{ route('reports.inventory') }}" class="quick-btn">
-                                <i class="fas fa-file-alt" style="color:#f59e0b;"></i>
-                                <span>Laporan</span>
-                            </a>
-                        </div>
-                        <div class="col-6">
-                            <a href="{{ route('master.items.index') }}" class="quick-btn">
-                                <i class="fas fa-barcode" style="color:#f97316;"></i>
-                                <span>Master Item</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     {{-- ══════════════════════════════════════════════════════
-     ROW 5 — AKTIVITAS TERKINI + ITEM HAMPIR KADALUARSA
+    ROW 6 — DEADSTOCK MONITORING
 ══════════════════════════════════════════════════════ --}}
-    <p class="section-title"><i class="fas fa-history mr-1"></i> Aktivitas & Kondisi Stok</p>
-    <div class="row">
-
-        {{-- Timeline Aktivitas Terkini --}}
-        <div class="col-md-6">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-stream mr-1 text-info"></i> Aktivitas Terkini</h6>
-                    <a href="{{ route('stock.movements') }}" style="font-size:12px;color:#0d8564;">Semua Aktivitas →</a>
-                </div>
-                <div class="panel-body" style="padding-top:4px;">
-                    @forelse($recentMovements as $mov)
-                        @php
-                            $icons = [
-                                'inbound' => ['bg' => '#d1fae5', 'color' => '#065f46', 'icon' => 'fa-plus'],
-                                'outbound' => ['bg' => '#fef3c7', 'color' => '#92400e', 'icon' => 'fa-truck'],
-                                'transfer' => ['bg' => '#ede9fe', 'color' => '#5b21b6', 'icon' => 'fa-arrows-alt'],
-                                'adjustment' => ['bg' => '#dbeafe', 'color' => '#1e40af', 'icon' => 'fa-edit'],
-                                'return_inbound' => ['bg' => '#d1fae5', 'color' => '#065f46', 'icon' => 'fa-undo'],
-                                'return_outbound' => ['bg' => '#fee2e2', 'color' => '#991b1b', 'icon' => 'fa-undo-alt'],
-                            ];
-                            $ic = $icons[$mov->movement_type] ?? [
-                                'bg' => '#f3f4f6',
-                                'color' => '#374151',
-                                'icon' => 'fa-circle',
-                            ];
-                            $label =
-                                [
-                                    'inbound' => 'Penerimaan',
-                                    'outbound' => 'Pengiriman',
-                                    'transfer' => 'Pemindahan',
-                                    'adjustment' => 'Adjustment',
-                                    'return_inbound' => 'Return Masuk',
-                                    'return_outbound' => 'Return Keluar',
-                                ][$mov->movement_type] ?? ucfirst($mov->movement_type);
-                            $from = $mov->fromCell?->rack?->zone?->name ?? '-';
-                            $to = $mov->toCell?->rack?->zone?->name ?? '-';
-                        @endphp
-                        <div class="timeline-item">
-                            <div class="timeline-icon"
-                                style="background:{{ $ic['bg'] }};color:{{ $ic['color'] }};"><i
-                                    class="fas {{ $ic['icon'] }}"></i></div>
-                            <div class="timeline-content">
-                                <div class="t-action">
-                                    {{ $label }}: {{ number_format($mov->quantity) }} unit
-                                    {{ $mov->item?->name ?? '–' }}
-                                    @if ($mov->movement_type === 'transfer')
-                                        <span class="text-muted">({{ $from }} → {{ $to }})</span>
-                                    @endif
-                                </div>
-                                <div class="t-meta">
-                                    Ref: {{ $mov->reference_no ?? '–' }}
-                                    @if ($mov->performedBy)
-                                        · {{ $mov->performedBy->name }}
-                                    @endif
-                                    · {{ $mov->created_at->diffForHumans() }}
-                                </div>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="text-center text-muted py-3"><i class="fas fa-inbox fa-2x mb-2 d-block"></i>Belum ada
-                            aktivitas hari ini.</div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-
-        {{-- Item Hampir Kadaluarsa --}}
-        <div class="col-md-6">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-calendar-times mr-1 text-danger"></i> Item Mendekati Kadaluarsa</h6>
-                    <a href="{{ route('stock.near-expiry') }}" style="font-size:12px;color:#0d8564;">Kelola Stok →</a>
-                </div>
-                <div class="panel-body" style="padding-top:4px;">
-                    <table class="table mb-0 wms-table">
-                        <thead>
-                            <tr>
-                                <th>SKU</th>
-                                <th>Nama Item</th>
-                                <th>Batch</th>
-                                <th>Exp. Date</th>
-                                <th>Sisa Hari</th>
-                                <th>Qty</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($expiryStocks as $stock)
-                                @php
-                                    $daysLeft = now()->diffInDays($stock->expiry_date, false);
-                                    if ($daysLeft <= 20) {
-                                        $badgeClass = 'badge-critical';
-                                    } elseif ($daysLeft <= 45) {
-                                        $badgeClass = 'badge-pending';
-                                    } else {
-                                        $badgeClass = 'badge-completed';
-                                    }
-                                @endphp
-                                <tr>
-                                    <td>{{ $stock->item?->sku ?? '–' }}</td>
-                                    <td>{{ $stock->item?->name ?? '–' }}</td>
-                                    <td>{{ $stock->batch_no ?? '–' }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($stock->expiry_date)->format('d M \'y') }}</td>
-                                    <td><span class="badge-status {{ $badgeClass }}">{{ $daysLeft }} hari</span>
-                                    </td>
-                                    <td>{{ number_format($stock->quantity) }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-3">Tidak ada stok mendekati
-                                        kadaluarsa.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ══════════════════════════════════════════════════════
-     ROW 6 — DEADSTOCK MONITORING
-══════════════════════════════════════════════════════ --}}
-    <p class="section-title">
+    <p class="section-title" id="deadstock-section">
         <i class="fas fa-hourglass-half mr-1" style="color:#374151;"></i> Monitoring Deadstock
         <span class="badge badge-secondary ml-1" style="font-size:11px;font-weight:600;">
-            Barang Tidak Bergerak ≥ Batas Hari
+            Tidak Bergerak ≥ {{ $deadstockDays }} Hari
         </span>
     </p>
     <div class="row">
@@ -1628,9 +1254,17 @@
                             {{ $deadstockCount }} SKU
                         </span>
                     </h6>
-                    <span style="font-size:12px;color:#6b7280;">
-                        Stok tersedia yang tidak bergerak melampaui batas threshold item (default 90 hari)
-                    </span>
+                    <form method="GET" action="{{ route('dashboard') }}" class="d-flex align-items-center" style="gap:6px;">
+                        <span style="font-size:12px;color:#6b7280;white-space:nowrap;">Tidak bergerak ≥</span>
+                        <input type="number" name="deadstock_days" value="{{ $deadstockDays }}"
+                               min="1" max="3650"
+                               style="width:64px;font-size:12px;padding:3px 6px;border:1px solid #d1d5db;border-radius:6px;text-align:center;"
+                               class="form-control form-control-sm">
+                        <span style="font-size:12px;color:#6b7280;">hari</span>
+                        <button type="submit" class="btn btn-sm btn-dark" style="font-size:12px;padding:3px 10px;">
+                            <i class="fas fa-filter mr-1"></i>Filter
+                        </button>
+                    </form>
                 </div>
                 <div class="panel-body" style="padding-top:4px;">
                     @if ($deadstockStocks->isEmpty())
@@ -1919,80 +1553,8 @@
                         </div>
                     </div>
                     <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:10px;color:#9ca3af">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Semua metrik dihitung dari data transaksi real di sistem.
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Visual Analytics --}}
-    <p class="section-title"><i class="fas fa-chart-pie mr-1"></i> Visualisasi Risiko & Produktivitas</p>
-    <div class="row dashboard-section">
-        <div class="col-md-3">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-shield-alt mr-1 text-danger"></i> Risiko Inventory</h6>
-                    <span style="font-size:12px;color:#6b7280;">stok bermasalah</span>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-box visual">
-                        <div id="chartInventoryRisk" class="hc-chart"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-calendar-times mr-1 text-warning"></i> Bucket Expiry</h6>
-                    <span style="font-size:12px;color:#6b7280;">record stok</span>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-box visual">
-                        @if(array_sum(array_values($expiryBucketChart ?? [])) === 0)
-                            <div class="chart-empty"><div><i class="fas fa-calendar-times"></i>Tidak ada item mendekati kadaluarsa.</div></div>
-                        @else
-                            <div id="chartExpiryBucket" class="hc-chart"></div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-hourglass-half mr-1 text-secondary"></i> Bucket Deadstock</h6>
-                    <span style="font-size:12px;color:#6b7280;">usia tidak bergerak</span>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-box visual">
-                        @if(array_sum(array_values($deadstockBucketChart ?? [])) === 0)
-                            <div class="chart-empty"><div><i class="fas fa-hourglass-half"></i>Belum ada item yang terdeteksi deadstock.</div></div>
-                        @else
-                            <div id="chartDeadstockBucket" class="hc-chart"></div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-user-check mr-1 text-success"></i> Produktivitas Operator</h6>
-                    <span style="font-size:12px;color:#6b7280;">hari ini</span>
-                </div>
-                <div class="panel-body">
-                    <div class="chart-box visual">
-                        @if($operatorProductivity->isEmpty())
-                            <div class="chart-empty"><div><i class="fas fa-user-clock"></i>Belum ada aktivitas put-away tercatat hari ini.</div></div>
-                        @else
-                            <div id="chartOperatorProductivity" class="hc-chart"></div>
-                        @endif
+                        {{-- <i class="fas fa-info-circle mr-1"></i> --}}
+                        {{-- Semua metrik dihitung dari data transaksi real di sistem. --}}
                     </div>
                 </div>
             </div>
@@ -2055,76 +1617,6 @@
         </div>
     </div>
 
-    {{-- Warehouse Capacity Drilldown --}}
-    <p class="section-title"><i class="fas fa-warehouse mr-1"></i> Detail Kapasitas Rack & Cell</p>
-    <div class="row">
-        <div class="col-md-6">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-layer-group mr-1 text-warning"></i> Rack Paling Padat</h6>
-                    <span style="font-size:12px;color:#6b7280;">Top 8 berdasarkan utilisasi</span>
-                </div>
-                <div class="panel-body">
-                    @forelse($topRacksUtilization as $rack)
-                        <div class="zone-row">
-                            <div class="zone-label">
-                                <span><strong>{{ $rack['code'] }}</strong> - {{ $rack['zone'] }}</span>
-                                <span>{{ $rack['percent'] }}%</span>
-                            </div>
-                            <div class="zone-bar">
-                                <div class="zone-fill"
-                                    style="width:{{ min(100, $rack['percent']) }}%;background:{{ $rack['percent'] >= 85 ? '#ef4444' : ($rack['percent'] >= 70 ? '#f59e0b' : '#0d8564') }};">
-                                </div>
-                            </div>
-                            <div class="mt-1" style="font-size:11px;color:#6b7280;">
-                                {{ number_format($rack['used']) }} / {{ number_format($rack['max']) }} unit terpakai
-                            </div>
-                        </div>
-                    @empty
-                        <div class="text-center text-muted py-4">Belum ada data rack aktif.</div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-6">
-            <div class="panel-card">
-                <div class="panel-header">
-                    <h6><i class="fas fa-border-all mr-1 text-danger"></i> Cell Hampir Penuh</h6>
-                    <span style="font-size:12px;color:#6b7280;">Prioritas monitoring kapasitas</span>
-                </div>
-                <div class="panel-body p-0">
-                    <table class="table mb-0 wms-table">
-                        <thead>
-                            <tr>
-                                <th>Cell</th>
-                                <th>Rack/Zona</th>
-                                <th class="text-right">Terpakai</th>
-                                <th class="text-right">Sisa</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($criticalCells as $cell)
-                                <tr>
-                                    <td><strong>{{ $cell['code'] }}</strong><br><small class="text-muted">{{ $cell['status'] }}</small></td>
-                                    <td>{{ $cell['rack'] }}<br><small class="text-muted">{{ $cell['zone'] }}</small></td>
-                                    <td class="text-right">
-                                        <strong style="color:{{ $cell['percent'] >= 85 ? '#ef4444' : '#f59e0b' }}">{{ $cell['percent'] }}%</strong><br>
-                                        <small class="text-muted">{{ number_format($cell['used']) }}/{{ number_format($cell['max']) }}</small>
-                                    </td>
-                                    <td class="text-right">{{ number_format($cell['remaining']) }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="4" class="text-center text-muted py-4">Belum ada data cell.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
 
 @endsection
 
@@ -2184,9 +1676,10 @@
         });
 
         // ── 1. Donut Utilisasi Zona ─────────────────────────────────────────────
+
         @php
-            $capacityChartLabels = ['Terpakai', 'Kosong'];
-            $capacityChartData = [$capacityUsedTotal, $capacityFreeTotal];
+            $capacityUsedTotal = $zones->sum('used');
+            $capacityFreeTotal = max(0, $zones->sum('max') - $capacityUsedTotal);
         @endphp
         Highcharts.chart('chartZoneDonut', {
             chart: { type: 'pie', spacing: [0, 0, 0, 0] },
@@ -2202,8 +1695,8 @@
             series: [{
                 name: 'Kapasitas',
                 data: [
-                    { name: 'Terpakai', y: {{ (int) $capacityUsedTotal }}, color: '#0d8564' },
-                    { name: 'Kosong', y: {{ (int) $capacityFreeTotal }}, color: '#e5e7eb' }
+                    { name: 'Terpakai', y: {{ (int) $zones->sum('used') }}, color: '#0d8564' },
+                    { name: 'Kosong', y: {{ (int) max(0, $zones->sum('max') - $zones->sum('used')) }}, color: '#e5e7eb' }
                 ]
             }]
         });
@@ -2272,20 +1765,6 @@
             });
         })();
 
-        @if($inbound7Total + $outbound7Total > 0)
-        Highcharts.chart('chartInOut', {
-            chart: { type: 'column' },
-            xAxis: { categories: {!! $chartLabelsJson !!}, crosshair: true },
-            yAxis: { min: 0, title: { text: null }, gridLineColor: '#f3f4f6' },
-            legend: { align: 'center', verticalAlign: 'bottom' },
-            tooltip: { shared: true, valueSuffix: ' unit' },
-            plotOptions: { column: { borderRadius: 4, pointPadding: 0.12, groupPadding: 0.12 } },
-            series: [
-                { name: 'Inbound', data: {!! $chartInboundJson !!}, color: '#0d8564' },
-                { name: 'Pergerakan Keluar', data: {!! $chartOutboundJson !!}, color: '#3b82f6' }
-            ]
-        });
-        @endif
 
         // ── 3. Pie Chart Status Order (real) ────────────────────────────────────
         @php
@@ -2311,137 +1790,7 @@
             }]
         });
 
-        // ── 4. Donut Chart Stok per Kategori (real) ──────────────────────────────
-        @php
-            $catChartLabels = $stockByCategory->pluck('name')->toArray();
-            $catChartData = $stockByCategory->pluck('total_qty')->map(fn($v) => (int) $v)->toArray();
-            $catChartColors = $stockByCategory->map(fn($c) => $c->color_code ?: '#9ca3af')->toArray();
-        @endphp
-        @if (!$stockByCategory->isEmpty())
-            Highcharts.chart('chartCategoryStock', {
-                chart: { type: 'pie', spacing: [0, 0, 0, 0] },
-                tooltip: { pointFormat: '<b>{point.y:,.0f}</b> unit' },
-                plotOptions: {
-                    pie: {
-                        innerSize: '68%',
-                        borderWidth: 2,
-                        dataLabels: { enabled: false },
-                        showInLegend: false
-                    }
-                },
-                series: [{
-                    name: 'Stok',
-                    data: {!! json_encode(array_map(fn($label, $value, $color) => ['name' => $label, 'y' => $value, 'color' => $color], $catChartLabels, $catChartData, $catChartColors)) !!}
-                }]
-            });
-        @endif
-
-        // ── 5. Bottleneck Aging ───────────────────────────────────────────
-        @php
-            $bottleneckLabels = collect($bottleneckSummary)->pluck('label')->toArray();
-            $bottleneckCounts = collect($bottleneckSummary)->pluck('count')->map(fn($v) => (int) $v)->toArray();
-            $bottleneckColors = collect($bottleneckSummary)->pluck('color')->toArray();
-        @endphp
-        Highcharts.chart('chartBottleneck', {
-            chart: { type: 'bar', spacing: [4, 4, 4, 4] },
-            xAxis: { categories: {!! json_encode($bottleneckLabels) !!}, title: { text: null }, lineWidth: 0 },
-            yAxis: { min: 0, title: { text: null }, gridLineColor: '#f3f4f6', allowDecimals: false },
-            legend: { enabled: false },
-            tooltip: { pointFormat: '<b>{point.y}</b> DO' },
-            plotOptions: { bar: { borderRadius: 4, colorByPoint: true, colors: {!! json_encode($bottleneckColors) !!} } },
-            series: [{ name: 'Jumlah DO', data: {!! json_encode($bottleneckCounts) !!} }]
-        });
-
         // ── 6. GA Trend ───────────────────────────────────────────────────
-        @php
-            $riskLabels = array_keys($inventoryRiskChart);
-            $riskData = array_values($inventoryRiskChart);
-            $expiryLabels = array_keys($expiryBucketChart);
-            $expiryData = array_values($expiryBucketChart);
-            $deadstockLabels = array_keys($deadstockBucketChart);
-            $deadstockData = array_values($deadstockBucketChart);
-            $operatorLabels = $operatorProductivity->pluck('name')->toArray();
-            $operatorItems = $operatorProductivity->pluck('items')->toArray();
-            $operatorQty = $operatorProductivity->pluck('qty')->toArray();
-            $operatorFollow = $operatorProductivity->pluck('follow_rate')->toArray();
-        @endphp
-
-        Highcharts.chart('chartInventoryRisk', {
-            chart: { type: 'pie' },
-            tooltip: { pointFormat: '<b>{point.y}</b> data ({point.percentage:.1f}%)' },
-            plotOptions: {
-                pie: { innerSize: '58%', borderWidth: 2, dataLabels: { enabled: false }, showInLegend: true }
-            },
-            legend: { itemStyle: { fontSize: '11px' } },
-            series: [{
-                name: 'Risiko',
-                data: {!! json_encode(array_map(fn($label, $value, $color) => ['name' => $label, 'y' => $value, 'color' => $color], $riskLabels, $riskData, ['#dc2626', '#f59e0b', '#3b82f6', '#374151'])) !!}
-            }]
-        });
-
-        @if(array_sum($expiryData ?? []) > 0)
-        Highcharts.chart('chartExpiryBucket', {
-            chart: { type: 'column' },
-            xAxis: { categories: {!! json_encode($expiryLabels) !!}, crosshair: true },
-            yAxis: { min: 0, title: { text: null }, allowDecimals: false, gridLineColor: '#f3f4f6' },
-            legend: { enabled: false },
-            tooltip: { pointFormat: '<b>{point.y}</b> record stok' },
-            plotOptions: { column: { borderRadius: 5, colorByPoint: true, colors: ['#dc2626', '#f59e0b', '#3b82f6'] } },
-            series: [{ name: 'Near Expiry', data: {!! json_encode($expiryData) !!} }]
-        });
-        @endif
-
-        @if(array_sum($deadstockData ?? []) > 0)
-        Highcharts.chart('chartDeadstockBucket', {
-            chart: { type: 'bar' },
-            xAxis: { categories: {!! json_encode($deadstockLabels) !!}, title: { text: null } },
-            yAxis: { min: 0, title: { text: null }, allowDecimals: false, gridLineColor: '#f3f4f6' },
-            legend: { enabled: false },
-            tooltip: { pointFormat: '<b>{point.y}</b> record stok' },
-            plotOptions: { bar: { borderRadius: 5, colorByPoint: true, colors: ['#64748b', '#f59e0b', '#dc2626'] } },
-            series: [{ name: 'Deadstock', data: {!! json_encode($deadstockData) !!} }]
-        });
-        @endif
-
-        @if(!empty($operatorLabels))
-        Highcharts.chart('chartOperatorProductivity', {
-            chart: { zoomType: 'xy' },
-            xAxis: { categories: {!! json_encode($operatorLabels) !!}, crosshair: true },
-            yAxis: [{
-                min: 0,
-                title: { text: 'Item/Qty' },
-                allowDecimals: false,
-                gridLineColor: '#f3f4f6'
-            }, {
-                min: 0,
-                max: 100,
-                title: { text: 'Follow GA %' },
-                opposite: true,
-                gridLineWidth: 0
-            }],
-            tooltip: { shared: true },
-            legend: { align: 'center', verticalAlign: 'bottom' },
-            series: [{
-                name: 'Item',
-                type: 'column',
-                data: {!! json_encode($operatorItems) !!},
-                color: '#0d8564'
-            }, {
-                name: 'Qty',
-                type: 'column',
-                data: {!! json_encode($operatorQty) !!},
-                color: '#3b82f6'
-            }, {
-                name: 'Follow GA',
-                type: 'spline',
-                yAxis: 1,
-                data: {!! json_encode($operatorFollow) !!},
-                color: '#f59e0b',
-                tooltip: { valueSuffix: '%' }
-            }]
-        });
-        @endif
-
         Highcharts.chart('chartGaTrend', {
             chart: { zoomType: 'xy' },
             xAxis: { categories: {!! json_encode($gaTrendLabels) !!}, crosshair: true },

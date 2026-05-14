@@ -59,24 +59,84 @@ class Warehouse3DController extends Controller
     {
         $warehouseId = $request->input('warehouse_id');
 
+        $cellLoader = function ($q) {
+            $q->where('is_active', true)->orderBy('level')->orderBy('column');
+        };
+        $stockLoader = function ($q) {
+            $q->where('status', 'available')->select('cell_id', DB::raw('SUM(quantity) as qty'))
+              ->groupBy('cell_id');
+        };
+
         $zones = Zone::with([
-            'racks' => function ($q) {
-                $q->orderBy('code');
-            },
-            'racks.cells' => function ($q) {
-                $q->orderBy('level')->orderBy('column');
-            },
+            'racks'                   => fn($q) => $q->orderBy('code'),
+            'racks.cells'             => $cellLoader,
             'racks.cells.dominantCategory',
-            'racks.cells.stocks' => function ($q) {
-                $q->where('status', 'available')->select('cell_id', DB::raw('SUM(quantity) as qty'))
-                  ->groupBy('cell_id');
-            },
+            'racks.cells.stocks'      => $stockLoader,
         ])
         ->where('warehouse_id', $warehouseId)
         ->orderBy('name')
         ->get();
 
-        $data = $zones->map(function ($zone) {
+        // Sub-racks: codes matching /^\d+[A-G]$/ (mspart layout racks like "1A", "4G")
+        $subRacks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+            ->whereRaw("code REGEXP '^[0-9]+[A-G]$'")
+            ->with([
+                'cells'              => $cellLoader,
+                'cells.dominantCategory',
+                'cells.stocks'       => $stockLoader,
+            ])
+            ->get()
+            ->groupBy(fn($r) => preg_replace('/[A-G]$/', '', $r->code));  // group by blok number
+
+        $mapCell = function ($cell) {
+            $utilPct = $cell->capacity_max > 0
+                ? round($cell->capacity_used / $cell->capacity_max * 100)
+                : 0;
+            return [
+                'cell_id'       => $cell->id,
+                'code'          => $cell->code,
+                'level'         => $cell->level,
+                'column'        => $cell->column,
+                'blok'          => $cell->blok,
+                'grup'          => $cell->grup,
+                'kolom'         => $cell->kolom,
+                'baris'         => $cell->baris,
+                'status'        => $cell->status,
+                'capacity_max'  => $cell->capacity_max,
+                'capacity_used' => $cell->capacity_used,
+                'utilization'   => $utilPct,
+                'category'      => $cell->dominantCategory
+                    ? ['name' => $cell->dominantCategory->name, 'color' => $cell->dominantCategory->color_code]
+                    : null,
+            ];
+        };
+
+        $data = $zones->map(function ($zone) use ($subRacks, $mapCell) {
+            $racks = $zone->racks->map(function ($rack) use ($subRacks, $mapCell) {
+                // Merge sub-rack cells into parent rack
+                $mspartCells = collect();
+                if ($subRacks->has($rack->code)) {
+                    foreach ($subRacks->get($rack->code) as $subRack) {
+                        $mspartCells = $mspartCells->merge($subRack->cells);
+                    }
+                }
+
+                $allCells = $rack->cells->map($mapCell)
+                    ->merge($mspartCells->map($mapCell))
+                    ->values();
+
+                return [
+                    'rack_id'       => $rack->id,
+                    'rack_code'     => $rack->code,
+                    'pos_x'         => (float) ($rack->pos_x ?? 0),
+                    'pos_z'         => (float) ($rack->pos_z ?? 0),
+                    'rotation_y'    => (float) ($rack->rotation_y ?? 0),
+                    'total_levels'  => (int)   ($rack->total_levels ?? 7),
+                    'total_columns' => (int)   ($rack->total_columns ?? 1),
+                    'cells'         => $allCells,
+                ];
+            });
+
             return [
                 'zone_id'   => $zone->id,
                 'zone_name' => $zone->name,
@@ -84,39 +144,59 @@ class Warehouse3DController extends Controller
                 'zone_type' => $zone->zone_type ?? 'storage',
                 'pos_x'     => (float) ($zone->pos_x ?? 0),
                 'pos_z'     => (float) ($zone->pos_z ?? 0),
-                'racks'     => $zone->racks->map(function ($rack) {
-                    return [
-                        'rack_id'       => $rack->id,
-                        'rack_code'     => $rack->code,
-                        'pos_x'         => (float) ($rack->pos_x ?? 0),
-                        'pos_z'         => (float) ($rack->pos_z ?? 0),
-                        'rotation_y'    => (float) ($rack->rotation_y ?? 0),
-                        'total_levels'  => (int)   ($rack->total_levels ?? 7),
-                        'total_columns' => (int)   ($rack->total_columns ?? 1),
-                        'cells'     => $rack->cells->map(function ($cell) {
-                            $utilPct = $cell->capacity_max > 0
-                                ? round($cell->capacity_used / $cell->capacity_max * 100)
-                                : 0;
-                            return [
-                                'cell_id'      => $cell->id,
-                                'code'         => $cell->code,
-                                'level'        => $cell->level,
-                                'column'       => $cell->column,
-                                'status'       => $cell->status,
-                                'capacity_max' => $cell->capacity_max,
-                                'capacity_used'=> $cell->capacity_used,
-                                'utilization'  => $utilPct,
-                                'category'     => $cell->dominantCategory
-                                    ? ['name' => $cell->dominantCategory->name, 'color' => $cell->dominantCategory->color_code]
-                                    : null,
-                            ];
-                        }),
-                    ];
-                }),
+                'racks'     => $racks,
             ];
         });
 
         return response()->json($data);
+    }
+
+    // ─── Detail kolom mspart (semua baris dalam satu kolom fisik) ───────────
+    public function columnDetail(Request $request)
+    {
+        $blok  = (int) $request->input('blok');
+        $grup  = strtoupper(trim($request->input('grup', '')));
+        $kolom = (int) $request->input('kolom');
+
+        if (!$blok || !$grup || !$kolom) {
+            return response()->json(['error' => 'blok, grup, kolom wajib diisi.'], 422);
+        }
+
+        $cells = Cell::where('blok', $blok)
+            ->where('grup', $grup)
+            ->where('kolom', $kolom)
+            ->where('is_active', true)
+            ->orderBy('baris')
+            ->with([
+                'stocks' => fn($q) => $q->where('status', 'available')->with('item.unit')->orderBy('inbound_date'),
+            ])
+            ->get();
+
+        $result = $cells->map(function ($cell) {
+            return [
+                'cell_id'      => $cell->id,
+                'code'         => $cell->code,
+                'baris'        => $cell->baris,
+                'status'       => $cell->status,
+                'capacity_used'=> $cell->capacity_used,
+                'capacity_max' => $cell->capacity_max,
+                'stocks'       => $cell->stocks->map(fn($s) => [
+                    'item_name'    => $s->item?->name ?? '—',
+                    'sku'          => $s->item?->sku ?? '—',
+                    'unit'         => $s->item?->unit?->code ?? '',
+                    'quantity'     => $s->quantity,
+                    'inbound_date' => $s->inbound_date?->format('d M Y'),
+                ]),
+            ];
+        });
+
+        return response()->json([
+            'blok'   => $blok,
+            'grup'   => $grup,
+            'kolom'  => $kolom,
+            'label'  => "Kolom {$blok}-{$grup}-{$kolom}",
+            'levels' => $result,
+        ]);
     }
 
     // ─── Cell list berisi item (untuk highlight pencarian SKU) ──────────────
@@ -186,6 +266,10 @@ class Warehouse3DController extends Controller
                 'category'      => $cell->dominantCategory?->name,
                 'level'         => $cell->level,
                 'column'        => $cell->column,
+                'blok'          => $cell->blok,
+                'grup'          => $cell->grup,
+                'kolom'         => $cell->kolom,
+                'baris'         => $cell->baris,
             ],
             'stocks' => $stocks,
         ]);

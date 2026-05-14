@@ -32,6 +32,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Fonnte WhatsApp Gateway
+    |--------------------------------------------------------------------------
+    | token              : API token dari fonnte.com (isi setelah daftar)
+    | supervisor_numbers : nomor WA supervisor, pisahkan koma (ex: 08123,08456)
+    | deadstock_days     : threshold hari untuk deadstock di pesan WA
+    | schedule_day       : hari kirim (monday/tuesday/.../sunday)
+    | schedule_time      : jam kirim format HH:MM
+    */
+    'fonnte' => [
+        'token'              => env('FONNTE_TOKEN', ''),
+        'supervisor_numbers' => array_filter(explode(',', env('WA_SUPERVISOR_NUMBERS', ''))),
+        'deadstock_days'     => env('WA_DEADSTOCK_DAYS', 90),
+        'schedule_day'       => env('WA_ALERT_DAY', 'monday'),
+        'schedule_time'      => env('WA_ALERT_TIME', '08:00'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | GA Engine (Python FastAPI)
     |--------------------------------------------------------------------------
     | url      : base URL Python FastAPI, default localhost:8001

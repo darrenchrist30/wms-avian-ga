@@ -1,0 +1,255 @@
+{
+  "info": {
+    "name": "WMS Avian — Inbound API",
+    "_postman_id": "wms-avian-inbound-v1",
+    "description": "Full flow: POST inbound → cek status. Base URL: http://localhost/wms-avian-ga",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost/wms-avian-ga" },
+    { "key": "token",    "value": "7|aj15EYCF6mSJ1WWNXRRgT5YQEa52BJ7OY1qSd4yn" }
+  ],
+  "item": [
+
+    {
+      "name": "1. Kirim Surat Jalan Baru (POST receive)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound/receive",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound", "receive"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-POSTMAN-001\",\n  \"do_date\": \"2026-05-12\",\n  \"supplier_code\": \"SUP-001\",\n  \"notes\": \"Testing via Postman\",\n  \"items\": [\n    { \"sku\": \"03SP-BE6206\",         \"quantity\": 10 },\n    { \"sku\": \"03SP-BAUTLM6X30\",    \"quantity\": 25 },\n    { \"sku\": \"03SP-CAMLDC1''\",      \"quantity\": 5  },\n    { \"sku\": \"03SP-BEAUCT208\",      \"quantity\": 8  },\n    { \"sku\": \"03SP-ASSRISYN8FD25\", \"quantity\": 3  }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status 201 atau 200', () => [200,201].includes(pm.response.code));",
+              "pm.test('success true', () => pm.expect(res.success).to.be.true);",
+              "if (res.data) {",
+              "  pm.collectionVariables.set('do_number', res.data.do_number);",
+              "  console.log('DO Number:', res.data.do_number, '| Status:', res.data.status);",
+              "}",
+              "if (res.warnings) {",
+              "  console.warn('Unmatched items:', JSON.stringify(res.warnings.unmatched_items));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. Cek Status DO",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound/SJ-TEST-POSTMAN-001",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound", "SJ-TEST-POSTMAN-001"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "pm.test('success true', () => pm.expect(res.success).to.be.true);",
+              "if (res.data) {",
+              "  console.log('Status:', res.data.status, '| Items:', res.data.items_count);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "3. List Semua DO (dengan filter)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound?status=draft&per_page=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound"],
+          "query": [
+            { "key": "status",    "value": "draft" },
+            { "key": "per_page",  "value": "10" },
+            { "key": "date_from", "value": "2026-05-01", "disabled": true },
+            { "key": "date_to",   "value": "2026-05-31", "disabled": true }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "console.log('Total DO:', res.meta?.total, '| Page:', res.meta?.current_page);"
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "4. Kirim DO — SKU Tidak Ada (expect warning)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound/receive",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound", "receive"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-POSTMAN-WARN-001\",\n  \"do_date\": \"2026-05-12\",\n  \"notes\": \"Test: campuran SKU valid dan tidak valid\",\n  \"items\": [\n    { \"sku\": \"03SP-BE6206\",  \"quantity\": 10 },\n    { \"sku\": \"SKU-TIDAK-ADA\", \"quantity\": 5  }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const res = pm.response.json();",
+              "pm.test('Berhasil meski ada SKU tidak valid', () => pm.expect(res.success).to.be.true);",
+              "pm.test('Ada field warnings', () => pm.expect(res).to.have.property('warnings'));",
+              "console.log('Warnings:', JSON.stringify(res.warnings));"
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "5. Kirim DO — Validasi Gagal (tanpa do_number)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound/receive",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound", "receive"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_date\": \"2026-05-12\",\n  \"items\": [\n    { \"sku\": \"03SP-BE6206\", \"quantity\": 10 }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Expect 422', () => pm.response.to.have.status(422));",
+              "const res = pm.response.json();",
+              "pm.test('success false', () => pm.expect(res.success).to.be.false);",
+              "pm.test('Ada errors.do_number', () => pm.expect(res.errors).to.have.property('do_number'));",
+              "console.log('Errors:', JSON.stringify(res.errors));"
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "6. Kirim DO — Idempotent (DO sudah ada)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type",  "value": "application/json" },
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound/receive",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound", "receive"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"warehouse_code\": \"WH-001\",\n  \"do_number\": \"SJ-TEST-POSTMAN-001\",\n  \"do_date\": \"2026-05-12\",\n  \"notes\": \"Kirim ulang — harus return 200 bukan 201\",\n  \"items\": [\n    { \"sku\": \"03SP-BE6206\", \"quantity\": 99 }\n  ]\n}",
+          "options": { "raw": { "language": "json" } }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Expect 200 (bukan 201)', () => pm.response.to.have.status(200));",
+              "const res = pm.response.json();",
+              "pm.test('success true', () => pm.expect(res.success).to.be.true);",
+              "console.log('Message:', res.message);"
+            ]
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "7. Cek DO Tidak Ada (expect 404)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Accept",        "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/inbound/SJ-TIDAK-ADA-99999",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "inbound", "SJ-TIDAK-ADA-99999"]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Expect 404', () => pm.response.to.have.status(404));",
+              "const res = pm.response.json();",
+              "pm.test('success false', () => pm.expect(res.success).to.be.false);"
+            ]
+          }
+        }
+      ]
+    }
+
+  ]
+}

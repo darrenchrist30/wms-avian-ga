@@ -17,7 +17,8 @@ class Cell extends Model
 
     protected $fillable = [
         'rack_id', 'dominant_category_id', 'code', 'label',
-        'level', 'column', 'capacity_max', 'capacity_used',
+        'level', 'column', 'blok', 'grup', 'kolom', 'baris',
+        'capacity_max', 'capacity_used',
         'zone_category', 'qr_code', 'status', 'is_active',
     ];
 

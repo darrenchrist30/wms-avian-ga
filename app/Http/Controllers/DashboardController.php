@@ -12,12 +12,15 @@ use App\Models\Rack;
 use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Models\Zone;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
+        $deadstockDays = max(1, (int) $request->input('deadstock_days', 90));
+
         // ── KPI Utama ───────────────────────────────────────────────────────────
         $totalItems     = Item::where('is_active', true)->count();
         $totalCells     = Cell::where('is_active', true)->count();
@@ -32,8 +35,8 @@ class DashboardController extends Controller
             ->whereRaw('(SELECT COALESCE(SUM(s.quantity),0) FROM stock_records s WHERE s.item_id = items.id AND s.status = "available") < items.min_stock')
             ->count();
         $nearExpiryItems = Stock::nearExpiry(30)->count();
-        $activeOrders    = InboundOrder::whereIn('status', ['processing', 'recommended', 'put_away'])->count();
-        $deadstockCount  = Stock::deadstock(90)->distinct('item_id')->count('item_id');
+        $activeOrders    = InboundOrder::whereIn('status', ['inbound', 'put_away'])->count();
+        $deadstockCount  = Stock::deadstock($deadstockDays)->distinct('item_id')->count('item_id');
 
         // ── Zona Gudang ─────────────────────────────────────────────────────────
         $zones = Zone::with('racks.cells')->get()->map(function ($zone) {
@@ -145,7 +148,7 @@ class DashboardController extends Controller
             ]);
 
         $deadstockStocks = Stock::with(['item.category', 'cell.rack.zone'])
-            ->deadstock(90)
+            ->deadstock($deadstockDays)
             ->orderByRaw('COALESCE(last_moved_at, inbound_date) ASC')
             ->take(8)
             ->get();
@@ -162,93 +165,54 @@ class DashboardController extends Controller
             ->get();
 
         $scheduledInbound = InboundOrder::with(['supplier', 'items'])
-            ->whereIn('status', ['draft', 'processing', 'recommended', 'put_away'])
+            ->whereIn('status', ['inbound', 'put_away'])
             ->orderBy('do_date')
             ->take(5)
             ->get();
 
         // ── Actionable cards ─────────────────────────────────────────────────────
-        // DO yang do_date-nya hari ini dan statusnya masih draft (baru datang, belum diproses)
+        // DO yang do_date-nya hari ini dan statusnya masih inbound (baru datang, belum diproses GA)
         $inboundHariIni = InboundOrder::whereDate('do_date', today())
-            ->where('status', 'draft')
+            ->where('status', 'inbound')
             ->count();
 
-        $pendingQtyConfirm = InboundOrder::where('status', 'draft')
-            ->whereHas('items', fn($q) => $q->where('quantity_received', 0))
-            ->count();
+        $pendingQtyConfirm = 0; // tidak ada lagi langkah konfirmasi qty
 
-        $pendingGaRun = InboundOrder::where('status', 'draft')
-            ->whereHas('items', fn($q) => $q->where('quantity_received', '>', 0))
-            ->count();
+        $pendingGaRun = InboundOrder::where('status', 'inbound')->count();
 
-        $pendingGaAccept = InboundOrder::where('status', 'recommended')
-            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'pending_review'))
-            ->count();
+        $pendingGaAccept = 0; // tidak ada lagi langkah review supervisor
 
-        $pendingPutAway = InboundOrder::whereIn('status', ['recommended', 'put_away'])
+        $pendingPutAway = InboundOrder::where('status', 'put_away')
             ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
             ->count();
 
         // ── Process Control: funnel, bottleneck, and aging ─────────────────
-        $qtyConfirmedReady = $pendingGaRun;
-        $gaProcessing      = InboundOrder::where('status', 'processing')->count();
-        $gaRecommended     = InboundOrder::where('status', 'recommended')->count();
-        $completedOrders   = InboundOrder::where('status', 'completed')->count();
+        $completedOrders = InboundOrder::where('status', 'completed')->count();
 
         $processFunnel = [
-            ['label' => 'Draft',           'count' => (int) ($orderStatusCounts['draft'] ?? 0),       'color' => '#6b7280'],
-            ['label' => 'Qty Confirmed',   'count' => $qtyConfirmedReady,                            'color' => '#3b82f6'],
-            ['label' => 'GA Processing',   'count' => $gaProcessing,                                 'color' => '#8b5cf6'],
-            ['label' => 'Menunggu Review', 'count' => $gaRecommended,                                'color' => '#f59e0b'],
-            ['label' => 'Put-Away',        'count' => $pendingPutAway,                               'color' => '#14b8a6'],
-            ['label' => 'Completed',       'count' => $completedOrders,                              'color' => '#0d8564'],
+            ['label' => 'Inbound',   'count' => (int) ($orderStatusCounts['inbound'] ?? 0), 'color' => '#f59e0b'],
+            ['label' => 'Put-Away',  'count' => $pendingPutAway,                             'color' => '#14b8a6'],
+            ['label' => 'Completed', 'count' => $completedOrders,                            'color' => '#0d8564'],
         ];
 
         $bottleneckSummary = [
             [
-                'label'       => 'Belum Qty',
-                'count'       => $pendingQtyConfirm,
-                'oldest_days' => (int) optional(
-                    InboundOrder::where('status', 'draft')
-                        ->whereHas('items', fn($q) => $q->where('quantity_received', 0))
-                        ->oldest('created_at')
-                        ->first()
-                )?->created_at?->diffInDays(now()),
-                'color'       => '#6b7280',
-                'url'         => route('inbound.orders.index', ['status' => 'draft']),
-                'url_label'   => 'Konfirmasi Qty',
-            ],
-            [
                 'label'       => 'Belum GA',
                 'count'       => $pendingGaRun,
                 'oldest_days' => (int) optional(
-                    InboundOrder::where('status', 'draft')
-                        ->whereHas('items', fn($q) => $q->where('quantity_received', '>', 0))
-                        ->oldest('updated_at')
+                    InboundOrder::where('status', 'inbound')
+                        ->oldest('created_at')
                         ->first()
-                )?->updated_at?->diffInDays(now()),
-                'color'       => '#3b82f6',
-                'url'         => route('inbound.orders.index', ['status' => 'draft']),
-                'url_label'   => 'Jalankan GA',
-            ],
-            [
-                'label'       => 'Belum Review',
-                'count'       => $pendingGaAccept,
-                'oldest_days' => (int) optional(
-                    InboundOrder::where('status', 'recommended')
-                        ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'pending_review'))
-                        ->oldest('processed_at')
-                        ->first()
-                )?->processed_at?->diffInDays(now()),
+                )?->created_at?->diffInDays(now()),
                 'color'       => '#f59e0b',
-                'url'         => route('inbound.orders.index', ['status' => 'recommended']),
-                'url_label'   => 'Review GA',
+                'url'         => route('inbound.orders.index', ['status' => 'inbound']),
+                'url_label'   => 'Jalankan GA',
             ],
             [
                 'label'       => 'Belum Put-Away',
                 'count'       => $pendingPutAway,
                 'oldest_days' => (int) optional(
-                    InboundOrder::whereIn('status', ['recommended', 'put_away'])
+                    InboundOrder::where('status', 'put_away')
                         ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
                         ->oldest('updated_at')
                         ->first()
@@ -260,7 +224,7 @@ class DashboardController extends Controller
         ];
 
         $oldestOpenOrders = InboundOrder::with(['warehouse', 'supplier'])
-            ->whereIn('status', ['draft', 'processing', 'recommended', 'put_away'])
+            ->whereIn('status', ['inbound', 'put_away'])
             ->orderBy('created_at')
             ->take(4)
             ->get()
@@ -404,7 +368,7 @@ class DashboardController extends Controller
             // KPI
             'totalItems', 'totalCells', 'usedCells', 'utilizationPct', 'totalStockQty',
             'inboundToday', 'outboundToday', 'lowStockItems',
-            'nearExpiryItems', 'activeOrders', 'deadstockCount',
+            'nearExpiryItems', 'activeOrders', 'deadstockCount', 'deadstockDays',
             // Zona
             'zones', 'fullZones',
             // Order status
@@ -437,6 +401,17 @@ class DashboardController extends Controller
             // Visual analytics
             'inventoryRiskChart', 'expiryBucketChart', 'deadstockBucketChart', 'operatorProductivity'
         ));
+    }
+
+    public function sendWaAlert(\Illuminate\Http\Request $request): \Illuminate\Http\RedirectResponse
+    {
+        \Illuminate\Support\Facades\Artisan::call('wms:send-wa-alert', ['--force' => true]);
+        $output = trim(\Illuminate\Support\Facades\Artisan::output());
+
+        return back()->with(
+            str_contains(strtolower($output), 'berhasil') || str_contains($output, '1/') ? 'success' : 'info',
+            $output ?: 'WA Alert diproses. Cek log jika FONNTE_TOKEN belum diisi.'
+        );
     }
 
     public function trendData(\Illuminate\Http\Request $request)
