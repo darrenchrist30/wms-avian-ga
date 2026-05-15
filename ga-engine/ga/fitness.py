@@ -79,13 +79,6 @@ def build_item_cell_map(cells_dict: Dict[int, CellInput]) -> Dict[int, set[int]]
 # Pemetaan movement_type → kode zona
 # ─────────────────────────────────────────────────────────────────────────────
 
-MOVEMENT_ZONE_MAP = {
-    "fast_moving": "A",   # Zona A – Fast Moving
-    "slow_moving": "B",   # Zona B – Slow Moving
-    "heavy":       "C",   # Zona C – Heavy
-}
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # FC_CAP — Fitness Kapasitas (maks 40)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -133,14 +126,14 @@ def fc_capacity(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FC_CAT — Fitness Kategori/Zona (maks 30)
+# FC_CAT — Fitness Kategori (maks 30)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fc_category(item: ItemInput, cell: CellInput) -> float:
     """
     FC_CAT (maks 25 poin):
 
-    Mengukur kesesuaian kategori item dengan kategori dominan cell / zona.
+    Mengukur kesesuaian kategori item dengan kategori dominan cell.
     Jika cell sudah menyimpan item yang sama, cell dianggap cocok secara kategori
     karena sudah menjadi lokasi existing untuk item tersebut.
 
@@ -159,11 +152,6 @@ def fc_category(item: ItemInput, cell: CellInput) -> float:
         and item.category_id == cell.dominant_category_id
     ):
         return 25.0
-
-    # Zone match: movement_type item sesuai kode zona cell
-    expected_zone = MOVEMENT_ZONE_MAP.get(item.movement_type)
-    if expected_zone and cell.zone_category and expected_zone == cell.zone_category:
-        return 12.5
 
     return 0.0
 
@@ -299,6 +287,20 @@ def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> f
     """
     if cell_a is None or cell_b is None:
         return 9999.0
+
+    if (
+        cell_a.blok is not None
+        and cell_b.blok is not None
+        and cell_a.baris_rak is not None
+        and cell_b.baris_rak is not None
+        and cell_a.kolom is not None
+        and cell_b.kolom is not None
+    ):
+        return (
+            abs(cell_a.blok - cell_b.blok) * 10
+            + abs(cell_a.baris_rak - cell_b.baris_rak) * 2
+            + abs(cell_a.kolom - cell_b.kolom)
+        )
 
     rack_a = cell_a.rack_index if cell_a.rack_index is not None else 9999
     rack_b = cell_b.rack_index if cell_b.rack_index is not None else 9999

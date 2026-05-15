@@ -155,7 +155,7 @@
                                 <th width="60" class="text-center">QTY</th>
                                 <th width="55" class="text-center">Satuan</th>
                                 <th width="110" class="text-center">Sel GA</th>
-                                <th width="120">Rak / Zona</th>
+                                <th width="120">Rak</th>
                                 <th width="85" class="text-center">Status Sel</th>
                                 <th width="130" class="text-center">Aksi</th>
                             </tr>
@@ -167,7 +167,6 @@
                                 $item   = $detail->inboundOrderItem->item;
                                 $cell   = $detail->cell;
                                 $rack   = $cell?->rack;
-                                $zone   = $rack?->zone;
                                 $statusMap = [
                                     'available' => ['success', 'Tersedia'],
                                     'partial'   => ['warning', 'Sebagian'],
@@ -204,7 +203,7 @@
                                 <td class="text-center align-middle">
                                     @if($cell)
                                         <span class="badge badge-primary px-2" style="font-size:11px;letter-spacing:.3px;">
-                                            {{ $cell->code }}
+                                            {{ $cell->physical_code }}
                                         </span>
                                     @else
                                         <span class="text-muted small">—</span>
@@ -219,9 +218,6 @@
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
-                                    @if($zone)
-                                        <br><small class="text-muted">Zona {{ $zone->code ?? $zone->name }}</small>
-                                    @endif
                                 </td>
                                 <td class="text-center align-middle">
                                     <span class="badge badge-{{ $statusColor }}" style="font-size:10px;">
@@ -229,7 +225,7 @@
                                     </span>
                                     @if($cell)
                                         <br><small class="text-muted" style="font-size:10px;">
-                                            {{ $cell->capacity_used }}/{{ $cell->capacity_max }}
+                                            {{ $cell->physical_capacity_used }}/{{ $cell->physical_capacity_max }}
                                         </small>
                                     @endif
                                 </td>
@@ -240,11 +236,11 @@
                                             data-ga-detail-id="{{ $detail->id }}"
                                             data-item-name="{{ $item->name }}"
                                             data-qty="{{ $detail->quantity }}"
-                                            data-ga-cell="{{ $cell?->code ?? '' }}"
+                                            data-ga-cell="{{ $cell?->physical_code ?? '' }}"
                                             data-ga-cell-id="{{ $cell?->id ?? '' }}"
-                                            data-cap-remaining="{{ $cell?->capacity_remaining ?? 0 }}"
-                                            data-cap-max="{{ $cell?->capacity_max ?? 0 }}"
-                                            title="Konfirmasi penempatan ke {{ $cell?->code ?? 'sel GA' }}">
+                                            data-cap-remaining="{{ $cell?->physical_capacity_remaining ?? 0 }}"
+                                            data-cap-max="{{ $cell?->physical_capacity_max ?? 0 }}"
+                                            title="Konfirmasi penempatan ke {{ $cell?->physical_code ?? 'sel GA' }}">
                                         <i class="fas fa-check mr-1"></i>Konfirmasi
                                     </button>
                                     <button class="btn btn-xs btn-warning text-dark btnOverride"
@@ -253,10 +249,10 @@
                                             data-ga-detail-id="{{ $detail->id }}"
                                             data-item-name="{{ $item->name }}"
                                             data-qty="{{ $detail->quantity }}"
-                                            data-ga-cell="{{ $cell?->code ?? '' }}"
+                                            data-ga-cell="{{ $cell?->physical_code ?? '' }}"
                                             data-ga-cell-id="{{ $cell?->id ?? '' }}"
-                                            data-cap-remaining="{{ $cell?->capacity_remaining ?? 0 }}"
-                                            data-cap-max="{{ $cell?->capacity_max ?? 0 }}"
+                                            data-cap-remaining="{{ $cell?->physical_capacity_remaining ?? 0 }}"
+                                            data-cap-max="{{ $cell?->physical_capacity_max ?? 0 }}"
                                             title="Override — tempatkan di luar rekomendasi GA">
                                         <i class="fas fa-map-marker-alt mr-1"></i>Override
                                     </button>
@@ -561,7 +557,6 @@ function showConfirmPhase(cell) {
     $('#cellResultCard').css({ borderColor: cardBorder, background: cardBg });
     $('#resultCellCode').text(cell.code);
     $('#resultCellMeta').text(
-        (cell.zone_category ? 'Zone ' + cell.zone_category + ' · ' : '') +
         (cell.rack_code ? 'Rack ' + cell.rack_code : '')
     );
 
@@ -745,7 +740,6 @@ function doModalScanQr(code) {
             const cell = {
                 id:                 c.id,
                 code:               c.code,
-                zone_category:      c.zone_category,
                 rack_code:          c.rack_code,
                 capacity_remaining: c.capacity_remaining,
                 capacity_max:       c.capacity_max,
@@ -842,7 +836,6 @@ function openConfirmModal(orderId, detailId, gaDetailId, itemName, qty, gaCell, 
     modalGaCell = gaCellId ? {
         id:                 gaCellId,
         code:               gaCell,
-        zone_category:      '',
         rack_code:          '',
         capacity_remaining: gaCapRemain,
         capacity_max:       gaCapMax,

@@ -426,7 +426,7 @@
 
     $fcDefs = [
         'fc_cap_score'   => ['FC_CAP',   'Kapasitas Cell',            35, '#3b82f6'],
-        'fc_cat_score'   => ['FC_CAT',   'Kesesuaian Kategori/Zona',  25, '#10b981'],
+        'fc_cat_score'   => ['FC_CAT',   'Kesesuaian Kategori',  25, '#10b981'],
         'fc_aff_score'   => ['FC_AFF',   'Afinitas Co-occurrence',    20, '#f59e0b'],
         'fc_split_score' => ['FC_SPLIT', 'Anti-Split + Jarak Lokasi', 20, '#8b5cf6'],
     ];
@@ -551,7 +551,6 @@
                         <th>Item (SKU)</th>
                         <th class="text-center" width="60">Qty</th>
                         <th class="text-center" width="100">Cell</th>
-                        <th class="text-center" width="120">Zona</th>
                         <th class="text-center" width="80">Rak</th>
                         <th class="text-center" width="80" style="border-left:2px solid #dee2e6;">
                             Fitness<br><small style="font-size:9px;color:#9ca3af;font-weight:400;">/100</small>
@@ -584,8 +583,6 @@
                         $catPct  = min(100, round((float) $det->fc_cat_score   / 30 * 100));
                         $affPct  = min(100, round((float) $det->fc_aff_score   / 20 * 100));
                         $splPct  = min(100, round((float) $det->fc_split_score / 10 * 100));
-                        $zoneName = $det->cell->rack->zone->name ?? '—';
-                        $zoneCode = $det->cell->rack->zone->code ?? '';
                     @endphp
                     <tr>
                         <td class="text-center text-muted">{{ $di + 1 }}</td>
@@ -607,11 +604,6 @@
                                 <i class="fas fa-cube mr-1"></i>3D
                             </a>
                             @endif
-                        </td>
-                        <td class="text-center">
-                            <span class="badge badge-light border" style="font-size:10px;">
-                                {{ $zoneCode ? "[$zoneCode] " : '' }}{{ $zoneName }}
-                            </span>
                         </td>
                         <td class="text-center" style="font-size:11px;color:#374151;">{{ $det->cell->rack->code ?? '—' }}</td>
 
@@ -661,7 +653,7 @@
             <i class="fas fa-circle" style="color:#f59e0b;"></i> 50–74 Cukup Baik &ensp;
             <i class="fas fa-circle" style="color:#ef4444;"></i> &lt; 50 Perlu Evaluasi &ensp;
             <span class="ml-2"><strong style="color:#3b82f6;">CAP</strong>=Kapasitas &ensp;
-            <strong style="color:#10b981;">CAT</strong>=Kategori/Zona &ensp;
+            <strong style="color:#10b981;">CAT</strong>=Kategori &ensp;
             <strong style="color:#f59e0b;">AFF</strong>=Afinitas &ensp;
             <strong style="color:#8b5cf6;">SPL</strong>=Anti-Split</span>
         </div>

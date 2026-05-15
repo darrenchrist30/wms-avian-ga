@@ -37,6 +37,90 @@ class PutAwayService
     // 1. Konfirmasi Qty Fisik di Dock
     // ─────────────────────────────────────────────────────────────────────────
 
+    private function matchesRecommendedLocation(Cell $scannedCell, ?Cell $recommendedCell): bool
+    {
+        if (!$recommendedCell) {
+            return false;
+        }
+
+        if ($this->isMspartCell($scannedCell) && $this->isMspartCell($recommendedCell)) {
+            return (int) $scannedCell->blok === (int) $recommendedCell->blok
+                && strtoupper((string) $scannedCell->grup) === strtoupper((string) $recommendedCell->grup)
+                && (int) $scannedCell->kolom === (int) $recommendedCell->kolom;
+        }
+
+        return $scannedCell->id === $recommendedCell->id;
+    }
+
+    private function remainingCapacityForPlacement(Cell $cell): int
+    {
+        if (!$this->isMspartCell($cell)) {
+            return max(0, (int) $cell->capacity_max - (int) $cell->capacity_used);
+        }
+
+        $cells = Cell::where('is_active', true)
+            ->where('blok', $cell->blok)
+            ->where('grup', strtoupper((string) $cell->grup))
+            ->where('kolom', $cell->kolom)
+            ->get();
+
+        $cellIds = $cells->pluck('id')->all();
+        $capacityMax = max(1, (int) ($cells->max('capacity_max') ?: $cell->capacity_max ?: 20));
+        $capacityUsed = Stock::whereIn('cell_id', $cellIds)
+            ->where('quantity', '>', 0)
+            ->whereIn('status', ['available', 'reserved'])
+            ->count();
+
+        return max(0, $capacityMax - $capacityUsed);
+    }
+
+    private function refreshMspartPhysicalLocationCapacity(Cell $cell): void
+    {
+        $cells = Cell::where('is_active', true)
+            ->where('blok', $cell->blok)
+            ->where('grup', strtoupper((string) $cell->grup))
+            ->where('kolom', $cell->kolom)
+            ->get();
+
+        foreach ($cells as $locationCell) {
+            $used = Stock::where('cell_id', $locationCell->id)
+                ->where('quantity', '>', 0)
+                ->whereIn('status', ['available', 'reserved'])
+                ->count();
+
+            $locationCell->update(['capacity_used' => $used]);
+            $locationCell->updateStatus();
+        }
+    }
+
+    private function physicalLocationLabel(?Cell $cell): string
+    {
+        if (!$cell) {
+            return '-';
+        }
+
+        if (!$this->isMspartCell($cell)) {
+            return (string) $cell->code;
+        }
+
+        $grup = strtoupper((string) $cell->grup);
+        $barisRak = $this->groupToRackRow($grup);
+
+        return "Blok {$cell->blok} - Grup {$grup} - Baris {$barisRak} - Kolom {$cell->kolom}";
+    }
+
+    private function isMspartCell(Cell $cell): bool
+    {
+        return $cell->blok !== null && $cell->grup !== null && $cell->kolom !== null;
+    }
+
+    private function groupToRackRow(string $grup): ?int
+    {
+        $index = strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', strtoupper($grup));
+
+        return $index === false ? null : $index + 1;
+    }
+
     /**
      * Simpan quantity_received aktual dari operator dock.
      *
@@ -106,10 +190,11 @@ class PutAwayService
             throw new \Exception("Sel {$cell->code} tidak tersedia (status: {$cell->status}).");
         }
 
-        $remainingCapacity = $cell->capacity_max - $cell->capacity_used;
+        $remainingCapacity = $this->remainingCapacityForPlacement($cell);
         if ($quantityStored > $remainingCapacity) {
+            $cellLabel = $this->physicalLocationLabel($cell);
             throw new \Exception(
-                "Kuantitas {$quantityStored} melebihi sisa kapasitas sel {$cell->code} ({$remainingCapacity})."
+                "Kuantitas {$quantityStored} melebihi sisa kapasitas lokasi {$cellLabel} ({$remainingCapacity})."
             );
         }
 
@@ -132,25 +217,26 @@ class PutAwayService
         // operator boleh menempatkan lebih/kurang selama masih dalam remaining qty dan kapasitas cell.
 
         // Cegah penempatan di luar sel rekomendasi GA (tanpa override)
-        if ($gaDetail && $cell->id !== $gaDetail->cell_id) {
-            $recommended = $gaDetail->cell?->code ?? "ID {$gaDetail->cell_id}";
+        $gaDetail?->loadMissing('cell');
+        if ($gaDetail && !$this->matchesRecommendedLocation($cell, $gaDetail->cell)) {
+            $recommended = $gaDetail->cell
+                ? $this->physicalLocationLabel($gaDetail->cell)
+                : "ID {$gaDetail->cell_id}";
             throw new \Exception(
-                "Sel {$cell->code} tidak sesuai rekomendasi GA ({$recommended}). " .
+                "Lokasi {$this->physicalLocationLabel($cell)} tidak sesuai rekomendasi GA ({$recommended}). " .
                 "Gunakan Override Lokasi jika penempatan di luar rekomendasi diperlukan."
             );
         }
 
         // Cegah detail rekomendasi GA yang sama dikonfirmasi dua kali
         if ($gaDetail && PutAwayConfirmation::where('ga_recommendation_detail_id', $gaDetail->id)->exists()) {
-            throw new \Exception("Rekomendasi ke sel {$gaDetail->cell?->code} sudah pernah dikonfirmasi.");
+            throw new \Exception("Rekomendasi ke lokasi {$this->physicalLocationLabel($gaDetail->cell)} sudah pernah dikonfirmasi.");
         }
 
         // Validasi: cell harus berada di warehouse yang sama dengan inbound order
-        $cell->loadMissing('rack.zone');
+        $cell->loadMissing('rack');
         $orderWarehouseId = $detail->inboundOrder->warehouse_id;
-        $cellWarehouseId  = $cell->rack?->zone?->warehouse_id
-            ?? $cell->rack?->warehouse_id
-            ?? null;
+        $cellWarehouseId  = $cell->rack?->warehouse_id;
         if ($cellWarehouseId !== $orderWarehouseId) {
             throw new \Exception(
                 "Sel {$cell->code} tidak berada di gudang yang sama dengan order ini. Scan sel dari gudang yang benar."
@@ -159,7 +245,7 @@ class PutAwayService
 
         // Apakah operator mengikuti rekomendasi GA?
         $followRecommendation = $gaDetail
-            ? ($gaDetail->cell_id === $cell->id)
+            ? $this->matchesRecommendedLocation($cell, $gaDetail->cell)
             : false;
 
         return DB::transaction(function () use (
@@ -203,10 +289,14 @@ class PutAwayService
                 'moved_at'       => now(),
             ]);
 
-            // d) Update kapasitas sel
-            $newUsed = $cell->capacity_used + $quantityStored;
-            $cell->update(['capacity_used' => $newUsed]);
-            $cell->updateStatus(); // auto-update status (available/partial/full)
+            // d) Update kapasitas sel/lokasi fisik
+            if ($this->isMspartCell($cell)) {
+                $this->refreshMspartPhysicalLocationCapacity($cell);
+            } else {
+                $newUsed = $cell->capacity_used + $quantityStored;
+                $cell->update(['capacity_used' => $newUsed]);
+                $cell->updateStatus(); // auto-update status (available/partial/full)
+            }
 
             // e) Update status item berdasarkan total qty yang sudah disimpan
             $totalStoredAfter = $alreadyStored + $quantityStored;
@@ -247,7 +337,7 @@ class PutAwayService
                 ->orWhere('label', $qrCode);
         })
             ->where('is_active', true)
-            ->with('rack.zone')
+            ->with('rack')
             ->first();
 
         if (!$cell) {

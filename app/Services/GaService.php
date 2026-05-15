@@ -91,7 +91,7 @@ class GaService
      *       "movement_type": "fast_moving" }
      *   ],
      *   "cells": [
-     *     { "cell_id": 10, "zone_category": "A", "capacity_remaining": 50,
+     *     { "cell_id": 10, "capacity_remaining": 50,
      *       "capacity_max": 200, "status": "available" }
      *   ],
      *   "affinities": [
@@ -122,16 +122,12 @@ class GaService
             );
         }
 
-        // Sel-sel yang tersedia di warehouse ini
-        // Gunakan rack.zone sebagai fallback karena warehouse_id di rack bisa null
-        $cellsCollection = Cell::where(function ($q) use ($order) {
-            $q->whereHas('rack', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id))
-                ->orWhereHas('rack.zone', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id));
-        })
+        // Sel-sel yang tersedia di warehouse ini. Zone tidak lagi dipakai.
+        $cellsCollection = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
             ->where('is_active', true)
             ->whereIn('status', ['available', 'partial'])
             ->where('capacity_used', '<', DB::raw('capacity_max'))
-            ->with('rack.zone')
+            ->with('rack')
             ->get();
 
         // Konteks stok existing per cell (untuk preferensi continuity item/rack)
@@ -142,6 +138,8 @@ class GaService
             ->whereIn('status', ['available', 'reserved'])
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
+
+        $cellCandidates = collect($this->buildCellCandidates($cellsCollection, $existingItemIdsByCell));
 
         // ─────────────────────────────────────────────────────────────
         // Partial allocation:
@@ -155,23 +153,18 @@ class GaService
         foreach ($rawDetails as $detail) {
             $remainingQty = (int) $detail->quantity_received;
 
-            // Cari cell existing yang sudah menyimpan item yang sama dan masih punya sisa kapasitas.
-            $existingCells = $cellsCollection
-                ->filter(function (Cell $cell) use ($detail, $existingItemIdsByCell) {
-                    $itemIdsRaw = $existingItemIdsByCell->get($cell->id);
-
-                    $existingIds = $itemIdsRaw
-                        ? array_values(array_map('intval', explode(',', (string) $itemIdsRaw)))
-                        : [];
-
-                    return in_array((int) $detail->item_id, $existingIds, true)
-                        && (($cell->capacity_max - $cell->capacity_used) > 0);
+            // Cari lokasi fisik existing yang sudah menyimpan item yang sama.
+            // Untuk data MSpart, satu kandidat = satu blok + grup/baris rak + kolom.
+            $existingCells = $cellCandidates
+                ->filter(function (array $cell) use ($detail) {
+                    return in_array((int) $detail->item_id, $cell['existing_item_ids'], true)
+                        && ((int) $cell['capacity_remaining'] > 0);
                 })
-                ->sortBy(function (Cell $cell) {
+                ->sortBy(function (array $cell) {
                     return sprintf(
-                        '%05d-%s',
-                        (int) ($cell->rack?->code ?? 9999),
-                        $cell->code
+                        '%05d-%05d',
+                        (int) ($cell['rack_index'] ?? 9999),
+                        (int) ($cell['cell_index'] ?? 9999)
                     );
                 })
                 ->values();
@@ -182,7 +175,7 @@ class GaService
                     break;
                 }
 
-                $cellRemaining = (int) ($cell->capacity_max - $cell->capacity_used);
+                $cellRemaining = (int) $cell['capacity_remaining'];
                 $chunkQty = min($remainingQty, $cellRemaining);
 
                 if ($chunkQty <= 0) {
@@ -199,7 +192,7 @@ class GaService
                     'movement_type'     => $detail->item->movement_type,
 
                     // Ini yang membuat chunk ini wajib ke cell existing tersebut.
-                    'preferred_cell_id' => $cell->id,
+                    'preferred_cell_id' => $cell['cell_id'],
                 ];
 
                 $remainingQty -= $chunkQty;
@@ -228,29 +221,7 @@ class GaService
             );
         }
 
-        $cells = $cellsCollection
-            ->map(function (Cell $cell) use ($existingItemIdsByCell) {
-                $itemIdsRaw = $existingItemIdsByCell->get($cell->id);
-                $existingItemIds = [];
-                if (!empty($itemIdsRaw)) {
-                    $existingItemIds = array_values(array_map('intval', explode(',', (string) $itemIdsRaw)));
-                }
-
-                return [
-                    'cell_id'              => $cell->id,
-                    // zone_category: gunakan field langsung jika ada, fallback ke kode zona
-                    'zone_category'        => $cell->zone_category ?? $cell->rack?->zone?->code,
-                    'rack_code'            => (string) ($cell->rack?->code ?? ''),
-                    'rack_index'           => (int) ($cell->rack?->code ?? 9999),
-                    'cell_code'            => (string) $cell->code,
-                    'cell_index'           => $this->cellCodeToIndex($cell->code),
-                    'dominant_category_id' => $cell->dominant_category_id,
-                    'capacity_remaining'   => $cell->capacity_max - $cell->capacity_used,
-                    'capacity_max'         => $cell->capacity_max,
-                    'status'               => $cell->status,
-                    'existing_item_ids'    => $existingItemIds,
-                ];
-            })
+        $cells = $cellCandidates
             ->values()
             ->toArray();
 
@@ -320,6 +291,132 @@ class GaService
      *   ]
      * }
      */
+    /**
+     * Build GA candidates using the current warehouse model.
+     *
+     * Legacy cells stay one candidate per cells.id. MSpart cells are grouped into
+     * one physical candidate per blok + grup + kolom, because grup is the rack row
+     * and kolom is the operator-facing shelf column.
+     */
+    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell): array
+    {
+        return $cellsCollection
+            ->groupBy(fn(Cell $cell) => $this->physicalLocationKey($cell))
+            ->map(function ($group) use ($existingItemIdsByCell) {
+                $representative = $group
+                    ->sortBy(fn(Cell $cell) => sprintf('%03d-%08d', (int) ($cell->baris ?? 0), $cell->id))
+                    ->first();
+
+                if (!$representative instanceof Cell) {
+                    return null;
+                }
+
+                $cellIds = $group->pluck('id')->values()->all();
+                $existingItemIds = $group
+                    ->flatMap(function (Cell $cell) use ($existingItemIdsByCell) {
+                        $itemIdsRaw = $existingItemIdsByCell->get($cell->id);
+
+                        if (empty($itemIdsRaw)) {
+                            return [];
+                        }
+
+                        return array_map('intval', explode(',', (string) $itemIdsRaw));
+                    })
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (!$this->isMspartCell($representative)) {
+                    return [
+                        'cell_id'              => $representative->id,
+                        'rack_code'            => (string) ($representative->rack?->code ?? ''),
+                        'rack_index'           => (int) ($representative->rack?->code ?? 9999),
+                        'cell_code'            => (string) $representative->code,
+                        'cell_index'           => $this->cellCodeToIndex($representative->code),
+                        'dominant_category_id' => $representative->dominant_category_id,
+                        'capacity_remaining'   => max(0, (int) $representative->capacity_max - (int) $representative->capacity_used),
+                        'capacity_max'         => (int) $representative->capacity_max,
+                        'status'               => $representative->status,
+                        'existing_item_ids'    => $existingItemIds,
+                    ];
+                }
+
+                $capacityMax = max(1, (int) ($group->max('capacity_max') ?: $representative->capacity_max ?: 20));
+                $capacityUsed = DB::table('stock_records')
+                    ->whereIn('cell_id', $cellIds)
+                    ->where('quantity', '>', 0)
+                    ->whereIn('status', ['available', 'reserved'])
+                    ->count();
+                $capacityRemaining = max(0, $capacityMax - $capacityUsed);
+                $barisRak = $this->groupToRackRow((string) $representative->grup);
+                $blok = (int) $representative->blok;
+                $grup = strtoupper((string) $representative->grup);
+                $kolom = (int) $representative->kolom;
+
+                return [
+                    'cell_id'                => $representative->id,
+                    'rack_code'              => (string) ($representative->blok ?? $representative->rack?->code ?? ''),
+                    'rack_index'             => $blok ?: (int) ($representative->rack?->code ?? 9999),
+                    'cell_code'              => "{$blok}-{$grup}-K{$kolom}",
+                    'cell_index'             => $kolom ?: 9999,
+                    'dominant_category_id'   => $group->pluck('dominant_category_id')->filter()->first(),
+                    'capacity_remaining'     => $capacityRemaining,
+                    'capacity_max'           => $capacityMax,
+                    'status'                 => $capacityUsed <= 0 ? 'available' : ($capacityRemaining <= 0 ? 'full' : 'partial'),
+                    'existing_item_ids'      => $existingItemIds,
+                    'is_mspart'              => true,
+                    'blok'                   => $blok,
+                    'grup'                   => $grup,
+                    'baris_rak'              => $barisRak,
+                    'kolom'                  => $kolom,
+                    'physical_location_key'  => $this->physicalLocationKey($representative),
+                    'physical_location_code' => $this->physicalLocationLabel($representative),
+                    'physical_cell_ids'      => $cellIds,
+                ];
+            })
+            ->filter(fn($cell) => $cell && (int) $cell['capacity_remaining'] > 0)
+            ->values()
+            ->all();
+    }
+
+    private function physicalLocationKey(Cell $cell): string
+    {
+        if ($this->isMspartCell($cell)) {
+            return sprintf(
+                'mspart:%d:%s:%d',
+                (int) $cell->blok,
+                strtoupper((string) $cell->grup),
+                (int) $cell->kolom
+            );
+        }
+
+        return 'cell:' . $cell->id;
+    }
+
+    private function physicalLocationLabel(Cell $cell): string
+    {
+        if (!$this->isMspartCell($cell)) {
+            return (string) $cell->code;
+        }
+
+        $grup = strtoupper((string) $cell->grup);
+        $barisRak = $this->groupToRackRow($grup);
+
+        return "Blok {$cell->blok} - Grup {$grup} - Baris {$barisRak} - Kolom {$cell->kolom}";
+    }
+
+    private function isMspartCell(Cell $cell): bool
+    {
+        return $cell->blok !== null && $cell->grup !== null && $cell->kolom !== null;
+    }
+
+    private function groupToRackRow(string $grup): ?int
+    {
+        $index = strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', strtoupper($grup));
+
+        return $index === false ? null : $index + 1;
+    }
+
     private function callPythonEngine(array $payload): array
     {
         try {
@@ -446,7 +543,13 @@ class GaService
 
         foreach ($payload['items'] as $item) {
             // Cari sel pertama yang kapasitasnya cukup
-            $cell = $cells->first(fn($c) => $c['capacity_remaining'] >= $item['quantity']);
+            $cell = null;
+
+            if (!empty($item['preferred_cell_id'])) {
+                $cell = $cells->first(fn($c) => (int) $c['cell_id'] === (int) $item['preferred_cell_id']);
+            }
+
+            $cell ??= $cells->first(fn($c) => $c['capacity_remaining'] >= $item['quantity']);
 
             if (!$cell) {
                 // Tidak ada sel yang muat, pakai yang paling besar sisa kapasitasnya

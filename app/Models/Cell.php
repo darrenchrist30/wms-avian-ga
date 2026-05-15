@@ -65,6 +65,64 @@ class Cell extends Model
         return $this->capacity_max - $this->capacity_used;
     }
 
+    public function getPhysicalCodeAttribute(): string
+    {
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
+            return sprintf('%s-%s-K%s', $this->blok, strtoupper((string) $this->grup), $this->kolom);
+        }
+
+        return (string) $this->code;
+    }
+
+    public function getPhysicalLabelAttribute(): string
+    {
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
+            $grup = strtoupper((string) $this->grup);
+            $barisRak = strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', $grup);
+            $barisRak = $barisRak === false ? null : $barisRak + 1;
+
+            return "Blok {$this->blok} - Grup {$grup} - Baris {$barisRak} - Kolom {$this->kolom}";
+        }
+
+        return (string) ($this->label ?: $this->code);
+    }
+
+    public function getPhysicalCapacityMaxAttribute(): int
+    {
+        if ($this->blok === null || $this->grup === null || $this->kolom === null) {
+            return (int) $this->capacity_max;
+        }
+
+        return max(1, (int) static::where('is_active', true)
+            ->where('blok', $this->blok)
+            ->where('grup', strtoupper((string) $this->grup))
+            ->where('kolom', $this->kolom)
+            ->max('capacity_max'));
+    }
+
+    public function getPhysicalCapacityUsedAttribute(): int
+    {
+        if ($this->blok === null || $this->grup === null || $this->kolom === null) {
+            return (int) $this->capacity_used;
+        }
+
+        $cellIds = static::where('is_active', true)
+            ->where('blok', $this->blok)
+            ->where('grup', strtoupper((string) $this->grup))
+            ->where('kolom', $this->kolom)
+            ->pluck('id');
+
+        return Stock::whereIn('cell_id', $cellIds)
+            ->where('quantity', '>', 0)
+            ->whereIn('status', ['available', 'reserved'])
+            ->count();
+    }
+
+    public function getPhysicalCapacityRemainingAttribute(): int
+    {
+        return max(0, $this->physical_capacity_max - $this->physical_capacity_used);
+    }
+
     // Persentase utilisasi
     public function getUtilizationPercentAttribute(): float
     {

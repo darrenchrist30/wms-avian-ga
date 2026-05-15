@@ -51,10 +51,14 @@ class FastSlowMovingService
         $info = $this->classify($itemId, $warehouseId);
 
         $cells = Cell::with('rack')
-            ->whereHas('rack.zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+            ->whereHas('rack', fn($q) => $q->where('warehouse_id', $warehouseId))
             ->whereIn('status', ['available', 'partial'])
             ->get()
-            ->filter(fn($c) => ($c->capacity_max - $c->capacity_used) >= $quantity);
+            ->groupBy(fn(Cell $c) => $c->blok !== null && $c->grup !== null && $c->kolom !== null
+                ? "mspart:{$c->blok}:" . strtoupper((string) $c->grup) . ":{$c->kolom}"
+                : "cell:{$c->id}")
+            ->map(fn($group) => $group->sortBy(fn(Cell $c) => sprintf('%03d-%08d', (int) ($c->baris ?? 0), $c->id))->first())
+            ->filter(fn($c) => $c && $c->physical_capacity_remaining >= $quantity);
 
         if ($cells->isEmpty()) return null;
 
@@ -66,10 +70,10 @@ class FastSlowMovingService
 
         return [
             'cell_id'            => $cell->id,
-            'cell_code'          => $cell->code,
+            'cell_code'          => $cell->physical_code,
             'rack_code'          => $cell->rack?->code ?? '-',
-            'capacity_remaining' => $cell->capacity_max - $cell->capacity_used,
-            'capacity_max'       => $cell->capacity_max,
+            'capacity_remaining' => $cell->physical_capacity_remaining,
+            'capacity_max'       => $cell->physical_capacity_max,
         ];
     }
 }

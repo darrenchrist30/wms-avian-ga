@@ -171,7 +171,7 @@ class ImportMspartLayout extends Command
             $key = $loc['blok'] . '_' . $loc['grup'];
             $pairs[$key] = ['blok' => $loc['blok'], 'grup' => $loc['grup']];
         }
-        $physicalBlocks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+        $physicalBlocks = Rack::where('warehouse_id', $warehouseId)
             ->where('is_active', true)
             ->whereIn('code', array_map('strval', range(1, 11)))
             ->pluck('code')
@@ -201,7 +201,7 @@ class ImportMspartLayout extends Command
             $blok = $pair['blok'];
             $grup = $pair['grup'];
 
-            $parentRack = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+            $parentRack = Rack::where('warehouse_id', $warehouseId)
                 ->where('code', (string) $blok)
                 ->first();
 
@@ -212,7 +212,7 @@ class ImportMspartLayout extends Command
 
             $subCode = $blok . $grup;  // e.g. "1A", "4G"
 
-            $subRack = Rack::where('zone_id', $parentRack->zone_id)
+            $subRack = Rack::where('warehouse_id', $warehouseId)
                 ->where('code', $subCode)
                 ->first();
 
@@ -220,6 +220,7 @@ class ImportMspartLayout extends Command
                 if (!$this->dryRun) {
                     $subRack = Rack::create([
                         'zone_id'       => $parentRack->zone_id,
+                        'warehouse_id'  => $warehouseId,
                         'code'          => $subCode,
                         'name'          => "Rak {$blok} Grup {$grup}",
                         'total_levels'  => 9,
@@ -245,7 +246,7 @@ class ImportMspartLayout extends Command
 
         $obsoleteDeactivated = 0;
         $validSubCodes = array_map(fn($pair) => $pair['blok'] . $pair['grup'], $pairs);
-        $obsoleteSubRacks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+        $obsoleteSubRacks = Rack::where('warehouse_id', $warehouseId)
             ->whereRaw("code REGEXP '^[0-9]+[A-H]$'")
             ->whereNotIn('code', $validSubCodes)
             ->withCount(['cells as stock_records_count' => function ($q) {

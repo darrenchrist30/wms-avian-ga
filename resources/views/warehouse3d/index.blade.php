@@ -164,37 +164,31 @@
 {{-- ── Summary Cards ─────────────────────────────────────────────────────── --}}
 @if($selectedWarehouse && $summary)
 <div class="row mb-3">
-    <div class="col-4 col-md-2 mb-2">
-        <div class="small-box bg-secondary mb-0">
-            <div class="inner"><h4>{{ $summary['total_zones'] }}</h4><p>Zona</p></div>
-            <div class="icon"><i class="fas fa-th-large"></i></div>
-        </div>
-    </div>
-    <div class="col-4 col-md-2 mb-2">
+    <div class="col-6 col-md-2 mb-2">
         <div class="small-box bg-info mb-0">
             <div class="inner"><h4>{{ $summary['total_racks'] }}</h4><p>Rak</p></div>
             <div class="icon"><i class="fas fa-server"></i></div>
         </div>
     </div>
-    <div class="col-4 col-md-2 mb-2">
+    <div class="col-6 col-md-2 mb-2">
         <div class="small-box bg-primary mb-0">
             <div class="inner"><h4>{{ $summary['total_cells'] }}</h4><p>Total Cell</p></div>
             <div class="icon"><i class="fas fa-th"></i></div>
         </div>
     </div>
-    <div class="col-4 col-md-2 mb-2">
+    <div class="col-6 col-md-2 mb-2">
         <div class="small-box bg-success mb-0">
             <div class="inner"><h4>{{ $summary['used_cells'] }}</h4><p>Terisi</p></div>
             <div class="icon"><i class="fas fa-box"></i></div>
         </div>
     </div>
-    <div class="col-4 col-md-2 mb-2">
+    <div class="col-6 col-md-2 mb-2">
         <div class="small-box bg-danger mb-0">
             <div class="inner"><h4>{{ $summary['full_cells'] }}</h4><p>Penuh</p></div>
             <div class="icon"><i class="fas fa-exclamation-circle"></i></div>
         </div>
     </div>
-    <div class="col-4 col-md-2 mb-2">
+    <div class="col-6 col-md-2 mb-2">
         @php $uc = $summary['utilization'] >= 90 ? 'danger' : ($summary['utilization'] >= 70 ? 'warning' : 'success'); @endphp
         <div class="small-box bg-{{ $uc }} mb-0">
             <div class="inner"><h4>{{ $summary['utilization'] }}%</h4><p>Utilisasi</p></div>
@@ -488,7 +482,7 @@ floor.position.set(7, -0.01, floorZ);
 floor.receiveShadow = true;
 scene.add(floor);
 
-// ── Text Sprite (zone labels, small labels) ───────────────────────────────
+// ── Text Sprite (small labels) ────────────────────────────────────────────
 function makeSprite(text, size, color) {
     const cv = document.createElement('canvas');
     cv.width = 256; cv.height = 64;
@@ -1122,24 +1116,13 @@ function displayRackPosition(rx, rz) {
     };
 }
 
-function buildWarehouse(zones) {
-    zones.forEach(zone => {
-        const zc   = zone.zone_code || '?';
-        const absX = zone.pos_x;   // = 0 untuk semua zona (koordinat absolut)
-        const absZ = zone.pos_z;
-
-        // Label nama zona di posisi tetap sesuai layout baru
-        const lpos = ZONE_LABEL_POS[zc];
-        if (lpos) {
-            const lp = displayRackPosition(lpos[0], lpos[1]);
-            const sp = makeSprite(zone.zone_name, 22, ZONE_LABEL[zc] ?? '#94a3b8');
-            sp.scale.set(10, 2.4, 1);
-            sp.position.set(lp.x, lpos[2] ?? 0.1, lp.z);
-            scene.add(sp);
-        }
+function buildWarehouse(areas) {
+    areas.forEach(area => {
+        const absX = area.pos_x || 0;
+        const absZ = area.pos_z;
 
         // Render setiap rak
-        zone.racks.forEach(rack => {
+        area.racks.forEach(rack => {
             const p = displayRackPosition(absX + rack.pos_x, absZ + rack.pos_z);
             buildRack(p.x, p.z, rack);
         });
@@ -1150,8 +1133,8 @@ function buildWarehouse(zones) {
 function loadScene(wid) {
     loading.style.display = 'flex';
     clearScene();
-    $.getJSON('{{ route("warehouse3d.data") }}', { warehouse_id: wid }, function (zones) {
-        buildWarehouse(zones);
+    $.getJSON('{{ route("warehouse3d.data") }}', { warehouse_id: wid }, function (areas) {
+        buildWarehouse(areas);
         loading.style.display = 'none';
         // Auto-highlight jika ada highlight_cell_id dari URL
         if (INIT_HIGHLIGHT_ID) {
@@ -1601,7 +1584,7 @@ renderer.domElement.addEventListener('click', function (e) {
                 <div class="row mx-0 border-bottom pb-3 pt-2">
                     <div class="col-md-4 mb-2">
                         <small class="text-muted">Lokasi</small>
-                        <div class="font-weight-bold">${c.warehouse} › ${c.zone} › Rak ${c.rack} › ${c.code}</div>
+                        <div class="font-weight-bold">${c.warehouse} › Rak ${c.rack} › ${c.code}</div>
                     </div>
                     <div class="col-md-1 mb-2">
                         <small class="text-muted">Blok</small>

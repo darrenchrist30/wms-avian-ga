@@ -275,11 +275,10 @@
 
                     if (!isset($cellCapInfo[$cid])) {
                         $cellCapInfo[$cid] = [
-                            'code' => $gd->cell->code,
-                            'zone' => $gd->cell->zone_category ?? '-',
+                            'code' => $gd->cell->physical_code,
                             'rack' => $gd->cell->rack->code ?? '-',
-                            'remaining' => $gd->cell->capacity_remaining,
-                            'max' => $gd->cell->capacity_max,
+                            'remaining' => $gd->cell->physical_capacity_remaining,
+                            'max' => $gd->cell->physical_capacity_max,
                             'item_count' => 0,
                             'total_qty' => 0,
                         ];
@@ -580,7 +579,7 @@
                                                 <span class="badge badge-success" style="font-size:9px">OK</span>
                                             @endif
                                         </div>
-                                        <div class="text-muted mb-1">Zone {{ $cap['zone'] }} · Rack {{ $cap['rack'] }}
+                                        <div class="text-muted mb-1">Rack {{ $cap['rack'] }}
                                         </div>
                                         <div class="d-flex justify-content-between" style="font-size:11px">
                                             <span>{{ $cap['item_count'] }} item · {{ $cap['total_qty'] }} unit
@@ -741,8 +740,8 @@
 
                                             $isOver = !$isRowDone && $capInfo && $gd->quantity > $capInfo['remaining'];
 
-                                            $capRemain = $gd?->cell?->capacity_remaining ?? 0;
-                                            $capMax = $gd?->cell?->capacity_max ?? 0;
+                                            $capRemain = $gd?->cell?->physical_capacity_remaining ?? 0;
+                                            $capMax = $gd?->cell?->physical_capacity_max ?? 0;
 
                                             $usedPct =
                                                 $capMax > 0
@@ -806,7 +805,7 @@
                                                     <div class="send-to-cell {{ $isRowDone ? 'done' : ($isOver ? 'overflow' : '') }}">
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}">
-                                                                {{ $gd->cell?->code ?? '-' }}
+                                                                {{ $gd->cell?->physical_code ?? '-' }}
                                                             </span>
                                                             @if ($isRowDone)
                                                                 <span class="badge badge-success">Done</span>
@@ -817,8 +816,7 @@
                                                             @endif
                                                         </div>
                                                         <small class="text-muted">
-                                                            Zone {{ $gd->cell?->zone_category ?? '-' }}
-                                                            · Rack {{ $gd->cell?->rack?->code ?? '-' }}
+                                                            {{ $gd->cell?->physical_label ?? '-' }}
                                                         </small>
                                                         <div class="mt-1" style="font-size:11px">
                                                             Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
@@ -876,10 +874,10 @@
                                                         data-detail-id="{{ $detail->id }}"
                                                         data-ga-detail-id="{{ $gd->id }}"
                                                         data-item-name="{{ $detail->item->name ?? '-' }}"
-                                                        data-ga-cell="{{ $gd->cell?->code }}"
+                                                        data-ga-cell="{{ $gd->cell?->physical_code }}"
                                                         data-ga-cell-id="{{ $gd->cell_id }}"
                                                         data-cell-id="{{ $gd->cell_id }}"
-                                                        data-cell-code="{{ $gd->cell?->code }}"
+                                                        data-cell-code="{{ $gd->cell?->physical_code }}"
                                                         data-cap-remaining="{{ $capRemain }}"
                                                         data-cap-max="{{ $capMax }}"
                                                         data-qty="{{ $gd->quantity }}">
@@ -890,7 +888,7 @@
                                                             title="Override: paksa cell berbeda dari GA"
                                                             data-detail-id="{{ $detail->id }}"
                                                             data-item-name="{{ $detail->item->name ?? '-' }}"
-                                                            data-ga-cell="{{ $gd->cell?->code }}"
+                                                            data-ga-cell="{{ $gd->cell?->physical_code }}"
                                                             data-ga-cell-id="{{ $gd->cell_id }}"
                                                             data-cap-remaining="{{ $capRemain }}"
                                                             data-cap-max="{{ $capMax }}"
@@ -1374,10 +1372,7 @@
                                     <span style="font-size:18px;font-weight:700;color:#0056b3">${cell.code}</span>
                                     ${badge}
                                 </div>
-                                <small class="text-muted">
-                                    Zone ${cell.zone_category} &middot; ${cell.zone}
-                                    &middot; Rack ${cell.rack_code}
-                                </small>
+                                <small class="text-muted">Rack ${cell.rack_code}</small>
                                 <div class="mt-1">
                                     <div class="d-flex justify-content-between" style="font-size:11px">
                                         <span class="text-muted">Sisa: <strong>${cell.capacity_remaining}</strong> dari ${cell.capacity_max} unit</span>
@@ -1494,7 +1489,6 @@
             });
             $('#resultCellCode').text(cell.code);
             $('#resultCellMeta').text(
-                (cell.zone_category ? 'Zone ' + cell.zone_category + ' · ' : '') +
                 (cell.rack_code ? 'Rack ' + cell.rack_code : '')
             );
 
@@ -1694,7 +1688,6 @@
                     const cell = {
                         id: c.id,
                         code: c.code,
-                        zone_category: c.zone_category,
                         rack_code: c.rack_code,
                         capacity_remaining: c.capacity_remaining,
                         capacity_max: c.capacity_max,
@@ -1804,7 +1797,6 @@
             modalGaCell = gaCellId ? {
                 id: gaCellId,
                 code: gaCell,
-                zone_category: '',
                 rack_code: '',
                 capacity_remaining: gaCapRemain,
                 capacity_max: gaCapMax,

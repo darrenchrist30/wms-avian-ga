@@ -590,7 +590,6 @@
         }
     </style>
 @endpush
-
 @section('content')
 
     {{-- ══════════════════════════════════════════════════════
@@ -635,15 +634,35 @@
      ACTION REQUIRED — Hanya tampil jika ada yang pending
 ══════════════════════════════════════════════════════ --}}
     @php
-        $totalPending = $inboundHariIni + $pendingQtyConfirm + $pendingGaRun + $pendingGaAccept + $pendingPutAway;
+        $isOperatorDashboard = auth()->user()->hasRole('operator');
+        $visibleActionCards = [];
+        if ($inboundHariIni > 0) {
+            $visibleActionCards[] = ['label' => 'DO baru tiba dan belum diproses', 'count' => $inboundHariIni];
+        }
+        if ($pendingQtyConfirm > 0) {
+            $visibleActionCards[] = ['label' => 'DO menunggu konfirmasi qty fisik', 'count' => $pendingQtyConfirm];
+        }
+        if (!$isOperatorDashboard && $pendingGaRun > 0) {
+            $visibleActionCards[] = ['label' => 'DO siap diproses GA', 'count' => $pendingGaRun];
+        }
+        if (!$isOperatorDashboard && $pendingGaAccept > 0) {
+            $visibleActionCards[] = ['label' => 'DO menunggu review rekomendasi GA', 'count' => $pendingGaAccept];
+        }
+        if ($pendingPutAway > 0) {
+            $visibleActionCards[] = ['label' => 'DO siap put-away ke rak', 'count' => $pendingPutAway];
+        }
+        $totalPending = collect($visibleActionCards)->sum('count');
+        $actionSummaryText = collect($visibleActionCards)
+            ->map(fn($card) => number_format($card['count']) . ' ' . $card['label'])
+            ->implode(' · ');
     @endphp
     @if ($totalPending > 0)
         <div class="alert mb-3 py-2 px-3 d-flex align-items-center justify-content-between flex-wrap"
             style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:10px;gap:8px">
             <div>
                 <i class="fas fa-bell text-warning mr-2"></i>
-                <strong>{{ $totalPending }} hal butuh tindakan sekarang</strong>
-                <span class="text-muted ml-1" style="font-size:12px">— Klik kartu di bawah untuk langsung aksi</span>
+                <strong>{{ number_format($totalPending) }} DO perlu diproses</strong>
+                <span class="text-muted ml-1" style="font-size:12px">- {{ $actionSummaryText }}. Klik kartu untuk membuka pekerjaan.</span>
             </div>
         </div>
         <div class="row mb-3">

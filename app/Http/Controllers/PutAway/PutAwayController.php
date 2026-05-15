@@ -84,7 +84,7 @@ class PutAwayController extends Controller
             'gaRecommendation.inboundOrder',
             'inboundOrderItem.item.unit',
             'inboundOrderItem.item.category',
-            'cell.rack.zone',
+            'cell.rack',
         ])
         ->whereHas('gaRecommendation', fn($q) =>
             $q->where('status', 'accepted')
@@ -113,7 +113,7 @@ class PutAwayController extends Controller
             'receivedBy',
             'items.item.unit',
             'items.item.category',
-            'items.putAwayConfirmations.cell.rack.zone',
+            'items.putAwayConfirmations.cell.rack',
             'items.putAwayConfirmations.user',
         ])->findOrFail($orderId);
 
@@ -124,7 +124,7 @@ class PutAwayController extends Controller
 
         // Ambil GA recommendation yang accepted
         $gaRecommendation = GaRecommendation::with([
-            'details.cell.rack.zone',
+            'details.cell.rack',
             'details.inboundOrderItem.item',
             'generatedBy',
         ])
@@ -167,12 +167,12 @@ class PutAwayController extends Controller
                 'status' => 'success',
                 'cell'   => [
                     'id'                 => $cell->id,
-                    'code'               => $cell->code,
-                    'label'              => $cell->label ?? $cell->code,
-                    'zone_category'      => $cell->zone_category,
-                    'capacity_max'       => $cell->capacity_max,
-                    'capacity_used'      => $cell->capacity_used,
-                    'capacity_remaining' => $cell->capacity_max - $cell->capacity_used,
+                    'code'               => $cell->physical_code,
+                    'label'              => $cell->physical_label,
+                    'raw_code'           => $cell->code,
+                    'capacity_max'       => $cell->physical_capacity_max,
+                    'capacity_used'      => $cell->physical_capacity_used,
+                    'capacity_remaining' => $cell->physical_capacity_remaining,
                     'status'             => $cell->status,
                     'rack_code'          => $cell->rack->code ?? '-',
                 ],
@@ -242,7 +242,7 @@ class PutAwayController extends Controller
 
             return response()->json([
                 'status'   => 'success',
-                'message'  => "Item berhasil di-put-away ke sel {$cell->code}.",
+                'message'  => "Item berhasil di-put-away ke lokasi {$cell->physical_label}.",
                 'progress' => [
                     'done'        => $doneCount,
                     'total'       => $totalCount,
@@ -250,7 +250,7 @@ class PutAwayController extends Controller
                     'is_complete' => $order->status === 'completed',
                 ],
                 'follow_recommendation' => $confirmation->follow_recommendation,
-                'cell_code'             => $cell->code,
+                'cell_code'             => $cell->physical_code,
             ]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
@@ -270,28 +270,22 @@ class PutAwayController extends Controller
         ]);
 
         $order      = InboundOrder::findOrFail($orderId);
-        $sourceCell = Cell::with('rack.zone')->findOrFail($request->for_cell_id);
-        $zoneId     = $sourceCell->rack?->zone_id;
+        $sourceCell = Cell::with('rack')->findOrFail($request->for_cell_id);
         $qty        = (int) $request->qty;
 
         // Cari cell alternatif di warehouse yang sama, masih ada kapasitas
-        $alternatives = Cell::with('rack.zone')
+        $alternatives = Cell::with('rack')
             ->where('is_active', true)
             ->where('id', '!=', $request->for_cell_id)
             ->whereRaw('(capacity_max - capacity_used) > 0')
-            ->where(function ($q) use ($order) {
-                $q->whereHas('rack', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id))
-                    ->orWhereHas('rack.zone', fn($q2) => $q2->where('warehouse_id', $order->warehouse_id));
-            })
+            ->whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
             ->get()
-            ->sortByDesc(function (Cell $cell) use ($zoneId, $qty) {
+            ->sortByDesc(function (Cell $cell) use ($qty) {
                 $score = 0;
-                // Prioritas 1: zona yang sama dengan cell GA
-                if ($cell->rack?->zone_id === $zoneId) $score += 10000;
-                // Prioritas 2: muat seluruh qty
-                if ($cell->capacity_remaining >= $qty) $score += 5000;
-                // Prioritas 3: kapasitas tersisa terbesar
-                $score += $cell->capacity_remaining;
+                // Prioritas 1: muat seluruh qty
+                if ($cell->physical_capacity_remaining >= $qty) $score += 5000;
+                // Prioritas 2: kapasitas tersisa terbesar
+                $score += $cell->physical_capacity_remaining;
                 return $score;
             })
             ->take(6)
@@ -300,24 +294,20 @@ class PutAwayController extends Controller
         return response()->json([
             'source_cell' => [
                 'id'                 => $sourceCell->id,
-                'code'               => $sourceCell->code,
-                'zone'               => $sourceCell->rack?->zone?->name ?? '-',
-                'zone_category'      => $sourceCell->zone_category,
-                'capacity_remaining' => $sourceCell->capacity_remaining,
-                'capacity_max'       => $sourceCell->capacity_max,
+                'code'               => $sourceCell->physical_code,
+                'capacity_remaining' => $sourceCell->physical_capacity_remaining,
+                'capacity_max'       => $sourceCell->physical_capacity_max,
             ],
             'qty_needed'   => $qty,
             'alternatives' => $alternatives->map(fn(Cell $c) => [
                 'id'                 => $c->id,
-                'code'               => $c->code,
-                'zone'               => $c->rack?->zone?->name ?? '-',
-                'zone_category'      => $c->zone_category ?? $c->rack?->zone?->code ?? '-',
+                'code'               => $c->physical_code,
                 'rack_code'          => $c->rack?->code ?? '-',
-                'capacity_remaining' => $c->capacity_remaining,
-                'capacity_max'       => $c->capacity_max,
-                'capacity_used'      => $c->capacity_used,
+                'capacity_remaining' => $c->physical_capacity_remaining,
+                'capacity_max'       => $c->physical_capacity_max,
+                'capacity_used'      => $c->physical_capacity_used,
                 'status'             => $c->status,
-                'fits_all'           => $c->capacity_remaining >= $qty,
+                'fits_all'           => $c->physical_capacity_remaining >= $qty,
             ])->values(),
         ]);
     }
@@ -392,7 +382,7 @@ class PutAwayController extends Controller
 
             return response()->json([
                 'status'  => 'success',
-                'message' => "Override berhasil. Item ditempatkan ke sel {$cell->code} (di luar rekomendasi GA).",
+                'message' => "Override berhasil. Item ditempatkan ke lokasi {$cell->physical_label} (di luar rekomendasi GA).",
                 'progress' => [
                     'done'        => $doneCount,
                     'total'       => $totalCount,

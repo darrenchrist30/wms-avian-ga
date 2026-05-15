@@ -122,7 +122,7 @@ class MspartImportController extends Controller
             $blok = $pair['blok'];
             $grup = $pair['grup'];
 
-            $parentRack = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+            $parentRack = Rack::where('warehouse_id', $warehouseId)
                 ->where('code', (string) $blok)
                 ->first();
 
@@ -133,7 +133,7 @@ class MspartImportController extends Controller
 
             $subCode = $blok . $grup;
 
-            $subRack = Rack::where('zone_id', $parentRack->zone_id)
+            $subRack = Rack::where('warehouse_id', $warehouseId)
                 ->where('code', $subCode)
                 ->first();
 
@@ -141,6 +141,7 @@ class MspartImportController extends Controller
                 if (!$dryRun) {
                     $subRack = Rack::create([
                         'zone_id'       => $parentRack->zone_id,
+                        'warehouse_id'  => $warehouseId,
                         'code'          => $subCode,
                         'name'          => "Rak {$blok} Grup {$grup}",
                         'total_levels'  => 9,

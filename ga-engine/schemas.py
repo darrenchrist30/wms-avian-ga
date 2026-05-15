@@ -27,11 +27,18 @@ class ItemInput(BaseModel):
 
 class CellInput(BaseModel):
     cell_id:              int
-    zone_category:        Optional[str] = None   # kode zona: "A", "B", "C"
     rack_code:            Optional[str] = None   # kode rack fisik, contoh: "19"
     rack_index:           Optional[int] = None   # nomor urut rack (integer dari rack code)
     cell_code:            Optional[str] = None   # kode cell lengkap, contoh: "1-F"
     cell_index:           Optional[int] = None   # nomor urut posisi cell dalam rack (A=1, B=2, ...)
+    is_mspart:            bool = False
+    blok:                 Optional[int] = None
+    grup:                 Optional[str] = None
+    baris_rak:            Optional[int] = None
+    kolom:                Optional[int] = None
+    physical_location_key:  Optional[str] = None
+    physical_location_code: Optional[str] = None
+    physical_cell_ids:      List[int] = []
     dominant_category_id: Optional[int] = None   # FK ke item_categories
     capacity_remaining:   int
     capacity_max:         int

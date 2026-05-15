@@ -6,7 +6,6 @@ use App\Models\Cell;
 use App\Models\Rack;
 use App\Models\Stock;
 use App\Models\Warehouse;
-use App\Models\Zone;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -26,8 +25,8 @@ class Warehouse3DController extends Controller
             : $warehouses->first();
 
         if ($highlightCellId && !$warehouseId) {
-            $hCell = Cell::with('rack.zone')->find($highlightCellId);
-            $detectedWid = $hCell?->rack?->zone?->warehouse_id;
+            $hCell = Cell::with('rack')->find($highlightCellId);
+            $detectedWid = $hCell?->rack?->warehouse_id;
             if ($detectedWid) {
                 $selectedWarehouse = $warehouses->find($detectedWid);
             }
@@ -37,14 +36,16 @@ class Warehouse3DController extends Controller
         $summary = null;
         if ($selectedWarehouse) {
             $summary = [
-                'total_zones' => Zone::where('warehouse_id', $selectedWarehouse->id)->count(),
-                'total_racks' => Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))->count(),
-                'total_cells' => Cell::whereHas('rack.zone', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))->count(),
-                'used_cells'  => Cell::whereHas('rack.zone', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
+                'total_racks' => Rack::where('warehouse_id', $selectedWarehouse->id)->where('is_active', true)->count(),
+                'total_cells' => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))->where('is_active', true)->count(),
+                'used_cells'  => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
+                                    ->where('is_active', true)
                                     ->where('capacity_used', '>', 0)->count(),
-                'full_cells'  => Cell::whereHas('rack.zone', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
+                'full_cells'  => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
+                                    ->where('is_active', true)
                                     ->where('status', 'full')->count(),
-                'blocked_cells' => Cell::whereHas('rack.zone', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
+                'blocked_cells' => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
+                                    ->where('is_active', true)
                                     ->where('status', 'blocked')->count(),
             ];
             $summary['utilization'] = $summary['total_cells'] > 0
@@ -67,21 +68,20 @@ class Warehouse3DController extends Controller
               ->groupBy('cell_id');
         };
 
-        $zones = Zone::with([
-            'racks'                   => fn($q) => $q
-                ->where('is_active', true)
-                ->whereRaw("code NOT REGEXP '^[0-9]+[A-H]$'")
-                ->orderBy('code'),
-            'racks.cells'             => $cellLoader,
-            'racks.cells.dominantCategory',
-            'racks.cells.stocks'      => $stockLoader,
-        ])
-        ->where('warehouse_id', $warehouseId)
-        ->orderBy('name')
-        ->get();
+        $warehouse = Warehouse::find($warehouseId);
+        $parentRacks = Rack::where('warehouse_id', $warehouseId)
+            ->where('is_active', true)
+            ->whereRaw("code NOT REGEXP '^[0-9]+[A-H]$'")
+            ->with([
+                'cells'              => $cellLoader,
+                'cells.dominantCategory',
+                'cells.stocks'       => $stockLoader,
+            ])
+            ->orderBy('code')
+            ->get();
 
         // Sub-racks: codes matching /^\d+[A-H]$/ (mspart layout racks like "1A", "4G", "3H")
-        $subRacks = Rack::whereHas('zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+        $subRacks = Rack::where('warehouse_id', $warehouseId)
             ->where('is_active', true)
             ->whereRaw("code REGEXP '^[0-9]+[A-H]$'")
             ->with([
@@ -115,8 +115,7 @@ class Warehouse3DController extends Controller
             ];
         };
 
-        $data = $zones->map(function ($zone) use ($subRacks, $mapCell) {
-            $racks = $zone->racks->map(function ($rack) use ($subRacks, $mapCell) {
+        $racks = $parentRacks->map(function ($rack) use ($subRacks, $mapCell) {
                 // Merge sub-rack cells into parent rack
                 $mspartCells = collect();
                 if ($subRacks->has($rack->code)) {
@@ -141,16 +140,13 @@ class Warehouse3DController extends Controller
                 ];
             });
 
-            return [
-                'zone_id'   => $zone->id,
-                'zone_name' => $zone->name,
-                'zone_code' => $zone->code,
-                'zone_type' => $zone->zone_type ?? 'storage',
-                'pos_x'     => (float) ($zone->pos_x ?? 0),
-                'pos_z'     => (float) ($zone->pos_z ?? 0),
-                'racks'     => $racks,
-            ];
-        });
+        $data = [[
+            'warehouse_id'   => $warehouse?->id,
+            'warehouse_name' => $warehouse?->name ?? 'Warehouse',
+            'pos_x'          => 0,
+            'pos_z'          => 0,
+            'racks'          => $racks,
+        ]];
 
         return response()->json($data);
     }
@@ -293,7 +289,7 @@ class Warehouse3DController extends Controller
     public function cellDetail(Request $request, Cell $cell)
     {
         $cell->load([
-            'rack.zone.warehouse',
+            'rack.warehouse',
             'dominantCategory',
             'stocks' => function ($q) {
                 $q->where('status', 'available')
@@ -319,8 +315,7 @@ class Warehouse3DController extends Controller
                 'code'          => $cell->code,
                 'label'         => $cell->label,
                 'rack'          => $cell->rack?->code ?? '—',
-                'zone'          => $cell->rack?->zone?->name ?? '—',
-                'warehouse'     => $cell->rack?->zone?->warehouse?->name ?? '—',
+                'warehouse'     => $cell->rack?->warehouse?->name ?? '—',
                 'status'        => $cell->status,
                 'capacity_max'  => $cell->capacity_max,
                 'capacity_used' => $cell->capacity_used,
