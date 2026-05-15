@@ -1322,7 +1322,7 @@ renderer.domElement.addEventListener('mousemove', function (e) {
             tooltip.innerHTML = `
                 <strong style="color:#fbbf24">Baris ${ud.blok}-${ud.grup} (R${rowFromGroup})</strong><br>
                 <span style="color:#94a3b8">${activeColumns} kolom aktif &nbsp;&middot;&nbsp; ${filledColumns} kolom terisi</span><br>
-                <span style="color:#64748b;font-size:10px">${activeRows} cell aktif &nbsp;&middot;&nbsp; ${filledRows} cell terisi</span>`;
+                <span style="color:#64748b;font-size:10px">${activeRows} cell aktif &nbsp;&middot;&nbsp; ${filledRows} cell terisi. Klik untuk isi baris.</span>`;
         } else if (ud.columnKey) {
             // ── Column hover: highlight all cells in the same column ──────────
             cellMeshes.forEach(cm => {
@@ -1442,6 +1442,83 @@ function showMspartColumnDetail(blok, grup, kolom) {
     });
 }
 
+function showMspartRowDetail(blok, grup) {
+    const rowFromGroup = {A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8}[grup] || '-';
+    $('#modalCellCode').text(`Blok ${blok} - Grup ${grup} - Baris ${rowFromGroup}`);
+    $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
+    $('#cellModal').modal('show');
+
+    const requests = [1, 2, 3, 4, 5, 6, 7].map(kolom =>
+        $.getJSON(COLUMN_DETAIL_URL, { blok, grup, kolom })
+    );
+
+    $.when.apply($, requests).done(function () {
+        const responses = Array.from(arguments).map(arg => Array.isArray(arg) ? arg[0] : arg);
+        const totalCells = responses.reduce((sum, col) => sum + col.levels.length, 0);
+        const filledCells = responses.reduce((sum, col) => sum + col.levels.filter(lv => lv.stocks.length > 0).length, 0);
+        const totalItems = responses.reduce((sum, col) => sum + col.levels.reduce((t, lv) => t + lv.stocks.length, 0), 0);
+
+        const columnsHtml = responses.map(col => {
+            const filled = col.levels.filter(lv => lv.stocks.length > 0).length;
+            const rows = col.levels.map(lv => {
+                const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
+                const itemHtml = !lv.stocks.length
+                    ? '<small class="text-muted">- kosong -</small>'
+                    : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span></div>`).join('');
+                return `<tr>
+                    <td class="text-center font-weight-bold" width="45">${lv.baris}</td>
+                    <td width="95"><span class="badge badge-light border">${lv.code}</span></td>
+                    <td class="text-center" width="85"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
+                    <td>${itemHtml}</td>
+                </tr>`;
+            }).join('');
+
+            return `
+                <div class="mb-3 border rounded">
+                    <div class="px-2 py-2 bg-light border-bottom d-flex justify-content-between align-items-center">
+                        <strong>K${col.kolom}</strong>
+                        <small class="text-muted">${filled} / ${col.levels.length} cell terisi</small>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th class="text-center">Baris</th>
+                                    <th>Kode Sel</th>
+                                    <th class="text-center">Status</th>
+                                    <th>Isi Item</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>`;
+        }).join('');
+
+        $('#cellModalBody').html(`
+            <div class="row mx-0 border-bottom pb-2 pt-2 bg-light">
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Lokasi Baris</small>
+                    <div class="font-weight-bold">Blok ${blok} &rsaquo; Grup ${grup} &rsaquo; Baris ${rowFromGroup}</div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Cell Terisi</small>
+                    <div class="font-weight-bold">${filledCells} / ${totalCells} cell</div>
+                </div>
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Total Item</small>
+                    <div class="font-weight-bold">${totalItems} item</div>
+                </div>
+            </div>
+            <div class="p-2">
+                <strong class="d-block mb-2"><i class="fas fa-th-large mr-1 text-primary"></i>Isi per Kolom</strong>
+                ${columnsHtml}
+            </div>`);
+    }).fail(function () {
+        $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail baris.</div>');
+    });
+}
+
 renderer.domElement.addEventListener('click', function (e) {
     toNDC(e);
     raycaster.setFromCamera(mouse, camera);
@@ -1453,7 +1530,7 @@ renderer.domElement.addEventListener('click', function (e) {
     $('#cellModal').modal('show');
 
     if (ud.isMspart && ud.columnKey) {
-        showMspartColumnDetail(ud.blok, ud.grup, ud.kolom);
+        showMspartRowDetail(ud.blok, ud.grup);
         return;
 
         // ── MSpart click: step 1 — tampilkan daftar kolom dalam grup ini ─
