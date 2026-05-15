@@ -1411,8 +1411,8 @@ function showMspartColumnDetail(blok, grup, kolom) {
                     <div class="font-weight-bold">Blok ${res.blok} &rsaquo; Grup ${res.grup} &rsaquo; Baris ${res.baris_rak} &rsaquo; Kolom ${res.kolom}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <small class="text-muted">Jumlah Baris Aktif</small>
-                    <div class="font-weight-bold">${res.levels.length} baris</div>
+                    <small class="text-muted">Baris Rak</small>
+                    <div class="font-weight-bold">Baris ${res.baris_rak}</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <small class="text-muted">Total Item</small>
@@ -1688,8 +1688,8 @@ $(document).on('click', '.btnKolom', function () {
                     <div class="font-weight-bold">Blok ${res.blok} › Grup ${res.grup} › Baris ${res.baris_rak} › Kolom ${res.kolom}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <small class="text-muted">Jumlah Baris Aktif</small>
-                    <div class="font-weight-bold">${res.levels.length} baris</div>
+                    <small class="text-muted">Baris Rak</small>
+                    <div class="font-weight-bold">Baris ${res.baris_rak}</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <small class="text-muted">Total Item</small>
