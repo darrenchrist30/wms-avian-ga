@@ -92,7 +92,7 @@ class PutAwayController extends Controller
         )
         ->whereHas('inboundOrderItem', fn($q) => $q->where('status', 'pending'))
         ->get()
-        ->sortBy(fn($d) => $d->cell?->code ?? 'ZZZ')
+        ->sortByDesc(fn($d) => optional($d->gaRecommendation->inboundOrder?->updated_at)->timestamp ?? 0)
         ->values();
 
         $totalOrders = $items->pluck('gaRecommendation.inbound_order_id')->unique()->count();

@@ -21,6 +21,42 @@ from typing import Dict, List, Optional, Tuple
 from schemas import CellInput, ItemInput
 
 
+def category_compatible(item: ItemInput, cell: CellInput) -> bool:
+    """
+    True when a cell is category-valid for the item.
+
+    Same-SKU continuity is valid because the warehouse already stores that SKU
+    in the cell.
+    """
+    if item.item_id in cell.existing_item_ids:
+        return True
+
+    return (
+        item.category_id is not None
+        and cell.dominant_category_id is not None
+        and item.category_id == cell.dominant_category_id
+    )
+
+
+def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
+    """
+    Candidate cells for one item.
+
+    Thesis-test rule:
+    - Use category-valid, capacity-feasible cells when available.
+    - Fall back to category-invalid cells only when no valid category cell exists.
+    """
+    feasible = [c for c in cells if c.capacity_remaining >= item.quantity]
+    if not feasible:
+        feasible = cells
+
+    category_valid = [c.cell_id for c in feasible if category_compatible(item, c)]
+    if category_valid:
+        return category_valid
+
+    return [c.cell_id for c in feasible]
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Representasi Kromosom — Direct Value Encoding
 # ─────────────────────────────────────────────────────────────────────────────
@@ -100,9 +136,7 @@ def initialize_population(
                 chromosome.append(item.preferred_cell_id)
                 continue
 
-            feasible = [c.cell_id for c in cells if c.capacity_remaining >= item.quantity]
-            pool = feasible if feasible else cell_ids
-            chromosome.append(random.choice(pool))
+            chromosome.append(random.choice(feasible_cell_pool(item, cells)))
 
         population.append(chromosome)
 
@@ -118,10 +152,9 @@ def initialize_population(
                 chromosome.append(item.preferred_cell_id)
                 continue
 
-            if item.quantity <= sorted_cells[0].capacity_remaining:
-                chromosome.append(random.choice(top_cell_ids))
-            else:
-                chromosome.append(random.choice(cell_ids))
+            preferred_pool = feasible_cell_pool(item, sorted_cells)
+            top_valid = [cid for cid in preferred_pool if cid in top_cell_ids]
+            chromosome.append(random.choice(top_valid if top_valid else preferred_pool))
 
         population.append(chromosome)
 
@@ -267,8 +300,9 @@ def random_reset_mutation(
     """
     # Pre-compute feasible cell pool per item (snapshot kapasitas awal order)
     if items and cells_dict:
+        cells = list(cells_dict.values())
         feasible_pools: List[List[int]] = [
-            [cid for cid, cell in cells_dict.items() if cell.capacity_remaining >= item.quantity]
+            feasible_cell_pool(item, cells)
             for item in items
         ]
     else:

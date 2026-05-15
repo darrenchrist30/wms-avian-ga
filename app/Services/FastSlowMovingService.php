@@ -54,10 +54,6 @@ class FastSlowMovingService
             ->whereHas('rack', fn($q) => $q->where('warehouse_id', $warehouseId))
             ->whereIn('status', ['available', 'partial'])
             ->get()
-            ->groupBy(fn(Cell $c) => $c->blok !== null && $c->grup !== null && $c->kolom !== null
-                ? "mspart:{$c->blok}:" . strtoupper((string) $c->grup) . ":{$c->kolom}"
-                : "cell:{$c->id}")
-            ->map(fn($group) => $group->sortBy(fn(Cell $c) => sprintf('%03d-%08d', (int) ($c->baris ?? 0), $c->id))->first())
             ->filter(fn($c) => $c && $c->physical_capacity_remaining >= $quantity);
 
         if ($cells->isEmpty()) return null;

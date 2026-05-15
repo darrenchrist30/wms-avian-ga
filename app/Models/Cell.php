@@ -67,8 +67,14 @@ class Cell extends Model
 
     public function getPhysicalCodeAttribute(): string
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
-            return sprintf('%s-%s-K%s', $this->blok, strtoupper((string) $this->grup), $this->kolom);
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null && $this->baris !== null) {
+            return sprintf(
+                '%s-%s-%s-%s',
+                $this->blok,
+                strtoupper((string) $this->grup),
+                $this->kolom,
+                $this->baris
+            );
         }
 
         return (string) $this->code;
@@ -76,12 +82,10 @@ class Cell extends Model
 
     public function getPhysicalLabelAttribute(): string
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null && $this->baris !== null) {
             $grup = strtoupper((string) $this->grup);
-            $barisRak = strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', $grup);
-            $barisRak = $barisRak === false ? null : $barisRak + 1;
 
-            return "Blok {$this->blok} - Grup {$grup} - Baris {$barisRak} - Kolom {$this->kolom}";
+            return "Blok {$this->blok} - Grup {$grup} - Kolom {$this->kolom} - Baris {$this->baris}";
         }
 
         return (string) ($this->label ?: $this->code);
@@ -89,33 +93,19 @@ class Cell extends Model
 
     public function getPhysicalCapacityMaxAttribute(): int
     {
-        if ($this->blok === null || $this->grup === null || $this->kolom === null) {
-            return (int) $this->capacity_max;
-        }
-
-        return max(1, (int) static::where('is_active', true)
-            ->where('blok', $this->blok)
-            ->where('grup', strtoupper((string) $this->grup))
-            ->where('kolom', $this->kolom)
-            ->max('capacity_max'));
+        return (int) $this->capacity_max;
     }
 
     public function getPhysicalCapacityUsedAttribute(): int
     {
-        if ($this->blok === null || $this->grup === null || $this->kolom === null) {
-            return (int) $this->capacity_used;
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null && $this->baris !== null) {
+            return Stock::where('cell_id', $this->id)
+                ->where('quantity', '>', 0)
+                ->whereIn('status', ['available', 'reserved'])
+                ->count();
         }
 
-        $cellIds = static::where('is_active', true)
-            ->where('blok', $this->blok)
-            ->where('grup', strtoupper((string) $this->grup))
-            ->where('kolom', $this->kolom)
-            ->pluck('id');
-
-        return Stock::whereIn('cell_id', $cellIds)
-            ->where('quantity', '>', 0)
-            ->whereIn('status', ['available', 'reserved'])
-            ->count();
+        return (int) $this->capacity_used;
     }
 
     public function getPhysicalCapacityRemainingAttribute(): int

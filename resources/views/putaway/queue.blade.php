@@ -74,7 +74,7 @@
                 Put-Away Queue
             </h4>
             <p class="text-muted mb-0 mt-1">
-                Semua item dari {{ $totalOrders }} DO yang siap ditempatkan — diurutkan per lokasi sel.
+                Semua item dari {{ $totalOrders }} DO yang siap ditempatkan, terbaru di atas.
             </p>
         </div>
         <div class="col-auto">
@@ -146,18 +146,19 @@
         <div class="card shadow-sm">
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0" id="queueTable">
+                    <table class="table table-bordered table-sm table-striped table-hover w-100" id="datatable">
                         <thead class="thead-light">
                             <tr>
                                 <th class="text-center" width="36">#</th>
-                                <th width="130">No. Surat Jalan</th>
+                                <th width="120">No. Surat Jalan</th>
                                 <th>Item / SKU</th>
                                 <th width="60" class="text-center">QTY</th>
                                 <th width="55" class="text-center">Satuan</th>
                                 <th width="110" class="text-center">Sel GA</th>
-                                <th width="120">Rak</th>
-                                <th width="85" class="text-center">Status Sel</th>
+                                <th width="50">Rak</th>
+                                <th width="100" class="text-center">Status Sel</th>
                                 <th width="130" class="text-center">Aksi</th>
+                                <th class="d-none">Urutan</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -167,6 +168,13 @@
                                 $item   = $detail->inboundOrderItem->item;
                                 $cell   = $detail->cell;
                                 $rack   = $cell?->rack;
+                                $unitLabel = $item->unit?->code ?? $item->unit?->name ?? '-';
+                                $selGa = $cell?->physical_code ?? null;
+                                $rakCode = ($cell && $cell->blok !== null && $cell->grup !== null)
+                                    ? $cell->blok . '-' . strtoupper((string) $cell->grup)
+                                    : ($rack?->code ?? null);
+                                $rowId = 'row-ga-' . $detail->id;
+                                $orderSort = optional($order->updated_at)->timestamp ?? optional($order->created_at)->timestamp ?? 0;
                                 $statusMap = [
                                     'available' => ['success', 'Tersedia'],
                                     'partial'   => ['warning', 'Sebagian'],
@@ -175,17 +183,17 @@
                                 ];
                                 [$statusColor, $statusLabel] = $statusMap[$cell?->status ?? ''] ?? ['secondary', $cell?->status ?? '—'];
                             @endphp
-                            <tr id="row-{{ $detail->inboundOrderItem->id }}">
+                            <tr id="{{ $rowId }}">
                                 <td class="text-center text-muted small align-middle">{{ $i + 1 }}</td>
                                 <td class="align-middle">
                                     <a href="{{ route('putaway.show', $order->id) }}"
-                                       class="font-weight-bold text-primary" style="font-size:12px;"
+                                       class="font-weight-bold text-primary" style="font-size:13px;"
                                        target="_blank" title="Buka detail DO">
                                         {{ $order->do_number }}
                                     </a>
-                                    @if($order->notes)
+                                    {{-- @if($order->notes)
                                         <br><small class="text-muted" style="font-size:10px;">{{ Str::limit($order->notes, 35) }}</small>
-                                    @endif
+                                    @endif --}}
                                 </td>
                                 <td class="align-middle">
                                     <div class="font-weight-bold" style="font-size:13px;line-height:1.3;">{{ $item->name }}</div>
@@ -198,23 +206,20 @@
                                     {{ $detail->quantity }}
                                 </td>
                                 <td class="text-center align-middle">
-                                    <small class="text-muted">{{ $item->unit?->symbol ?? '—' }}</small>
+                                    <small class="text-muted">{{ $unitLabel }}</small>
                                 </td>
                                 <td class="text-center align-middle">
                                     @if($cell)
                                         <span class="badge badge-primary px-2" style="font-size:11px;letter-spacing:.3px;">
-                                            {{ $cell->physical_code }}
+                                            {{ $selGa }}
                                         </span>
                                     @else
                                         <span class="text-muted small">—</span>
                                     @endif
                                 </td>
                                 <td class="align-middle" style="font-size:12px;">
-                                    @if($rack)
-                                        <span class="font-weight-bold">{{ $rack->code }}</span>
-                                        @if($rack->name && $rack->name !== $rack->code)
-                                            <br><small class="text-muted">{{ $rack->name }}</small>
-                                        @endif
+                                    @if($rakCode)
+                                        <span class="font-weight-bold">{{ $rakCode }}</span>
                                     @else
                                         <span class="text-muted">—</span>
                                     @endif
@@ -234,22 +239,26 @@
                                             data-order-id="{{ $order->id }}"
                                             data-detail-id="{{ $detail->inboundOrderItem->id }}"
                                             data-ga-detail-id="{{ $detail->id }}"
+                                            data-row-id="{{ $rowId }}"
                                             data-item-name="{{ $item->name }}"
                                             data-qty="{{ $detail->quantity }}"
-                                            data-ga-cell="{{ $cell?->physical_code ?? '' }}"
+                                            data-unit="{{ $unitLabel }}"
+                                            data-ga-cell="{{ $selGa ?? '' }}"
                                             data-ga-cell-id="{{ $cell?->id ?? '' }}"
                                             data-cap-remaining="{{ $cell?->physical_capacity_remaining ?? 0 }}"
                                             data-cap-max="{{ $cell?->physical_capacity_max ?? 0 }}"
-                                            title="Konfirmasi penempatan ke {{ $cell?->physical_code ?? 'sel GA' }}">
+                                            title="Konfirmasi penempatan ke {{ $selGa ?? 'sel GA' }}">
                                         <i class="fas fa-check mr-1"></i>Konfirmasi
                                     </button>
                                     <button class="btn btn-xs btn-warning text-dark btnOverride"
                                             data-order-id="{{ $order->id }}"
                                             data-detail-id="{{ $detail->inboundOrderItem->id }}"
                                             data-ga-detail-id="{{ $detail->id }}"
+                                            data-row-id="{{ $rowId }}"
                                             data-item-name="{{ $item->name }}"
                                             data-qty="{{ $detail->quantity }}"
-                                            data-ga-cell="{{ $cell?->physical_code ?? '' }}"
+                                            data-unit="{{ $unitLabel }}"
+                                            data-ga-cell="{{ $selGa ?? '' }}"
                                             data-ga-cell-id="{{ $cell?->id ?? '' }}"
                                             data-cap-remaining="{{ $cell?->physical_capacity_remaining ?? 0 }}"
                                             data-cap-max="{{ $cell?->physical_capacity_max ?? 0 }}"
@@ -257,6 +266,7 @@
                                         <i class="fas fa-map-marker-alt mr-1"></i>Override
                                     </button>
                                 </td>
+                                <td class="d-none">{{ $orderSort }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -305,7 +315,7 @@
                     </div>
                     <div class="text-right">
                         <span class="font-weight-bold text-primary" style="font-size:20px" id="confirmItemQty">-</span>
-                        <span class="text-muted" style="font-size:11px"> unit</span>
+                        <span class="text-muted" style="font-size:11px" id="confirmItemUnit">-</span>
                     </div>
                 </div>
 
@@ -513,16 +523,33 @@ const TOTAL      = {{ $items->count() }};
 const scanQrUrl  = "{{ route('putaway.scan-qr') }}";
 const csrfToken  = $('meta[name="csrf-token"]').attr('content');
 let   done       = 0;
+let   queueTable = null;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentOrderId   = null;
 let currentDetailId  = null;   // InboundOrderItem id (for URL)
 let currentGaDetailId = null;  // GaRecommendationDetail id (for ga_detail_id param)
+let currentRowId     = null;
 let isOverride       = false;
 let modalCell        = null;
 let modalGaCell      = null;
 let modalQty         = 0;
+let modalUnitLabel   = 'unit';
 let qtyEditing       = false;
+
+$(function() {
+    if ($('#datatable').length) {
+        queueTable = $('#datatable').DataTable({
+            responsive: true,
+            pageLength: 25,
+            order: [[9, 'desc']],
+            columnDefs: [
+                { targets: [0, 8], orderable: false, searchable: false },
+                { targets: [9], visible: false, searchable: false },
+            ],
+        });
+    }
+});
 
 function updateStats() {
     $('#statDone').text(done);
@@ -622,7 +649,7 @@ function showConfirmPhase(cell) {
     qtyEditing = false;
     $('#confirmQty').val(modalQty).hide();
     $('#qtyDisplay').text(modalQty);
-    $('#qtyUnitLabel').text('unit yang akan ditempatkan');
+    $('#qtyUnitLabel').text(modalUnitLabel + ' yang akan ditempatkan');
     $('#confirmNotes').val(isOverride ? '[OVERRIDE] ' : '');
 
     $('#phaseScan').hide();
@@ -675,10 +702,16 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
                 $('#modalConfirm').modal('hide');
 
                 // Hapus baris dari antrian
-                const $row = $('#row-' + currentDetailId);
+                const $row = $('#' + currentRowId);
                 $row.addClass('row-save-flash');
                 setTimeout(function() {
-                    $row.fadeOut(400, function() { $(this).remove(); });
+                    $row.fadeOut(400, function() {
+                        if (queueTable) {
+                            queueTable.row(this).remove().draw(false);
+                        } else {
+                            $(this).remove();
+                        }
+                    });
                 }, 800);
 
                 done++;
@@ -776,9 +809,9 @@ function doModalScanQr(code) {
                         '<p>Cell <strong>' + cell.code + '</strong> ' +
                         '<span class="badge badge-success" style="font-size:12px">' +
                         '<i class="fas fa-check-circle mr-1"></i>Sesuai rekomendasi GA</span></p>' +
-                        '<p>Qty: <strong>' + modalQty + ' unit</strong></p>' +
+                        '<p>Qty: <strong>' + modalQty + ' ' + modalUnitLabel + '</strong></p>' +
                         '<p class="mb-0 text-muted" style="font-size:13px">Sisa kapasitas: ' +
-                        cell.capacity_remaining + ' / ' + cell.capacity_max + ' unit</p>',
+                        cell.capacity_remaining + ' / ' + cell.capacity_max + ' cell</p>',
                     showCancelButton: true,
                     confirmButtonText: '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan',
                     cancelButtonText: 'Batal',
@@ -824,13 +857,15 @@ $('#btnRescan').on('click', showScanPhase);
 $('#modalConfirm').on('shown.bs.modal', function() { $('#modalQrInput').focus(); });
 
 // ── Buka modal ────────────────────────────────────────────────────────────────
-function openConfirmModal(orderId, detailId, gaDetailId, itemName, qty, gaCell, gaCellId,
+function openConfirmModal(orderId, detailId, gaDetailId, rowId, itemName, qty, unitLabel, gaCell, gaCellId,
                           gaCapRemain, gaCapMax, overrideMode) {
     currentOrderId    = orderId;
     currentDetailId   = detailId;
     currentGaDetailId = overrideMode ? null : (gaDetailId || null);
+    currentRowId      = rowId;
     isOverride        = !!overrideMode;
     modalQty          = qty;
+    modalUnitLabel    = unitLabel || 'unit';
     modalCell         = null;
 
     modalGaCell = gaCellId ? {
@@ -848,6 +883,7 @@ function openConfirmModal(orderId, detailId, gaDetailId, itemName, qty, gaCell, 
     $('#confirmModalSubtitle').text(itemName);
     $('#confirmItemName').text(itemName);
     $('#confirmItemQty').text(qty);
+    $('#confirmItemUnit').text(modalUnitLabel);
 
     showScanPhase();
     $('#modalConfirm').modal('show');
@@ -859,8 +895,10 @@ $(document).on('click', '.btnConfirm', function() {
         b.data('order-id'),
         b.data('detail-id'),
         b.data('ga-detail-id'),
+        b.data('row-id'),
         b.data('item-name'),
         parseInt(b.data('qty')),
+        b.data('unit'),
         b.data('ga-cell'),
         b.data('ga-cell-id'),
         parseInt(b.data('cap-remaining')) || 0,
@@ -875,8 +913,10 @@ $(document).on('click', '.btnOverride', function() {
         b.data('order-id'),
         b.data('detail-id'),
         b.data('ga-detail-id'),
+        b.data('row-id'),
         b.data('item-name'),
         parseInt(b.data('qty')),
+        b.data('unit'),
         b.data('ga-cell')    || '',
         b.data('ga-cell-id') || '',
         parseInt(b.data('cap-remaining')) || 0,
@@ -905,7 +945,7 @@ $('#btnDoConfirm').on('click', function() {
     const cellCode = modalCell?.code || cellId;
     Swal.fire({
         title: 'Konfirmasi Penempatan?',
-        html:  'Simpan item ke cell <strong>' + cellCode + '</strong><br>Jumlah: <strong>' + qty + ' unit</strong>',
+        html:  'Simpan item ke cell <strong>' + cellCode + '</strong><br>Jumlah: <strong>' + qty + ' ' + modalUnitLabel + '</strong>',
         icon:  'question',
         showCancelButton:   true,
         confirmButtonColor: '#28a745',

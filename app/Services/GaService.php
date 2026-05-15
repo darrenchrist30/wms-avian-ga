@@ -6,9 +6,7 @@ use App\Models\Cell;
 use App\Models\GaRecommendation;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
-use App\Models\InboundOrderItem;
 use App\Models\ItemAffinity;
-use App\Models\Stock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -146,7 +144,25 @@ class GaService
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
 
-        $cellCandidates = collect($this->buildCellCandidates($cellsCollection, $existingItemIdsByCell));
+        $reservedQtyByCell = DB::table('ga_recommendation_details as grd')
+            ->join('ga_recommendations as gr', 'gr.id', '=', 'grd.ga_recommendation_id')
+            ->join('inbound_transactions as it', 'it.id', '=', 'gr.inbound_order_id')
+            ->join('inbound_details as idt', 'idt.id', '=', 'grd.inbound_order_item_id')
+            ->select('grd.cell_id', DB::raw('SUM(grd.quantity) as reserved_qty'))
+            ->whereIn('grd.cell_id', $cellsCollection->pluck('id'))
+            ->where('gr.status', 'accepted')
+            ->where('it.warehouse_id', $order->warehouse_id)
+            ->where('it.id', '!=', $order->id)
+            ->where('it.status', 'put_away')
+            ->whereIn('idt.status', ['pending', 'partial', 'partial_put_away'])
+            ->groupBy('grd.cell_id')
+            ->pluck('reserved_qty', 'cell_id');
+
+        $cellCandidates = collect($this->buildCellCandidates(
+            $cellsCollection,
+            $existingItemIdsByCell,
+            $reservedQtyByCell
+        ));
 
         // ─────────────────────────────────────────────────────────────
         // Partial allocation:
@@ -156,6 +172,7 @@ class GaService
         // → chunk 10 dikunci ke 1-D, sisa 25 bebas dicari GA.
         // ─────────────────────────────────────────────────────────────
         $items = [];
+        $maxFreeChunkQty = max(1, (int) $cellCandidates->max('capacity_remaining'));
 
         foreach ($rawDetails as $detail) {
             $remainingQty = (int) $detail->quantity_received;
@@ -205,20 +222,26 @@ class GaService
                 $remainingQty -= $chunkQty;
             }
 
-            // 2) Jika masih ada sisa, kirim sebagai chunk bebas ke GA
-            if ($remainingQty > 0) {
+            // 2) Jika masih ada sisa, pecah menjadi chunk yang realistis untuk
+            // satu kolom fisik. Tanpa ini, qty besar bisa menjadi satu gene
+            // 83 unit ke satu kolom dan hanya kena penalti fitness, bukan split.
+            while ($remainingQty > 0) {
+                $chunkQty = min($remainingQty, $maxFreeChunkQty);
+
                 $items[] = [
                     'inbound_detail_id' => $detail->id,
                     'item_id'           => $detail->item_id,
                     'sku'               => $detail->item->sku,
                     'category_id'       => $detail->item->category_id,
-                    'quantity'          => $remainingQty,
+                    'quantity'          => $chunkQty,
                     'item_size'         => $detail->item->item_size ?? 'medium',
                     'movement_type'     => $detail->item->movement_type,
 
                     // Null berarti GA bebas memilih cell terbaik.
                     'preferred_cell_id' => null,
                 ];
+
+                $remainingQty -= $chunkQty;
             }
         }
 
@@ -301,15 +324,14 @@ class GaService
     /**
      * Build GA candidates using the current warehouse model.
      *
-     * Legacy cells stay one candidate per cells.id. MSpart cells are grouped into
-     * one physical candidate per blok + grup + kolom, because grup is the rack row
-     * and kolom is the operator-facing shelf column.
+     * Legacy cells stay one candidate per cells.id. MSpart cells use the exact
+     * SQL coordinate: blok + grup + kolom + baris.
      */
-    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell): array
+    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell, $reservedQtyByCell): array
     {
         return $cellsCollection
             ->groupBy(fn(Cell $cell) => $this->physicalLocationKey($cell))
-            ->map(function ($group) use ($existingItemIdsByCell) {
+            ->map(function ($group) use ($existingItemIdsByCell, $reservedQtyByCell) {
                 $representative = $group
                     ->sortBy(fn(Cell $cell) => sprintf('%03d-%08d', (int) ($cell->baris ?? 0), $cell->id))
                     ->first();
@@ -333,7 +355,14 @@ class GaService
                     ->values()
                     ->all();
 
+                $reservedQty = (int) ($reservedQtyByCell->get($representative->id) ?? 0);
+
                 if (!$this->isMspartCell($representative)) {
+                    $capacityRemaining = max(
+                        0,
+                        (int) $representative->capacity_max - (int) $representative->capacity_used - $reservedQty
+                    );
+
                     return [
                         'cell_id'              => $representative->id,
                         'rack_code'            => (string) ($representative->rack?->code ?? ''),
@@ -341,41 +370,43 @@ class GaService
                         'cell_code'            => (string) $representative->code,
                         'cell_index'           => $this->cellCodeToIndex($representative->code),
                         'dominant_category_id' => $representative->dominant_category_id,
-                        'capacity_remaining'   => max(0, (int) $representative->capacity_max - (int) $representative->capacity_used),
+                        'capacity_remaining'   => $capacityRemaining,
                         'capacity_max'         => (int) $representative->capacity_max,
                         'status'               => $representative->status,
                         'existing_item_ids'    => $existingItemIds,
+                        'reserved_qty'         => $reservedQty,
                     ];
                 }
 
-                $capacityMax = max(1, (int) ($group->max('capacity_max') ?: $representative->capacity_max ?: 20));
+                $capacityMax = max(1, (int) ($representative->capacity_max ?: 20));
                 $capacityUsed = DB::table('stock_records')
-                    ->whereIn('cell_id', $cellIds)
+                    ->where('cell_id', $representative->id)
                     ->where('quantity', '>', 0)
                     ->whereIn('status', ['available', 'reserved'])
                     ->count();
-                $capacityRemaining = max(0, $capacityMax - $capacityUsed);
-                $barisRak = $this->groupToRackRow((string) $representative->grup);
+                $capacityRemaining = max(0, $capacityMax - $capacityUsed - $reservedQty);
                 $blok = (int) $representative->blok;
                 $grup = strtoupper((string) $representative->grup);
                 $kolom = (int) $representative->kolom;
+                $baris = (int) $representative->baris;
 
                 return [
                     'cell_id'                => $representative->id,
                     'rack_code'              => (string) ($representative->blok ?? $representative->rack?->code ?? ''),
                     'rack_index'             => $blok ?: (int) ($representative->rack?->code ?? 9999),
-                    'cell_code'              => "{$blok}-{$grup}-K{$kolom}",
-                    'cell_index'             => $kolom ?: 9999,
-                    'dominant_category_id'   => $group->pluck('dominant_category_id')->filter()->first(),
+                    'cell_code'              => "{$blok}-{$grup}-{$kolom}-{$baris}",
+                    'cell_index'             => ($kolom * 100) + $baris,
+                    'dominant_category_id'   => $representative->dominant_category_id,
                     'capacity_remaining'     => $capacityRemaining,
                     'capacity_max'           => $capacityMax,
                     'status'                 => $capacityUsed <= 0 ? 'available' : ($capacityRemaining <= 0 ? 'full' : 'partial'),
                     'existing_item_ids'      => $existingItemIds,
+                    'reserved_qty'           => $reservedQty,
                     'is_mspart'              => true,
                     'blok'                   => $blok,
                     'grup'                   => $grup,
-                    'baris_rak'              => $barisRak,
                     'kolom'                  => $kolom,
+                    'baris'                  => $baris,
                     'physical_location_key'  => $this->physicalLocationKey($representative),
                     'physical_location_code' => $this->physicalLocationLabel($representative),
                     'physical_cell_ids'      => $cellIds,
@@ -390,10 +421,11 @@ class GaService
     {
         if ($this->isMspartCell($cell)) {
             return sprintf(
-                'mspart:%d:%s:%d',
+                'mspart:%d:%s:%d:%d',
                 (int) $cell->blok,
                 strtoupper((string) $cell->grup),
-                (int) $cell->kolom
+                (int) $cell->kolom,
+                (int) $cell->baris
             );
         }
 
@@ -407,21 +439,16 @@ class GaService
         }
 
         $grup = strtoupper((string) $cell->grup);
-        $barisRak = $this->groupToRackRow($grup);
 
-        return "Blok {$cell->blok} - Grup {$grup} - Baris {$barisRak} - Kolom {$cell->kolom}";
+        return "Blok {$cell->blok} - Grup {$grup} - Kolom {$cell->kolom} - Baris {$cell->baris}";
     }
 
     private function isMspartCell(Cell $cell): bool
     {
-        return $cell->blok !== null && $cell->grup !== null && $cell->kolom !== null;
-    }
-
-    private function groupToRackRow(string $grup): ?int
-    {
-        $index = strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', strtoupper($grup));
-
-        return $index === false ? null : $index + 1;
+        return $cell->blok !== null
+            && $cell->grup !== null
+            && $cell->kolom !== null
+            && $cell->baris !== null;
     }
 
     private function callPythonEngine(array $payload): array
@@ -482,22 +509,30 @@ class GaService
             'status'            => 'pending',
         ]);
 
-        // Simpan detail per gen (per SKU).
-        // GA memberi rekomendasi pada level KOLOM (1 dari 9 baris representatif).
-        // Di sini kita translate ke baris spesifik berdasarkan aturan:
-        //   1. Cari baris yang sudah ada SKU sama → consolidate stok
-        //   2. Kalau tidak ada, ambil baris kosong dengan nomor terkecil (bottom-up)
-        foreach ($gaResult['chromosome'] as $gene) {
-            $itemId = (int) (InboundOrderItem::find($gene['inbound_detail_id'])?->item_id ?? 0);
-            $assignedCellId = $this->assignSpecificBaris(
-                (int) $gene['cell_id'],
-                $itemId
-            );
+        // Simpan detail per gen (per SKU) pada cell SQL exact:
+        // blok + grup + kolom + baris.
+        $genes = collect($gaResult['chromosome'])
+            ->groupBy(fn($gene) => $gene['inbound_detail_id'] . '|' . $gene['cell_id'])
+            ->map(function ($group) {
+                $first = $group->first();
 
+                foreach (['gene_fitness', 'fc_cap', 'fc_cat', 'fc_aff', 'fc_split'] as $scoreKey) {
+                    if ($group->contains(fn($gene) => isset($gene[$scoreKey]))) {
+                        $first[$scoreKey] = round($group->avg(fn($gene) => $gene[$scoreKey] ?? 0), 4);
+                    }
+                }
+
+                $first['quantity'] = $group->sum('quantity');
+
+                return $first;
+            })
+            ->values();
+
+        foreach ($genes as $gene) {
             GaRecommendationDetail::create([
                 'ga_recommendation_id'   => $recommendation->id,
                 'inbound_order_item_id'  => $gene['inbound_detail_id'],
-                'cell_id'                => $assignedCellId,
+                'cell_id'                => $gene['cell_id'],
                 'quantity'               => $gene['quantity'],
                 'gene_fitness'           => $gene['gene_fitness']  ?? null,
                 'fc_cap_score'           => $gene['fc_cap']        ?? null,
@@ -511,68 +546,6 @@ class GaService
         $order->update(['processed_at' => now()]);
 
         return $recommendation->load('details');
-    }
-
-    /**
-     * Translate rekomendasi GA (level kolom) → baris spesifik (level cell).
-     *
-     * Aturan placement dalam 1 kolom (9 baris):
-     *   1. Prioritas: baris yang sudah ada SKU sama (consolidate stok existing)
-     *   2. Fallback: baris kosong dengan nomor terkecil (bottom-up fill)
-     *   3. Last resort: baris representatif dari GA (kalau kolom penuh, biar
-     *      operator tetap dapat lokasi & bisa override manual)
-     *
-     * Untuk legacy cells (blok=NULL) — return as-is.
-     */
-    private function assignSpecificBaris(int $recommendedCellId, int $itemId): int
-    {
-        $cell = Cell::find($recommendedCellId);
-        if (!$cell || $cell->blok === null) {
-            return $recommendedCellId;
-        }
-
-        $columnCells = Cell::where('blok', $cell->blok)
-            ->where('grup', $cell->grup)
-            ->where('kolom', $cell->kolom)
-            ->where('is_active', true)
-            ->orderBy('baris')
-            ->get();
-
-        // Pre-load capacity_used per baris (count stock records aktif)
-        $usedByCell = Stock::whereIn('cell_id', $columnCells->pluck('id'))
-            ->where('quantity', '>', 0)
-            ->whereIn('status', ['available', 'reserved'])
-            ->select('cell_id', DB::raw('COUNT(*) as cnt'))
-            ->groupBy('cell_id')
-            ->pluck('cnt', 'cell_id');
-
-        // Rule 1: baris yang sudah ada SKU sama
-        if ($itemId > 0) {
-            $cellWithSameSku = Stock::whereIn('cell_id', $columnCells->pluck('id'))
-                ->where('item_id', $itemId)
-                ->where('quantity', '>', 0)
-                ->whereIn('status', ['available', 'reserved'])
-                ->orderBy('cell_id')
-                ->first();
-
-            if ($cellWithSameSku) {
-                $target = $columnCells->firstWhere('id', $cellWithSameSku->cell_id);
-                if ($target && (int) ($usedByCell[$target->id] ?? 0) < (int) $target->capacity_max) {
-                    return $target->id;
-                }
-            }
-        }
-
-        // Rule 2: baris kosong dengan nomor terkecil
-        foreach ($columnCells as $bc) {
-            $used = (int) ($usedByCell[$bc->id] ?? 0);
-            if ($used < (int) $bc->capacity_max) {
-                return $bc->id;
-            }
-        }
-
-        // Rule 3: fallback ke baris representatif dari GA
-        return $recommendedCellId;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

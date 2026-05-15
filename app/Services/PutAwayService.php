@@ -46,7 +46,8 @@ class PutAwayService
         if ($this->isMspartCell($scannedCell) && $this->isMspartCell($recommendedCell)) {
             return (int) $scannedCell->blok === (int) $recommendedCell->blok
                 && strtoupper((string) $scannedCell->grup) === strtoupper((string) $recommendedCell->grup)
-                && (int) $scannedCell->kolom === (int) $recommendedCell->kolom;
+                && (int) $scannedCell->kolom === (int) $recommendedCell->kolom
+                && (int) $scannedCell->baris === (int) $recommendedCell->baris;
         }
 
         return $scannedCell->id === $recommendedCell->id;
@@ -58,15 +59,8 @@ class PutAwayService
             return max(0, (int) $cell->capacity_max - (int) $cell->capacity_used);
         }
 
-        $cells = Cell::where('is_active', true)
-            ->where('blok', $cell->blok)
-            ->where('grup', strtoupper((string) $cell->grup))
-            ->where('kolom', $cell->kolom)
-            ->get();
-
-        $cellIds = $cells->pluck('id')->all();
-        $capacityMax = max(1, (int) ($cells->max('capacity_max') ?: $cell->capacity_max ?: 20));
-        $capacityUsed = Stock::whereIn('cell_id', $cellIds)
+        $capacityMax = max(1, (int) ($cell->capacity_max ?: 20));
+        $capacityUsed = Stock::where('cell_id', $cell->id)
             ->where('quantity', '>', 0)
             ->whereIn('status', ['available', 'reserved'])
             ->count();
@@ -83,13 +77,7 @@ class PutAwayService
      */
     private function recomputeDominantCategory(Cell $cell): void
     {
-        $cellsToRefresh = $this->isMspartCell($cell)
-            ? Cell::where('is_active', true)
-                ->where('blok',  $cell->blok)
-                ->where('grup',  strtoupper((string) $cell->grup))
-                ->where('kolom', $cell->kolom)
-                ->get()
-            : collect([$cell]);
+        $cellsToRefresh = collect([$cell]);
 
         foreach ($cellsToRefresh as $c) {
             $dominantCatId = DB::table('stock_records as s')
@@ -112,11 +100,7 @@ class PutAwayService
 
     private function refreshMspartPhysicalLocationCapacity(Cell $cell): void
     {
-        $cells = Cell::where('is_active', true)
-            ->where('blok', $cell->blok)
-            ->where('grup', strtoupper((string) $cell->grup))
-            ->where('kolom', $cell->kolom)
-            ->get();
+        $cells = collect([$cell]);
 
         foreach ($cells as $locationCell) {
             $used = Stock::where('cell_id', $locationCell->id)
@@ -140,21 +124,16 @@ class PutAwayService
         }
 
         $grup = strtoupper((string) $cell->grup);
-        $barisRak = $this->groupToRackRow($grup);
 
-        return "Blok {$cell->blok} - Grup {$grup} - Baris {$barisRak} - Kolom {$cell->kolom}";
+        return "Blok {$cell->blok} - Grup {$grup} - Kolom {$cell->kolom} - Baris {$cell->baris}";
     }
 
     private function isMspartCell(Cell $cell): bool
     {
-        return $cell->blok !== null && $cell->grup !== null && $cell->kolom !== null;
-    }
-
-    private function groupToRackRow(string $grup): ?int
-    {
-        $index = strpos('ABCDEFGHIJKLMNOPQRSTUVWXYZ', strtoupper($grup));
-
-        return $index === false ? null : $index + 1;
+        return $cell->blok !== null
+            && $cell->grup !== null
+            && $cell->kolom !== null
+            && $cell->baris !== null;
     }
 
     /**
