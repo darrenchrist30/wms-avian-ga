@@ -168,20 +168,22 @@ class Warehouse3DController extends Controller
 
         $columns = collect(range(1, 7))->map(function ($kolom) use ($blok, $grup, $barisRak) {
             $cells   = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->where('is_active', true)->get();
-            $total   = $cells->count();
-            $full    = $cells->where('status', 'full')->count();
-            $partial = $cells->where('status', 'partial')->count();
-            $capUsed = $cells->sum('capacity_used');
-            $capMax  = $cells->sum('capacity_max');
-            $util    = $capMax > 0 ? round($capUsed / $capMax * 100) : 0;
+            $cellIds = $cells->pluck('id');
+            $capUsed = $cellIds->isEmpty()
+                ? 0
+                : Stock::whereIn('cell_id', $cellIds)->where('status', 'available')->where('quantity', '>', 0)->count();
+            $capMax  = (int) ($cells->max('capacity_max') ?: 20);
+            $util    = $capMax > 0 ? min(100, round($capUsed / $capMax * 100)) : 0;
+            $full    = $capUsed > 0 && $capUsed >= $capMax ? 1 : 0;
+            $partial = $capUsed > 0 && $capUsed < $capMax ? 1 : 0;
             return [
                 'kolom'    => $kolom,
                 'label'    => "K{$kolom}",
                 'baris_rak'=> $barisRak,
-                'total'    => $total,
+                'total'    => 1,
                 'full'     => $full,
                 'partial'  => $partial,
-                'empty'    => $total - $full - $partial,
+                'empty'    => $capUsed > 0 ? 0 : 1,
                 'util_pct' => $util,
                 'cap_used' => $capUsed,
                 'cap_max'  => $capMax,
@@ -215,27 +217,33 @@ class Warehouse3DController extends Controller
             ->where('is_active', true)
             ->orderBy('baris')
             ->with([
-                'stocks' => fn($q) => $q->where('status', 'available')->with('item.unit')->orderBy('inbound_date'),
+                'stocks' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)->with('item.unit')->orderBy('inbound_date'),
             ])
             ->get();
 
-        $result = $cells->map(function ($cell) {
-            return [
-                'cell_id'      => $cell->id,
-                'code'         => $cell->code,
-                'baris'        => $cell->baris,
-                'status'       => $cell->status,
-                'capacity_used'=> $cell->capacity_used,
-                'capacity_max' => $cell->capacity_max,
-                'stocks'       => $cell->stocks->map(fn($s) => [
-                    'item_name'    => $s->item?->name ?? '—',
-                    'sku'          => $s->item?->sku ?? '—',
-                    'unit'         => $s->item?->unit?->code ?? '',
-                    'quantity'     => $s->quantity,
-                    'inbound_date' => $s->inbound_date?->format('d M Y'),
-                ]),
-            ];
-        });
+        $stocks = $cells
+            ->flatMap(fn($cell) => $cell->stocks)
+            ->sortBy('inbound_date')
+            ->values();
+        $capUsed = $stocks->count();
+        $capMax = (int) ($cells->max('capacity_max') ?: 20);
+        $status = $capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial');
+
+        $result = collect([[
+            'cell_id'      => $cells->first()?->id,
+            'code'         => "{$blok}-{$grup}-{$kolom}",
+            'baris'        => $barisRak,
+            'status'       => $status,
+            'capacity_used'=> $capUsed,
+            'capacity_max' => $capMax,
+            'stocks'       => $stocks->map(fn($s) => [
+                'item_name'    => $s->item?->name ?? '-',
+                'sku'          => $s->item?->sku ?? '-',
+                'unit'         => $s->item?->unit?->code ?? '',
+                'quantity'     => $s->quantity,
+                'inbound_date' => $s->inbound_date?->format('d M Y'),
+            ]),
+        ]]);
 
         return response()->json([
             'blok'   => $blok,

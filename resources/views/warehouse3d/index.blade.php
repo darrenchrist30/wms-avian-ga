@@ -769,8 +769,8 @@ function buildMspartCells(rx, rz, rackCode, cells) {
             grup:      cell.grup,
             kolom:     cell.kolom ?? 1,
             baris:     null,
-            rowCount:  col.rowCount,
-            filledRows: col.filledRows,
+            rowCount:  1,
+            filledRows: col.filledRows > 0 ? 1 : 0,
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
@@ -1316,13 +1316,11 @@ renderer.domElement.addEventListener('mousemove', function (e) {
             });
             const activeColumns = rowMeshes.length;
             const filledColumns = rowMeshes.filter(cm => (cm.userData.filledRows ?? 0) > 0).length;
-            const activeRows = rowMeshes.reduce((total, cm) => total + (cm.userData.rowCount ?? 0), 0);
-            const filledRows = rowMeshes.reduce((total, cm) => total + (cm.userData.filledRows ?? 0), 0);
             const rowFromGroup = {A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8}[ud.grup] || '-';
             tooltip.innerHTML = `
                 <strong style="color:#fbbf24">Baris ${ud.blok}-${ud.grup} (R${rowFromGroup})</strong><br>
                 <span style="color:#94a3b8">${activeColumns} kolom aktif &nbsp;&middot;&nbsp; ${filledColumns} kolom terisi</span><br>
-                <span style="color:#64748b;font-size:10px">${activeRows} cell aktif &nbsp;&middot;&nbsp; ${filledRows} cell terisi. Klik untuk isi baris.</span>`;
+                <span style="color:#64748b;font-size:10px">Klik untuk melihat isi Baris ${rowFromGroup}</span>`;
         } else if (ud.columnKey) {
             // ── Column hover: highlight all cells in the same column ──────────
             cellMeshes.forEach(cm => {
@@ -1454,45 +1452,35 @@ function showMspartRowDetail(blok, grup) {
 
     $.when.apply($, requests).done(function () {
         const responses = Array.from(arguments).map(arg => Array.isArray(arg) ? arg[0] : arg);
-        const totalCells = responses.reduce((sum, col) => sum + col.levels.length, 0);
-        const filledCells = responses.reduce((sum, col) => sum + col.levels.filter(lv => lv.stocks.length > 0).length, 0);
-        const totalItems = responses.reduce((sum, col) => sum + col.levels.reduce((t, lv) => t + lv.stocks.length, 0), 0);
+        const columns = responses.map(col => {
+            const stocks = [];
+            col.levels.forEach(lv => {
+                lv.stocks.forEach(s => stocks.push(s));
+            });
+            const hasFull = col.levels.some(lv => lv.status === 'full');
+            const status = hasFull ? 'full' : (stocks.length ? 'partial' : 'available');
+            return {
+                kolom: col.kolom,
+                code: `${blok}-${grup}-K${col.kolom}`,
+                status,
+                stocks,
+            };
+        });
+        const totalColumns = columns.length;
+        const filledColumns = columns.filter(col => col.stocks.length > 0).length;
+        const totalItems = columns.reduce((sum, col) => sum + col.stocks.length, 0);
 
-        const columnsHtml = responses.map(col => {
-            const filled = col.levels.filter(lv => lv.stocks.length > 0).length;
-            const rows = col.levels.map(lv => {
-                const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
-                const itemHtml = !lv.stocks.length
-                    ? '<small class="text-muted">- kosong -</small>'
-                    : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span></div>`).join('');
-                return `<tr>
-                    <td class="text-center font-weight-bold" width="45">${lv.baris}</td>
-                    <td width="95"><span class="badge badge-light border">${lv.code}</span></td>
-                    <td class="text-center" width="85"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
-                    <td>${itemHtml}</td>
-                </tr>`;
-            }).join('');
-
-            return `
-                <div class="mb-3 border rounded">
-                    <div class="px-2 py-2 bg-light border-bottom d-flex justify-content-between align-items-center">
-                        <strong>K${col.kolom}</strong>
-                        <small class="text-muted">${filled} / ${col.levels.length} cell terisi</small>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered mb-0">
-                            <thead class="thead-light">
-                                <tr>
-                                    <th class="text-center">Baris</th>
-                                    <th>Kode Sel</th>
-                                    <th class="text-center">Status</th>
-                                    <th>Isi Item</th>
-                                </tr>
-                            </thead>
-                            <tbody>${rows}</tbody>
-                        </table>
-                    </div>
-                </div>`;
+        const rows = columns.map(col => {
+            const sc = col.status === 'full' ? 'danger' : col.status === 'partial' ? 'warning' : 'success';
+            const itemHtml = !col.stocks.length
+                ? '<small class="text-muted">- kosong -</small>'
+                : col.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span></div>`).join('');
+            return `<tr>
+                <td class="text-center font-weight-bold" width="70">K${col.kolom}</td>
+                <td width="105"><span class="badge badge-light border">${col.code}</span></td>
+                <td class="text-center" width="85"><span class="badge badge-${sc} px-2">${col.status}</span></td>
+                <td>${itemHtml}</td>
+            </tr>`;
         }).join('');
 
         $('#cellModalBody').html(`
@@ -1502,8 +1490,8 @@ function showMspartRowDetail(blok, grup) {
                     <div class="font-weight-bold">Blok ${blok} &rsaquo; Grup ${grup} &rsaquo; Baris ${rowFromGroup}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <small class="text-muted">Cell Terisi</small>
-                    <div class="font-weight-bold">${filledCells} / ${totalCells} cell</div>
+                    <small class="text-muted">Kolom Terisi</small>
+                    <div class="font-weight-bold">${filledColumns} / ${totalColumns} kolom</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <small class="text-muted">Total Item</small>
@@ -1511,8 +1499,20 @@ function showMspartRowDetail(blok, grup) {
                 </div>
             </div>
             <div class="p-2">
-                <strong class="d-block mb-2"><i class="fas fa-th-large mr-1 text-primary"></i>Isi per Kolom</strong>
-                ${columnsHtml}
+                <strong class="d-block mb-2"><i class="fas fa-th-large mr-1 text-primary"></i>Isi Baris ${rowFromGroup} per Kolom</strong>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="text-center">Kolom</th>
+                                <th>Kode Sel</th>
+                                <th class="text-center">Status</th>
+                                <th>Isi Item</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
             </div>`);
     }).fail(function () {
         $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail baris.</div>');
