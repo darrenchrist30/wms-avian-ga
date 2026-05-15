@@ -74,6 +74,42 @@ class PutAwayService
         return max(0, $capacityMax - $capacityUsed);
     }
 
+    /**
+     * Hitung ulang dominant_category_id untuk cell berdasarkan kategori SKU
+     * yang ada di stocks aktif. Kategori terbanyak menang.
+     *
+     * Untuk MSpart cell: dihitung per BARIS individual (per cell.id),
+     * sehingga FC_CAT di GA bisa pakai sinyal kategori spesifik baris.
+     */
+    private function recomputeDominantCategory(Cell $cell): void
+    {
+        $cellsToRefresh = $this->isMspartCell($cell)
+            ? Cell::where('is_active', true)
+                ->where('blok',  $cell->blok)
+                ->where('grup',  strtoupper((string) $cell->grup))
+                ->where('kolom', $cell->kolom)
+                ->get()
+            : collect([$cell]);
+
+        foreach ($cellsToRefresh as $c) {
+            $dominantCatId = DB::table('stock_records as s')
+                ->join('items as i', 'i.id', '=', 's.item_id')
+                ->where('s.cell_id', $c->id)
+                ->where('s.quantity', '>', 0)
+                ->whereIn('s.status', ['available', 'reserved'])
+                ->whereNotNull('i.category_id')
+                ->select('i.category_id', DB::raw('COUNT(*) as cnt'))
+                ->groupBy('i.category_id')
+                ->orderByDesc('cnt')
+                ->limit(1)
+                ->value('category_id');
+
+            if ((int) $c->dominant_category_id !== (int) $dominantCatId) {
+                $c->update(['dominant_category_id' => $dominantCatId]);
+            }
+        }
+    }
+
     private function refreshMspartPhysicalLocationCapacity(Cell $cell): void
     {
         $cells = Cell::where('is_active', true)
@@ -298,6 +334,9 @@ class PutAwayService
                 $cell->updateStatus(); // auto-update status (available/partial/full)
             }
 
+            // d.1) Re-compute dominant_category_id per cell agar FC_CAT punya signal nyata
+            $this->recomputeDominantCategory($cell);
+
             // e) Update status item berdasarkan total qty yang sudah disimpan
             $totalStoredAfter = $alreadyStored + $quantityStored;
 
@@ -400,10 +439,10 @@ class PutAwayService
                 'inbound_order_id' => $order->id,
             ]);
 
-            // Notifikasi ke Admin & Supervisor: put-away selesai
+            // Notifikasi put-away selesai ke seluruh role yang terlibat (admin, supervisor, operator).
             $totalItems = $order->items->count();
             $totalQty   = $order->items->sum('quantity_received');
-            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor']))->get();
+            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
             Notification::send($notifUsers, new PutAwayCompletedNotification($order, $totalItems, $totalQty));
 
             // Dispatch async job untuk update item_affinities

@@ -7,7 +7,8 @@
       "Bash(php -l app/Jobs/RecalculateAffinityJob.php)",
       "Bash(php -l app/Http/Controllers/PutAway/PutAwayController.php)",
       "Bash(grep -n \"ref_doc_spk\\\\|batch_header\\\\|no_bukti_manual\\\\|processed_at\\\\|erp_vendor_id\" database/migrations/*.php)",
-      "Bash(php -r ' *)"
+      "Bash(php -r ' *)",
+      "Bash(grep -n 'protected $table' c:/laragon/www/wms-avian-ga/app/Models/InboundOrder.php c:/laragon/www/wms-avian-ga/app/Models/InboundDetail.php)"
     ]
   }
 }

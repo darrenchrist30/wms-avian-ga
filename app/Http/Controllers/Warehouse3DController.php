@@ -116,17 +116,21 @@ class Warehouse3DController extends Controller
         };
 
         $racks = $parentRacks->map(function ($rack) use ($subRacks, $mapCell) {
-                // Merge sub-rack cells into parent rack
+                // Kumpulkan sub-rack cells dari (blok, grup) yang sama dengan rack induk.
+                // Pakai base Collection bukan Eloquent Collection agar bisa di-merge dengan
+                // array hasil $mapCell tanpa error "Call to getKey() on array".
                 $mspartCells = collect();
                 if ($subRacks->has($rack->code)) {
                     foreach ($subRacks->get($rack->code) as $subRack) {
-                        $mspartCells = $mspartCells->merge($subRack->cells);
+                        foreach ($subRack->cells as $cell) {
+                            $mspartCells->push($cell);
+                        }
                     }
                 }
 
-                $allCells = $rack->cells->map($mapCell)
-                    ->merge($mspartCells->map($mapCell))
-                    ->values();
+                $regularMapped = collect($rack->cells->map($mapCell)->all());
+                $mspartMapped  = collect($mspartCells->map($mapCell)->all());
+                $allCells      = $regularMapped->merge($mspartMapped)->values();
 
                 return [
                     'rack_id'       => $rack->id,
@@ -196,6 +200,8 @@ class Warehouse3DController extends Controller
     }
 
     // ─── Detail kolom mspart (semua baris dalam satu kolom fisik) ───────────
+    // Mengembalikan 9 entri (satu per baris) untuk satu (blok, grup, kolom),
+    // bukan agregat. Setiap entri memakai cell.code asli dari DB (1-A-1-2, dst).
     public function columnDetail(Request $request)
     {
         $blok  = (int) $request->input('blok');
@@ -217,37 +223,36 @@ class Warehouse3DController extends Controller
             ])
             ->get();
 
-        $stocks = $cells
-            ->flatMap(fn($cell) => $cell->stocks)
-            ->sortBy('inbound_date')
-            ->values();
-        $capUsed = $stocks->count();
-        $capMax = (int) ($cells->max('capacity_max') ?: 20);
-        $status = $capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial');
+        $levels = $cells->map(function ($cell) {
+            $stocks  = $cell->stocks;
+            $capUsed = (int) $cell->capacity_used;
+            $capMax  = (int) ($cell->capacity_max ?: 20);
+            $status  = $cell->status ?: ($capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial'));
 
-        $result = collect([[
-            'cell_id'      => $cells->first()?->id,
-            'code'         => "{$blok}-{$grup}-{$kolom}",
-            'baris'        => $barisRak,
-            'status'       => $status,
-            'capacity_used'=> $capUsed,
-            'capacity_max' => $capMax,
-            'stocks'       => $stocks->map(fn($s) => [
-                'item_name'    => $s->item?->name ?? '-',
-                'sku'          => $s->item?->sku ?? '-',
-                'unit'         => $s->item?->unit?->code ?? '',
-                'quantity'     => $s->quantity,
-                'inbound_date' => $s->inbound_date?->format('d M Y'),
-            ]),
-        ]]);
+            return [
+                'cell_id'      => $cell->id,
+                'code'         => $cell->code,                      // ← code asli DB: "1-A-1-2"
+                'baris'        => $cell->baris,
+                'status'       => $status,
+                'capacity_used'=> $capUsed,
+                'capacity_max' => $capMax,
+                'stocks'       => $stocks->map(fn($s) => [
+                    'item_name'    => $s->item?->name ?? '-',
+                    'sku'          => $s->item?->sku ?? '-',
+                    'unit'         => $s->item?->unit?->code ?? '',
+                    'quantity'     => $s->quantity,
+                    'inbound_date' => $s->inbound_date?->format('d M Y'),
+                ])->values(),
+            ];
+        })->values();
 
         return response()->json([
-            'blok'   => $blok,
-            'grup'   => $grup,
+            'blok'      => $blok,
+            'grup'      => $grup,
             'baris_rak' => $barisRak,
-            'kolom'  => $kolom,
-            'label'  => "Blok {$blok} – Grup {$grup} – Baris {$barisRak} – Kolom {$kolom}",
-            'levels' => $result,
+            'kolom'     => $kolom,
+            'label'     => "Blok {$blok} – Grup {$grup} – Kolom {$kolom}",
+            'levels'    => $levels,
         ]);
     }
 

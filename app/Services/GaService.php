@@ -8,6 +8,7 @@ use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
 use App\Models\InboundOrderItem;
 use App\Models\ItemAffinity;
+use App\Models\Stock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -123,10 +124,16 @@ class GaService
         }
 
         // Sel-sel yang tersedia di warehouse ini. Zone tidak lagi dipakai.
+        // HANYA cell MSpart (punya blok/grup/kolom/baris) — legacy cells tanpa koordinat
+        // fisik dikecualikan agar GA tidak membuat rekomendasi ke lokasi yang tidak ada di denah.
         $cellsCollection = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
             ->where('is_active', true)
             ->whereIn('status', ['available', 'partial'])
             ->where('capacity_used', '<', DB::raw('capacity_max'))
+            ->whereNotNull('blok')
+            ->whereNotNull('grup')
+            ->whereNotNull('kolom')
+            ->whereNotNull('baris')
             ->with('rack')
             ->get();
 
@@ -475,12 +482,22 @@ class GaService
             'status'            => 'pending',
         ]);
 
-        // Simpan detail per gen (per SKU)
+        // Simpan detail per gen (per SKU).
+        // GA memberi rekomendasi pada level KOLOM (1 dari 9 baris representatif).
+        // Di sini kita translate ke baris spesifik berdasarkan aturan:
+        //   1. Cari baris yang sudah ada SKU sama → consolidate stok
+        //   2. Kalau tidak ada, ambil baris kosong dengan nomor terkecil (bottom-up)
         foreach ($gaResult['chromosome'] as $gene) {
+            $itemId = (int) (InboundOrderItem::find($gene['inbound_detail_id'])?->item_id ?? 0);
+            $assignedCellId = $this->assignSpecificBaris(
+                (int) $gene['cell_id'],
+                $itemId
+            );
+
             GaRecommendationDetail::create([
                 'ga_recommendation_id'   => $recommendation->id,
                 'inbound_order_item_id'  => $gene['inbound_detail_id'],
-                'cell_id'                => $gene['cell_id'],
+                'cell_id'                => $assignedCellId,
                 'quantity'               => $gene['quantity'],
                 'gene_fitness'           => $gene['gene_fitness']  ?? null,
                 'fc_cap_score'           => $gene['fc_cap']        ?? null,
@@ -494,6 +511,68 @@ class GaService
         $order->update(['processed_at' => now()]);
 
         return $recommendation->load('details');
+    }
+
+    /**
+     * Translate rekomendasi GA (level kolom) → baris spesifik (level cell).
+     *
+     * Aturan placement dalam 1 kolom (9 baris):
+     *   1. Prioritas: baris yang sudah ada SKU sama (consolidate stok existing)
+     *   2. Fallback: baris kosong dengan nomor terkecil (bottom-up fill)
+     *   3. Last resort: baris representatif dari GA (kalau kolom penuh, biar
+     *      operator tetap dapat lokasi & bisa override manual)
+     *
+     * Untuk legacy cells (blok=NULL) — return as-is.
+     */
+    private function assignSpecificBaris(int $recommendedCellId, int $itemId): int
+    {
+        $cell = Cell::find($recommendedCellId);
+        if (!$cell || $cell->blok === null) {
+            return $recommendedCellId;
+        }
+
+        $columnCells = Cell::where('blok', $cell->blok)
+            ->where('grup', $cell->grup)
+            ->where('kolom', $cell->kolom)
+            ->where('is_active', true)
+            ->orderBy('baris')
+            ->get();
+
+        // Pre-load capacity_used per baris (count stock records aktif)
+        $usedByCell = Stock::whereIn('cell_id', $columnCells->pluck('id'))
+            ->where('quantity', '>', 0)
+            ->whereIn('status', ['available', 'reserved'])
+            ->select('cell_id', DB::raw('COUNT(*) as cnt'))
+            ->groupBy('cell_id')
+            ->pluck('cnt', 'cell_id');
+
+        // Rule 1: baris yang sudah ada SKU sama
+        if ($itemId > 0) {
+            $cellWithSameSku = Stock::whereIn('cell_id', $columnCells->pluck('id'))
+                ->where('item_id', $itemId)
+                ->where('quantity', '>', 0)
+                ->whereIn('status', ['available', 'reserved'])
+                ->orderBy('cell_id')
+                ->first();
+
+            if ($cellWithSameSku) {
+                $target = $columnCells->firstWhere('id', $cellWithSameSku->cell_id);
+                if ($target && (int) ($usedByCell[$target->id] ?? 0) < (int) $target->capacity_max) {
+                    return $target->id;
+                }
+            }
+        }
+
+        // Rule 2: baris kosong dengan nomor terkecil
+        foreach ($columnCells as $bc) {
+            $used = (int) ($usedByCell[$bc->id] ?? 0);
+            if ($used < (int) $bc->capacity_max) {
+                return $bc->id;
+            }
+        }
+
+        // Rule 3: fallback ke baris representatif dari GA
+        return $recommendedCellId;
     }
 
     // ─────────────────────────────────────────────────────────────────────────

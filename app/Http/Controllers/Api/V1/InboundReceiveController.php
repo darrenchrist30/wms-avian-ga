@@ -55,9 +55,10 @@ class InboundReceiveController extends Controller
                 ? 'Inbound transaction berhasil dibuat. Menunggu proses GA oleh supervisor.'
                 : 'DO dengan nomor ini sudah pernah diterima sebelumnya. Data lama dikembalikan.';
 
-            // Notifikasi ke Admin & Supervisor saat DO baru masuk dari ERP
+            // Notifikasi ke Admin, Supervisor & Operator saat DO baru masuk dari ERP
+            // Operator perlu tahu untuk menjalankan GA/put-away.
             if ($isNew) {
-                $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor']))->get();
+                $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
                 Notification::send($notifUsers, new NewInboundOrderNotification($result['transaction']));
             }
 
@@ -178,9 +179,10 @@ class InboundReceiveController extends Controller
             }
         }
 
-        // Send one batch notification for all newly created DOs
+        // Send one batch notification for all newly created DOs.
+        // Operator juga dikirimi karena mereka yang akan menjalankan put-away.
         if (!empty($newOrders)) {
-            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor']))->get();
+            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
             Notification::send($notifUsers, new NewInboundBatchNotification($newOrders));
         }
 
