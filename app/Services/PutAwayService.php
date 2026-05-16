@@ -339,9 +339,15 @@ class PutAwayService
     /**
      * Cari Cell berdasarkan qr_code yang di-scan operator.
      *
+     * Mendukung dua format QR fisik di MSpart:
+     *   - "2-A-2-5"  → exact match ke cell.code (format lengkap)
+     *   - "2-A"      → rack-prefix "blok-grup"; jika $gaCellId disediakan dan
+     *                   blok-grup GA cell cocok dengan kode ini, kembalikan GA cell
+     *                   (operator memindai rak yang benar sesuai rekomendasi GA).
+     *
      * @throws \Exception Jika QR tidak ditemukan atau sel tidak aktif
      */
-    public function resolveCellByQr(string $qrCode): Cell
+    public function resolveCellByQr(string $qrCode, ?int $gaCellId = null): Cell
     {
         // QR labels now encode a URL (e.g. https://domain/c/A-01-01).
         // Extract just the code segment so old and new label formats both work.
@@ -357,6 +363,37 @@ class PutAwayService
             ->where('is_active', true)
             ->with('rack')
             ->first();
+
+        // Fallback: QR label hanya encode "blok-grup" (e.g. "2-A") karena label fisik
+        // di MSpart hanya menunjuk ke rak, bukan baris spesifik.
+        // Jika GA cell ID disediakan dan blok-grup-nya cocok, pakai GA cell.
+        // Jika format cocok tapi rak berbeda, lempar pesan yang spesifik (bukan "tidak ditemukan").
+        if (!$cell && $gaCellId) {
+            $parts = explode('-', $qrCode);
+            if (count($parts) === 2) {
+                $gaCellCandidate = Cell::where('id', $gaCellId)
+                    ->where('is_active', true)
+                    ->with('rack')
+                    ->first();
+
+                if ($gaCellCandidate && $this->isMspartCell($gaCellCandidate)) {
+                    $qrBlok = $parts[0];
+                    $qrGrup = strtoupper($parts[1]);
+                    $gaBlok = (string) $gaCellCandidate->blok;
+                    $gaGrup = strtoupper((string) $gaCellCandidate->grup);
+
+                    if ($qrBlok === $gaBlok && $qrGrup === $gaGrup) {
+                        $cell = $gaCellCandidate;
+                    } else {
+                        // Rak yang di-scan valid formatnya, tapi bukan rak yang direkomendasikan GA.
+                        throw new \Exception(
+                            "Rak '{$qrCode}' tidak sesuai rekomendasi GA. " .
+                            "Menuju rak {$gaBlok}-{$gaGrup} (sel {$gaCellCandidate->code})."
+                        );
+                    }
+                }
+            }
+        }
 
         if (!$cell) {
             throw new \Exception("QR Code '{$qrCode}' tidak ditemukan atau sel tidak aktif.");

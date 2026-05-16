@@ -409,7 +409,7 @@ class DashboardController extends Controller
         $output = trim(\Illuminate\Support\Facades\Artisan::output());
 
         return back()->with(
-            str_contains(strtolower($output), 'berhasil') || str_contains($output, '1/') ? 'success' : 'info',
+            str_contains(strtolower($output), 'berhasil') || str_contains($output, '1/') ? 'wa_success' : 'wa_info',
             $output ?: 'WA Alert diproses. Cek log jika FONNTE_TOKEN belum diisi.'
         );
     }

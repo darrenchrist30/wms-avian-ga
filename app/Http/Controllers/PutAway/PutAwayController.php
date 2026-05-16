@@ -158,10 +158,16 @@ class PutAwayController extends Controller
 
     public function scanQr(Request $request)
     {
-        $request->validate(['qr_code' => 'required|string']);
+        $request->validate([
+            'qr_code'    => 'required|string',
+            'ga_cell_id' => 'nullable|integer|exists:cells,id',
+        ]);
 
         try {
-            $cell = $this->putAwayService->resolveCellByQr($request->qr_code);
+            $cell = $this->putAwayService->resolveCellByQr(
+                $request->qr_code,
+                $request->filled('ga_cell_id') ? (int) $request->ga_cell_id : null
+            );
 
             return response()->json([
                 'status' => 'success',

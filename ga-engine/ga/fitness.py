@@ -86,7 +86,6 @@ def build_item_cell_map(cells_dict: Dict[int, CellInput]) -> Dict[int, set[int]]
 def fc_capacity(
     gene_idx:   int,
     chromosome: List[int],
-    items:      List[ItemInput],
     cells_dict: Dict[int, CellInput],
 ) -> float:
     """
@@ -111,17 +110,19 @@ def fc_capacity(
     if cell is None:
         return 0.0
 
-    # Hitung total qty semua item yang dialokasikan ke cell ini dalam kromosom ini
-    total_qty = sum(
-        items[j].quantity
+    # Hitung jumlah gene (stock record) yang dialokasikan ke cell ini.
+    # Satu gene = satu stock record = satu slot kapasitas.
+    # quantity adalah jumlah unit fisik, bukan jumlah slot — jangan dijumlah di sini.
+    gene_count = sum(
+        1
         for j in range(len(chromosome))
         if chromosome[j] == cell_id
     )
 
-    if total_qty <= cell.capacity_remaining:
+    if gene_count <= cell.capacity_remaining:
         return 35.0
 
-    ratio = cell.capacity_remaining / total_qty if total_qty > 0 else 0.0
+    ratio = cell.capacity_remaining / gene_count if gene_count > 0 else 0.0
     return round(max(0.0, 35.0 * ratio), 6)
 
 
@@ -153,6 +154,11 @@ def fc_category(item: ItemInput, cell: CellInput) -> float:
     ):
         return 25.0
 
+    # Tier 2: cell belum memiliki kategori dominan (kosong/baru) → netral, lebih baik dari mismatch
+    if cell.dominant_category_id is None:
+        return 12.5
+
+    # Tier 3: kategori dominan cell berbeda dengan item → penalti
     return 0.0
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -274,7 +280,8 @@ def fc_affinity(
 
 def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> float:
     """
-    Hitung jarak fisik antara dua cell berdasarkan rack_index dan cell_index.
+    Hitung jarak fisik berdasarkan koordinat denah:
+    blok, grup, kolom, baris.
 
     Rack distance diberi bobot ×10 karena berpindah rack jauh lebih
     melelahkan daripada berpindah cell dalam satu rack.
@@ -291,15 +298,21 @@ def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> f
     if (
         cell_a.blok is not None
         and cell_b.blok is not None
-        and cell_a.baris_rak is not None
-        and cell_b.baris_rak is not None
+        and cell_a.grup is not None
+        and cell_b.grup is not None
         and cell_a.kolom is not None
         and cell_b.kolom is not None
+        and cell_a.baris is not None
+        and cell_b.baris is not None
     ):
+        grup_a = ord(str(cell_a.grup).upper()[0]) - ord("A") + 1
+        grup_b = ord(str(cell_b.grup).upper()[0]) - ord("A") + 1
+
         return (
             abs(cell_a.blok - cell_b.blok) * 10
-            + abs(cell_a.baris_rak - cell_b.baris_rak) * 2
+            + abs(grup_a - grup_b) * 3
             + abs(cell_a.kolom - cell_b.kolom)
+            + abs(cell_a.baris - cell_b.baris) * 0.5
         )
 
     rack_a = cell_a.rack_index if cell_a.rack_index is not None else 9999
@@ -420,7 +433,7 @@ def evaluate_chromosome(
             )
             continue
 
-        cap   = fc_capacity(i, chromosome, items, cells_dict)
+        cap   = fc_capacity(i, chromosome, cells_dict)
         cat   = fc_category(items[i], cell)
         aff = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks, item_cells)
         split = fc_split(i, chromosome, items, item_cells, cells_dict)

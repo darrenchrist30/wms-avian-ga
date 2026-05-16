@@ -36,6 +36,7 @@ class CellInput(BaseModel):
     grup:                 Optional[str] = None
     baris_rak:            Optional[int] = None
     kolom:                Optional[int] = None
+    baris:                Optional[int] = None
     physical_location_key:  Optional[str] = None
     physical_location_code: Optional[str] = None
     physical_cell_ids:      List[int] = []

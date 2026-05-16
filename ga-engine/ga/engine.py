@@ -40,6 +40,7 @@ from ga.fitness import build_affinity_map, evaluate_chromosome, AffinityMap
 from ga.operators import (
     apply_elitism,
     initialize_population,
+    repair_category_invalid_genes,
     tournament_selection,
     uniform_crossover,
     random_reset_mutation,
@@ -122,6 +123,8 @@ class GeneticAlgorithmEngine:
                 # Mutasi: Random Reset Mutation — capacity-aware (Michalewicz, 1996)
                 child1 = random_reset_mutation(child1, self.cell_ids, p.mutation_rate, self.items, self.cells_dict)
                 child2 = random_reset_mutation(child2, self.cell_ids, p.mutation_rate, self.items, self.cells_dict)
+                child1 = repair_category_invalid_genes(child1, self.items, self.cells_dict)
+                child2 = repair_category_invalid_genes(child2, self.items, self.cells_dict)
 
                 fit1, _ = evaluate_chromosome(child1, self.items, self.cells_dict, self.aff_map)
                 fit2, _ = evaluate_chromosome(child2, self.items, self.cells_dict, self.aff_map)

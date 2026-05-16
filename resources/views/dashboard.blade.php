@@ -617,15 +617,15 @@
     </div>
 
     {{-- Flash message dari kirim WA --}}
-    @if(session('success'))
+    @if(session('wa_success'))
         <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
-            <i class="fab fa-whatsapp mr-1"></i> {{ session('success') }}
+            <i class="fab fa-whatsapp mr-1"></i> {{ session('wa_success') }}
             <button type="button" class="close py-2" data-dismiss="alert"><span>&times;</span></button>
         </div>
     @endif
-    @if(session('info'))
+    @if(session('wa_info'))
         <div class="alert alert-info alert-dismissible fade show py-2" role="alert">
-            <i class="fas fa-info-circle mr-1"></i> {{ session('info') }}
+            <i class="fas fa-info-circle mr-1"></i> {{ session('wa_info') }}
             <button type="button" class="close py-2" data-dismiss="alert"><span>&times;</span></button>
         </div>
     @endif
@@ -662,7 +662,7 @@
             <div>
                 <i class="fas fa-bell text-warning mr-2"></i>
                 <strong>{{ number_format($totalPending) }} DO perlu diproses</strong>
-                <span class="text-muted ml-1" style="font-size:12px">- {{ $actionSummaryText }}. Klik kartu untuk membuka pekerjaan.</span>
+                <span class="text-muted ml-1" style="font-size:12px">Klik kartu untuk membuka pekerjaan.</span>
             </div>
         </div>
         <div class="row mb-3">

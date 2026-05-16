@@ -330,8 +330,10 @@ class InboundOrderController extends Controller
             'order_ids.*' => 'required|integer|exists:inbound_transactions,id',
         ]);
 
-        $results = [];
+        $results     = [];
+        $validOrders = [];
 
+        // ── Fase 1: Validasi & siapkan semua order (sekuensial) ──────────────
         foreach ($request->order_ids as $orderId) {
             $order = InboundOrder::with('items')->find($orderId);
 
@@ -354,32 +356,42 @@ class InboundOrderController extends Controller
             $order->update(['received_by' => auth()->id(), 'received_at' => now()]);
             $order->load('items');
 
-            try {
-                $recommendation = $this->gaService->run($order, auth()->id());
+            $validOrders[] = $order;
+        }
 
+        // ── Fase 2: Jalankan GA untuk semua order secara paralel ─────────────
+        if (!empty($validOrders)) {
+            $batchResults = $this->gaService->runBatch($validOrders, auth()->id());
+
+            foreach ($validOrders as $order) {
+                $entry = $batchResults[$order->id];
+
+                if ($entry['error'] !== null) {
+                    $order->update(['status' => 'inbound']);
+                    $results[] = [
+                        'id'        => $order->id,
+                        'do_number' => $order->do_number,
+                        'status'    => 'error',
+                        'message'   => $entry['error'],
+                    ];
+                    continue;
+                }
+
+                $recommendation = $entry['rec'];
                 $recommendation->update([
                     'status'      => 'accepted',
                     'accepted_by' => auth()->id(),
                     'accepted_at' => now(),
                 ]);
-
                 $order->update(['status' => 'put_away']);
 
                 $results[] = [
-                    'id'            => $orderId,
+                    'id'            => $order->id,
                     'do_number'     => $order->do_number,
                     'status'        => 'accepted',
                     'message'       => 'GA selesai & otomatis diterima. Fitness: ' . round($recommendation->fitness_score, 1) . '/100.',
                     'fitness_score' => round($recommendation->fitness_score, 2),
                     'putaway_url'   => route('putaway.queue'),
-                ];
-            } catch (\Exception $e) {
-                $order->update(['status' => 'inbound']);
-                $results[] = [
-                    'id'        => $orderId,
-                    'do_number' => $order->do_number,
-                    'status'    => 'error',
-                    'message'   => $e->getMessage(),
                 ];
             }
         }

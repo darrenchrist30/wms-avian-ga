@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cell;
+use App\Models\Item;
 use App\Models\Stock;
 use Illuminate\Http\Request;
 
@@ -21,10 +22,97 @@ class PublicCellController extends Controller
             ->first();
 
         if (!$cell) {
-            if ($request->expectsJson()) {
-                return response()->json(['success' => false, 'message' => "Cell '{$code}' tidak ditemukan."], 404);
+            // Check if the code belongs to an item (operator scanned item QR instead of rack QR)
+            $item = Item::with('category', 'unit')
+                ->where('is_active', true)
+                ->where(fn($q) => $q->where('sku', $code)->orWhere('barcode', $code))
+                ->first();
+
+            if ($item) {
+                $itemStocks = Stock::with(['cell.rack.zone.warehouse'])
+                    ->where('item_id', $item->id)
+                    ->where('status', 'available')
+                    ->where('quantity', '>', 0)
+                    ->orderBy('inbound_date', 'asc')
+                    ->get();
+
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'type'    => 'item',
+                        'item'    => [
+                            'name'           => $item->name,
+                            'sku'            => $item->sku,
+                            'category'       => $item->category?->name,
+                            'category_color' => $item->category?->color_code ?? '#6c757d',
+                            'unit'           => $item->unit?->code ?? $item->unit?->name,
+                            'merk'           => $item->merk,
+                            'total_qty'      => $itemStocks->sum('quantity'),
+                        ],
+                        'stocks'  => $itemStocks->map(fn($s) => [
+                            'cell_code'    => $s->cell?->physical_code ?? $s->cell?->code ?? '—',
+                            'rack_code'    => ($s->cell && $s->cell->blok !== null && $s->cell->grup !== null)
+                                ? $s->cell->blok . '-' . strtoupper((string) $s->cell->grup)
+                                : ($s->cell?->rack?->code ?? '—'),
+                            'quantity'     => $s->quantity,
+                            'unit'         => $item->unit?->code ?? $item->unit?->name ?? '',
+                            'inbound_date' => $s->inbound_date?->format('d M Y') ?? '—',
+                        ])->values(),
+                    ]);
+                }
+                return view('public.item', compact('item', 'itemStocks'));
             }
-            abort(404, 'Cell tidak ditemukan.');
+
+            // Check if it's a rack-prefix "blok-grup" format (e.g. "1-A")
+            $parts = explode('-', $code);
+            if (count($parts) === 2) {
+                $rackBlok = $parts[0];
+                $rackGrup = strtoupper($parts[1]);
+
+                $rackCells = Cell::with(['dominantCategory', 'rack.zone.warehouse'])
+                    ->where('is_active', true)
+                    ->where('blok', $rackBlok)
+                    ->whereRaw('UPPER(grup) = ?', [$rackGrup])
+                    ->orderBy('kolom')
+                    ->orderBy('baris')
+                    ->get();
+
+                if ($rackCells->isNotEmpty()) {
+                    $rackCode      = $rackBlok . '-' . $rackGrup;
+                    $warehouseName = $rackCells->first()->rack?->zone?->warehouse?->name
+                                  ?? $rackCells->first()->rack?->warehouse?->name
+                                  ?? '—';
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => true,
+                            'type'    => 'rack',
+                            'rack'    => [
+                                'code'      => $rackCode,
+                                'warehouse' => $warehouseName,
+                                'total'     => $rackCells->count(),
+                                'available' => $rackCells->where('status', 'available')->count(),
+                                'partial'   => $rackCells->where('status', 'partial')->count(),
+                                'full'      => $rackCells->where('status', 'full')->count(),
+                            ],
+                            'cells' => $rackCells->map(fn($c) => [
+                                'code'              => $c->physical_code ?? $c->code,
+                                'status'            => $c->status,
+                                'capacity_used'     => $c->physical_capacity_used ?? $c->capacity_used,
+                                'capacity_max'      => $c->physical_capacity_max ?? $c->capacity_max,
+                                'dominant_category' => $c->dominantCategory?->name,
+                                'category_color'    => $c->dominantCategory?->color_code ?? '#dee2e6',
+                            ])->values(),
+                        ]);
+                    }
+                    return view('public.rack', compact('rackCells', 'rackCode', 'warehouseName'));
+                }
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => "Kode '{$code}' tidak ditemukan."], 404);
+            }
+            return view('public.not-found', compact('code'));
         }
 
         $stocks = Stock::with(['item.category', 'item.unit'])

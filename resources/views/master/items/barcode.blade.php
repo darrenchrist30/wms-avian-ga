@@ -43,20 +43,6 @@
                         </div>
 
                     </div>
-                    <div class="card-footer text-muted small">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <strong>SKU:</strong> {{ $item->sku }}<br>
-                                <strong>Barcode:</strong> {{ $item->barcode ?? '-' }}<br>
-                                <strong>ERP Code:</strong> {{ $item->erp_item_code ?? '-' }}
-                            </div>
-                            <div class="col-md-6">
-                                <strong>Kategori:</strong> {{ $item->category->name ?? '-' }}<br>
-                                <strong>Satuan:</strong> {{ $item->unit->name ?? '-' }}<br>
-                                <strong>Tipe:</strong> {{ ucwords(str_replace('_', ' ', $item->movement_type)) }}
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

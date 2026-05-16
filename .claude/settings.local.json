@@ -8,7 +8,13 @@
       "Bash(php -l app/Http/Controllers/PutAway/PutAwayController.php)",
       "Bash(grep -n \"ref_doc_spk\\\\|batch_header\\\\|no_bukti_manual\\\\|processed_at\\\\|erp_vendor_id\" database/migrations/*.php)",
       "Bash(php -r ' *)",
-      "Bash(grep -n 'protected $table' c:/laragon/www/wms-avian-ga/app/Models/InboundOrder.php c:/laragon/www/wms-avian-ga/app/Models/InboundDetail.php)"
+      "Bash(grep -n 'protected $table' c:/laragon/www/wms-avian-ga/app/Models/InboundOrder.php c:/laragon/www/wms-avian-ga/app/Models/InboundDetail.php)",
+      "Bash(mysql -u root -e \"SHOW DATABASES;\")",
+      "Bash(mysql -u root avian-wms-ga)",
+      "Bash(mysql -u root avian-wms-ga -e \"SELECT id, code, label, qr_code, blok, grup, kolom, baris, is_active FROM cells WHERE blok=2 AND grup='A' AND kolom=2 AND baris=5 LIMIT 5;\")",
+      "Bash(mysql -u root avian-wms-ga -e \"SELECT id, code, label, qr_code, blok, grup, kolom, baris FROM cells WHERE blok IS NOT NULL LIMIT 10;\")",
+      "Bash(mysql -u root avian-wms-ga -e \"SELECT c.id, c.code, c.qr_code, c.blok, c.grup, c.kolom, c.baris, r.code as rack_code FROM cells c JOIN racks r ON r.id = c.rack_id WHERE c.blok IS NOT NULL ORDER BY c.id LIMIT 15;\")",
+      "Bash(Remove-Item -Force \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\resources\\\\views\\\\location\\\\cells\\\\scan.blade.php\")"
     ]
   }
 }

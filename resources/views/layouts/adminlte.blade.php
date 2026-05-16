@@ -1119,23 +1119,6 @@
                                         <p>Sel (Cell / Slot)</p>
                                     </a>
                                 </li>
-                                <li class="nav-item">
-                                    <a href="{{ route('location.cells.scan') }}"
-                                        class="nav-link {{ request()->routeIs('location.cells.scan') ? 'active' : '' }}">
-                                        <i class="fas fa-qrcode nav-icon" style="font-size:12px;color:#0ab87a;"></i>
-                                        <p>Scan QR Cell <span class="badge badge-success badge-sm ml-1"
-                                                style="font-size:9px;">Tablet</span></p>
-                                    </a>
-                                </li>
-                                @if(auth()->user()->hasRole('admin'))
-                                <li class="nav-item">
-                                    <a href="{{ route('location.mspart.import') }}"
-                                        class="nav-link {{ request()->routeIs('location.mspart*') ? 'active' : '' }}">
-                                        <i class="fas fa-file-import nav-icon" style="font-size:12px;color:#f6993f;"></i>
-                                        <p>Import MSpart</p>
-                                    </a>
-                                </li>
-                                @endif
                             </ul>
                         </li>
 
@@ -1779,7 +1762,10 @@
                     items.forEach(function(n) {
                         if (!knownIds.has(n.id)) {
                             knownIds.add(n.id);
-                            toastQueue.push(n);
+                            // ga_batch_accepted: tampil di bell saja, tidak sebagai popup toast
+                            if (n.type !== 'ga_batch_accepted') {
+                                toastQueue.push(n);
+                            }
                         }
                     });
                     if (toastQueue.length > 0) showNextToast();
@@ -1817,9 +1803,9 @@
         // Load saat bell diklik
         $('#notifBellBtn').on('click', function () { loadNotifications(); });
 
-        // Polling tiap 20 detik
+        // Polling tiap 3 detik
         loadNotifications();
-        setInterval(loadNotifications, 20000);
+        setInterval(loadNotifications, 3000);
 
         // ── Sidebar badge helper ─────────────────────────────────────────
         function updateSidebarBadges(counts) {
@@ -1859,7 +1845,7 @@
                     <h6 class="modal-title font-weight-bold mb-0" id="globalCellModalTitle">
                         <i class="fas fa-map-marker-alt mr-1"></i> —
                     </h6>
-                    <button type="button" class="close" data-dismiss="modal" style="color:#fff;opacity:.8;">&times;</button>
+                    <button type="button" class="close" data-dismiss="modal" style="color:#fff;opacity:.8;outline:none;">&times;</button>
                 </div>
                 <div class="modal-body py-3 px-3" id="globalCellModalBody" style="min-height:80px;">
                     <div class="text-center text-muted py-3">
@@ -1930,11 +1916,16 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 if (!data.success) {
-                    // Not a cell — silently dismiss
                     $('#globalCellModal').modal('hide');
                     return;
                 }
-                renderCellModal(data.cell, data.stocks);
+                if (data.type === 'item') {
+                    renderItemModal(data.item, data.stocks);
+                } else if (data.type === 'rack') {
+                    renderRackModal(data.rack, data.cells);
+                } else {
+                    renderCellModal(data.cell, data.stocks);
+                }
             })
             .catch(function () { $('#globalCellModal').modal('hide'); });
         }
@@ -2000,7 +1991,112 @@
                 });
             }
 
-            $('#globalCellModalBody').html(locationHtml + capHtml + stocksHtml);
+            const backHtml = lastRackCode
+                ? '<div style="margin-bottom:10px;">'
+                    + '<button onclick="globalCellScan(\'' + lastRackCode + '\')" '
+                    + 'style="background:none;border:none;padding:0;font-size:12px;color:#1a2332;font-weight:600;cursor:pointer;outline:none;">'
+                    + '<i class="fas fa-arrow-left mr-1"></i>Kembali ke Rak ' + escHtml(lastRackCode)
+                    + '</button></div>'
+                : '';
+            $('#globalCellModalBody').html(backHtml + locationHtml + capHtml + stocksHtml);
+        }
+
+        let lastRackCode = null; // track rack drill-down for back button
+        $('#globalCellModal').on('hidden.bs.modal', function () { lastRackCode = null; });
+
+        // ── Render rack modal content ──────────────────────────────────────
+        function renderRackModal(rack, cells) {
+            lastRackCode = rack.code;
+            $('#globalCellModalTitle').html(
+                '<i class="fas fa-layer-group mr-1"></i> Rak ' + escHtml(rack.code)
+            );
+            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(rack.code));
+
+            const statusMap = {
+                available: ['#d4edda','#155724','Tersedia'],
+                partial:   ['#fff3cd','#856404','Sebagian'],
+                full:      ['#f8d7da','#721c24','Penuh'],
+            };
+
+            let summaryHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
+                + '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">' + escHtml(rack.warehouse) + '</span>'
+                + '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">' + rack.total + ' sel</span>'
+                + '<span class="badge" style="background:#d4edda;color:#155724;font-size:11px;">' + rack.available + ' tersedia</span>';
+            if (rack.partial > 0) summaryHtml += '<span class="badge" style="background:#fff3cd;color:#856404;font-size:11px;">' + rack.partial + ' sebagian</span>';
+            if (rack.full    > 0) summaryHtml += '<span class="badge" style="background:#f8d7da;color:#721c24;font-size:11px;">' + rack.full + ' penuh</span>';
+            summaryHtml += '</div>';
+
+            let cellsHtml = '<div style="font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">'
+                + '<i class="fas fa-th-large mr-1"></i> Daftar Sel</div>';
+
+            cells.forEach(function (c, i) {
+                const dotColor = c.status === 'available' ? '#28a745' : (c.status === 'partial' ? '#ffc107' : '#dc3545');
+                cellsHtml += '<div onclick="globalCellScan(\'' + escHtml(c.code) + '\')" '
+                    + 'style="display:flex;align-items:center;padding:8px 10px;cursor:pointer;border-radius:8px;'
+                    + (i < cells.length - 1 ? 'border-bottom:1px solid #f5f5f5;' : '')
+                    + '" onmouseover="this.style.background=\'#f8f9fa\'" onmouseout="this.style.background=\'\'">'
+                    + '<div style="width:8px;height:8px;border-radius:50%;background:' + dotColor + ';flex-shrink:0;margin-right:10px;"></div>'
+                    + '<div style="flex:1;font-weight:700;font-size:13px;">' + escHtml(c.code) + '</div>'
+                    + (c.dominant_category ? '<div style="font-size:10px;padding:1px 6px;border-radius:8px;background:' + escHtml(c.category_color) + ';color:#fff;margin-right:8px;">' + escHtml(c.dominant_category) + '</div>' : '')
+                    + '<div style="font-size:11px;color:#888;white-space:nowrap;margin-right:6px;">' + c.capacity_used + '/' + c.capacity_max + '</div>'
+                    + '<i class="fas fa-chevron-right" style="font-size:10px;color:#adb5bd;"></i>'
+                    + '</div>';
+            });
+
+            $('#globalCellModalBody').html(summaryHtml + cellsHtml);
+        }
+
+        // ── Render item modal content ──────────────────────────────────────
+        function renderItemModal(item, stocks) {
+            $('#globalCellModalTitle').html(
+                '<i class="fas fa-box mr-1"></i> ' + escHtml(item.sku)
+            );
+            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(item.sku));
+
+            // Header info
+            let headerHtml = '<div style="margin-bottom:10px;">'
+                + '<div style="font-weight:700;font-size:15px;margin-bottom:4px;">' + escHtml(item.name) + '</div>'
+                + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
+            if (item.category) {
+                headerHtml += '<span class="badge" style="background:' + escHtml(item.category_color) + ';color:#fff;font-size:11px;">' + escHtml(item.category) + '</span>';
+            }
+            if (item.unit) {
+                headerHtml += '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">' + escHtml(item.unit) + '</span>';
+            }
+            if (item.merk) {
+                headerHtml += '<span style="font-size:11px;color:#6c757d;">' + escHtml(item.merk) + '</span>';
+            }
+            headerHtml += '</div>';
+            if (item.total_qty !== undefined) {
+                headerHtml += '<div style="margin-top:8px;font-size:13px;">'
+                    + 'Total Stok: <strong style="color:#28a745;">' + item.total_qty + '</strong>'
+                    + (item.unit ? ' <span style="color:#6c757d;">' + escHtml(item.unit) + '</span>' : '')
+                    + '</div>';
+            }
+            headerHtml += '</div>';
+
+            // Stock locations
+            let stocksHtml = '<div style="font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">'
+                + '<i class="fas fa-map-marker-alt mr-1"></i> Lokasi Penyimpanan (' + stocks.length + ' sel)</div>';
+
+            if (stocks.length === 0) {
+                stocksHtml += '<p class="text-muted text-center py-2 mb-0" style="font-size:13px;">Belum ada stok tersimpan.</p>';
+            } else {
+                stocks.forEach(function (s, i) {
+                    stocksHtml += '<div style="display:flex;align-items:center;padding:8px 0;'
+                        + (i < stocks.length - 1 ? 'border-bottom:1px solid #f0f0f0;' : '') + '">'
+                        + '<div style="flex:1;min-width:0;">'
+                        + '<div style="font-weight:800;font-size:15px;color:#1a2332;">' + escHtml(s.cell_code) + '</div>'
+                        + '<div style="font-size:11px;color:#6c757d;">Rak ' + escHtml(s.rack_code) + ' · ' + escHtml(s.inbound_date) + '</div>'
+                        + '</div>'
+                        + '<div style="text-align:right;margin-left:12px;flex-shrink:0;">'
+                        + '<div style="font-size:22px;font-weight:800;color:#28a745;line-height:1;">' + s.quantity + '</div>'
+                        + '<div style="font-size:10px;color:#6c757d;">' + escHtml(s.unit) + '</div>'
+                        + '</div></div>';
+                });
+            }
+
+            $('#globalCellModalBody').html(headerHtml + stocksHtml);
         }
 
         function escHtml(str) {

@@ -45,15 +45,25 @@ def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
     Thesis-test rule:
     - Use category-valid, capacity-feasible cells when available.
     - Fall back to category-invalid cells only when no valid category cell exists.
+
+    Capacity unit = stock record slot.
+    One gene = one stock record = one slot, regardless of item.quantity (physical units).
     """
-    feasible = [c for c in cells if c.capacity_remaining >= item.quantity]
+    feasible = [c for c in cells if c.capacity_remaining >= 1]
     if not feasible:
         feasible = cells
 
+    # Tier 1: category-valid cells (same SKU atau kategori dominan cocok)
     category_valid = [c.cell_id for c in feasible if category_compatible(item, c)]
     if category_valid:
         return category_valid
 
+    # Tier 2: cell tanpa kategori dominan (kosong/baru) — lebih baik dari mismatch
+    neutral = [c.cell_id for c in feasible if c.dominant_category_id is None]
+    if neutral:
+        return neutral
+
+    # Tier 3: semua cell feasible (last resort)
     return [c.cell_id for c in feasible]
 
 
@@ -329,6 +339,59 @@ def random_reset_mutation(
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Elitisme
 # ─────────────────────────────────────────────────────────────────────────────
+
+def repair_category_invalid_genes(
+    chromosome: List[int],
+    items: List[ItemInput],
+    cells_dict: Dict[int, CellInput],
+) -> List[int]:
+    """
+    Repair chromosome after crossover/mutation so category-invalid genes do not
+    survive when a compatible cell exists.
+
+    A cell is compatible when it already stores the same SKU, or its dominant
+    category matches the inbound item category. Empty/null-category cells remain
+    a fallback only when no compatible candidate is available.
+    """
+    cells = list(cells_dict.values())
+    repaired = chromosome.copy()
+
+    for idx, item in enumerate(items):
+        if item.preferred_cell_id is not None:
+            repaired[idx] = item.preferred_cell_id
+            continue
+
+        current_cell = cells_dict.get(repaired[idx])
+        if (
+            current_cell is not None
+            and current_cell.capacity_remaining >= 1
+            and category_compatible(item, current_cell)
+        ):
+            continue
+
+        compatible_pool = [
+            cell.cell_id
+            for cell in cells
+            if cell.capacity_remaining >= 1
+            and category_compatible(item, cell)
+        ]
+
+        if compatible_pool:
+            repaired[idx] = random.choice(compatible_pool)
+        else:
+            # Tier 2: tidak ada cell kategori cocok — pilih cell kosong (netral)
+            # daripada mempertahankan cell dengan kategori salah
+            neutral_pool = [
+                cell.cell_id
+                for cell in cells
+                if cell.capacity_remaining >= 1
+                and cell.dominant_category_id is None
+            ]
+            if neutral_pool:
+                repaired[idx] = random.choice(neutral_pool)
+
+    return repaired
+
 
 def apply_elitism(
     old_population: List[List[int]],

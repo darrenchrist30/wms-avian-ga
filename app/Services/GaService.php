@@ -7,6 +7,7 @@ use App\Models\GaRecommendation;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
 use App\Models\ItemAffinity;
+use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -72,6 +73,101 @@ class GaService
         return DB::transaction(function () use ($order, $userId, $gaResult, $payload) {
             return $this->persistResult($order, $userId, $gaResult, $payload['parameters']);
         });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PUBLIC: Run GA untuk banyak order sekaligus (paralel)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Jalankan GA untuk sekumpulan order secara paralel menggunakan Http::pool().
+     *
+     * Alur:
+     *   1. Bangun semua payload SEKUENSIAL — agar reservedQtyByCell antar-order akurat.
+     *   2. Kirim semua request ke Python FastAPI secara PARALEL (Http::pool).
+     *   3. Simpan semua hasil ke DB SEKUENSIAL.
+     *
+     * Agar Python benar-benar berjalan paralel, jalankan uvicorn dengan beberapa worker:
+     *   uvicorn main:app --host 127.0.0.1 --port 8001 --workers 4
+     *
+     * @param  InboundOrder[]  $orders
+     * @return array  [order_id => ['rec' => GaRecommendation|null, 'error' => string|null]]
+     */
+    public function runBatch(array $orders, int $userId): array
+    {
+        if (empty($orders)) {
+            return [];
+        }
+
+        // ── 1. Bangun semua payload sekuensial ────────────────────────────────
+        $payloads = [];
+        foreach ($orders as $order) {
+            $payloads[$order->id] = $this->buildPayload($order);
+        }
+
+        // ── 2. Kirim semua request ke Python secara paralel ───────────────────
+        $baseUrl     = $this->baseUrl;
+        $timeout     = $this->timeoutSeconds;
+        $payloadList = array_values($payloads);
+
+        Log::info('[GaService] Batch paralel dimulai', [
+            'order_count' => count($orders),
+            'order_ids'   => array_keys($payloads),
+        ]);
+
+        $responses = Http::pool(function (Pool $pool) use ($payloadList, $baseUrl, $timeout) {
+            return array_map(
+                fn($payload) => $pool
+                    ->timeout($timeout)
+                    ->withHeaders(['Content-Type' => 'application/json'])
+                    ->post("{$baseUrl}/ga/run", $payload),
+                $payloadList
+            );
+        });
+
+        // ── 3. Simpan semua hasil ke DB sekuensial ────────────────────────────
+        $results = [];
+
+        foreach ($orders as $index => $order) {
+            $response = $responses[$index];
+
+            if ($response instanceof \Throwable) {
+                $results[$order->id] = ['rec' => null, 'error' => $response->getMessage()];
+                continue;
+            }
+
+            if ($response->failed()) {
+                $err = $response->json('detail') ?? $response->body();
+                $results[$order->id] = ['rec' => null, 'error' => "GA Engine error [{$response->status()}]: {$err}"];
+                continue;
+            }
+
+            $gaResult = $response->json();
+
+            if (empty($gaResult['chromosome']) || !isset($gaResult['fitness_score'])) {
+                $results[$order->id] = ['rec' => null, 'error' => 'Respons GA Engine tidak valid: chromosome atau fitness_score kosong.'];
+                continue;
+            }
+
+            try {
+                $rec = DB::transaction(fn() => $this->persistResult(
+                    $order, $userId, $gaResult, $payloads[$order->id]['parameters']
+                ));
+                $results[$order->id] = ['rec' => $rec, 'error' => null];
+
+                Log::info('[GaService] Batch: order selesai', [
+                    'order_id'     => $order->id,
+                    'do_number'    => $order->do_number,
+                    'fitness'      => $gaResult['fitness_score'],
+                    'generations'  => $gaResult['generations_run'] ?? null,
+                    'exec_ms'      => $gaResult['execution_time_ms'] ?? null,
+                ]);
+            } catch (\Exception $e) {
+                $results[$order->id] = ['rec' => null, 'error' => $e->getMessage()];
+            }
+        }
+
+        return $results;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -144,11 +240,13 @@ class GaService
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
 
+        // Hitung jumlah gene (stock record slot) yang sudah di-reserve oleh order lain,
+        // BUKAN sum quantity fisik. Satu gene = satu slot kapasitas.
         $reservedQtyByCell = DB::table('ga_recommendation_details as grd')
             ->join('ga_recommendations as gr', 'gr.id', '=', 'grd.ga_recommendation_id')
             ->join('inbound_transactions as it', 'it.id', '=', 'gr.inbound_order_id')
             ->join('inbound_details as idt', 'idt.id', '=', 'grd.inbound_order_item_id')
-            ->select('grd.cell_id', DB::raw('SUM(grd.quantity) as reserved_qty'))
+            ->select('grd.cell_id', DB::raw('COUNT(*) as reserved_qty'))
             ->whereIn('grd.cell_id', $cellsCollection->pluck('id'))
             ->where('gr.status', 'accepted')
             ->where('it.warehouse_id', $order->warehouse_id)
@@ -165,84 +263,42 @@ class GaService
         ));
 
         // ─────────────────────────────────────────────────────────────
-        // Partial allocation:
-        // Isi existing cell yang sudah menyimpan item tersebut terlebih dahulu.
-        // Jika masih ada sisa quantity, sisanya dikirim ke GA sebagai chunk bebas.
-        // Contoh: SP-BRG-001 qty 35, cell 1-D sisa 10
-        // → chunk 10 dikunci ke 1-D, sisa 25 bebas dicari GA.
+        // One gene per inbound_detail.
+        //
+        // Capacity unit = stock record slot (bukan unit fisik).
+        // Satu gene → satu stock record → satu slot kapasitas.
+        // quantity_received (fisik) disimpan ke stock_records saat put-away;
+        // di sini quantity hanya menjadi payload metadata untuk FC_SPLIT & display.
+        //
+        // Jika item sudah ada di cell tertentu → preferred_cell_id dikunci ke sana
+        // agar GA memprioritaskan konsolidasi ke lokasi yang sudah ada.
         // ─────────────────────────────────────────────────────────────
         $items = [];
-        $maxFreeChunkQty = max(1, (int) $cellCandidates->max('capacity_remaining'));
 
         foreach ($rawDetails as $detail) {
-            $remainingQty = (int) $detail->quantity_received;
+            // Cari cell existing untuk item ini (untuk preferred_cell_id lock)
+            $existingCell = $cellCandidates
+                ->filter(fn(array $cell) =>
+                    in_array((int) $detail->item_id, $cell['existing_item_ids'], true)
+                    && (int) $cell['capacity_remaining'] > 0
+                )
+                ->sortBy(fn(array $cell) => sprintf(
+                    '%05d-%05d',
+                    (int) ($cell['rack_index'] ?? 9999),
+                    (int) ($cell['cell_index'] ?? 9999)
+                ))
+                ->first();
 
-            // Cari lokasi fisik existing yang sudah menyimpan item yang sama.
-            // Untuk data MSpart, satu kandidat = satu blok + grup/baris rak + kolom.
-            $existingCells = $cellCandidates
-                ->filter(function (array $cell) use ($detail) {
-                    return in_array((int) $detail->item_id, $cell['existing_item_ids'], true)
-                        && ((int) $cell['capacity_remaining'] > 0);
-                })
-                ->sortBy(function (array $cell) {
-                    return sprintf(
-                        '%05d-%05d',
-                        (int) ($cell['rack_index'] ?? 9999),
-                        (int) ($cell['cell_index'] ?? 9999)
-                    );
-                })
-                ->values();
-
-            // 1) Buat chunk locked untuk existing cell terlebih dahulu
-            foreach ($existingCells as $cell) {
-                if ($remainingQty <= 0) {
-                    break;
-                }
-
-                $cellRemaining = (int) $cell['capacity_remaining'];
-                $chunkQty = min($remainingQty, $cellRemaining);
-
-                if ($chunkQty <= 0) {
-                    continue;
-                }
-
-                $items[] = [
-                    'inbound_detail_id' => $detail->id,
-                    'item_id'           => $detail->item_id,
-                    'sku'               => $detail->item->sku,
-                    'category_id'       => $detail->item->category_id,
-                    'quantity'          => $chunkQty,
-                    'item_size'         => $detail->item->item_size ?? 'medium',
-                    'movement_type'     => $detail->item->movement_type,
-
-                    // Ini yang membuat chunk ini wajib ke cell existing tersebut.
-                    'preferred_cell_id' => $cell['cell_id'],
-                ];
-
-                $remainingQty -= $chunkQty;
-            }
-
-            // 2) Jika masih ada sisa, pecah menjadi chunk yang realistis untuk
-            // satu kolom fisik. Tanpa ini, qty besar bisa menjadi satu gene
-            // 83 unit ke satu kolom dan hanya kena penalti fitness, bukan split.
-            while ($remainingQty > 0) {
-                $chunkQty = min($remainingQty, $maxFreeChunkQty);
-
-                $items[] = [
-                    'inbound_detail_id' => $detail->id,
-                    'item_id'           => $detail->item_id,
-                    'sku'               => $detail->item->sku,
-                    'category_id'       => $detail->item->category_id,
-                    'quantity'          => $chunkQty,
-                    'item_size'         => $detail->item->item_size ?? 'medium',
-                    'movement_type'     => $detail->item->movement_type,
-
-                    // Null berarti GA bebas memilih cell terbaik.
-                    'preferred_cell_id' => null,
-                ];
-
-                $remainingQty -= $chunkQty;
-            }
+            $items[] = [
+                'inbound_detail_id' => $detail->id,
+                'item_id'           => $detail->item_id,
+                'sku'               => $detail->item->sku,
+                'category_id'       => $detail->item->category_id,
+                'quantity'          => (int) $detail->quantity_received,
+                'item_size'         => $detail->item->item_size ?? 'medium',
+                'movement_type'     => $detail->item->movement_type,
+                'preferred_cell_id' => $existingCell ? $existingCell['cell_id'] : null,
+            ];
         }
 
         if (empty($items)) {
@@ -277,6 +333,21 @@ class GaService
             ])
             ->values()
             ->toArray();
+        $affinities = $this->mergeSkuFamilyAffinities(
+            $affinities,
+            $rawDetails->pluck('item')->unique('id')->values()
+        );
+
+        // Parameter GA adaptif: makin sedikit item → konvergen lebih cepat → parameter lebih ringan.
+        // Dengan early stopping, GA berhenti begitu tidak ada perbaikan k generasi berturut-turut,
+        // sehingga parameter batas atas (max_generations) jarang dicapai untuk order kecil.
+        $itemCount = count($items);
+        [$population, $maxGenerations, $earlyStopping] = match (true) {
+            $itemCount <= 3  => [30,  50,  8],
+            $itemCount <= 6  => [50,  80,  12],
+            $itemCount <= 10 => [70,  120, 18],
+            default          => [100, 150, 25],
+        };
 
         return [
             'inbound_order_id' => $order->id,
@@ -284,13 +355,13 @@ class GaService
             'cells'            => $cells,
             'affinities'       => $affinities,
             'parameters'       => [
-                'population'       => 100,
-                'max_generations'  => 150,
+                'population'       => $population,
+                'max_generations'  => $maxGenerations,
                 'mutation_rate'    => 0.15,
                 'crossover_rate'   => 0.8,
                 'elitism'          => 3,
-                'early_stopping'   => 20,
-                'seed' => null,
+                'early_stopping'   => $earlyStopping,
+                'seed'             => (int) env('GA_SEED', 20260515),
             ],
         ];
     }
@@ -449,6 +520,86 @@ class GaService
             && $cell->grup !== null
             && $cell->kolom !== null
             && $cell->baris !== null;
+    }
+
+    private function mergeSkuFamilyAffinities(array $affinities, $orderItems): array
+    {
+        $byPair = collect($affinities)
+            ->keyBy(fn(array $affinity) => $this->affinityPairKey(
+                (int) $affinity['item_id'],
+                (int) $affinity['related_item_id']
+            ))
+            ->all();
+
+        $items = collect($orderItems)->values();
+        $count = $items->count();
+
+        for ($i = 0; $i < $count; $i++) {
+            for ($j = $i + 1; $j < $count; $j++) {
+                $itemA = $items[$i];
+                $itemB = $items[$j];
+                $familyA = $this->skuFamilyKey((string) $itemA->sku, (string) $itemA->name);
+                $familyB = $this->skuFamilyKey((string) $itemB->sku, (string) $itemB->name);
+
+                if (!$familyA || $familyA !== $familyB) {
+                    continue;
+                }
+
+                $score = 0.85;
+                $key = $this->affinityPairKey((int) $itemA->id, (int) $itemB->id);
+
+                if (!isset($byPair[$key]) || (float) $byPair[$key]['affinity_score'] < $score) {
+                    $byPair[$key] = [
+                        'item_id'         => (int) $itemA->id,
+                        'related_item_id' => (int) $itemB->id,
+                        'affinity_score'  => $score,
+                    ];
+                }
+            }
+        }
+
+        return array_values($byPair);
+    }
+
+    private function affinityPairKey(int $itemA, int $itemB): string
+    {
+        return min($itemA, $itemB) . ':' . max($itemA, $itemB);
+    }
+
+    private function skuFamilyKey(string $sku, string $name): ?string
+    {
+        $normalizedSku = strtoupper(trim($sku));
+        $normalizedName = strtoupper(trim($name));
+        $normalizedSku = preg_replace('/^03SP[-_]?/', '', $normalizedSku) ?: $normalizedSku;
+
+        $rules = [
+            '/^BE\d+/'         => 'BEARING',
+            '/^BALLVA/'        => 'BALL_VALVE',
+            '/^CHAPLING/'      => 'CHAIN_COUPLING',
+            '/^DNG/'           => 'DOUBLE_NIPPLE',
+            '/^LAMLED/'        => 'LED_LAMP',
+            '/^(FO|FS|FU)\d+/' => 'FILTER',
+            '/^BG/'            => 'BATU_GERINDA',
+            '/^KLA/'           => 'KAWAT_LAS',
+            '/^MCB/'           => 'MCB',
+            '/^MB/'            => 'MUR_BAUT',
+            '/^CAMLC/'         => 'CAMLOCK',
+        ];
+
+        foreach ($rules as $pattern => $family) {
+            if (preg_match($pattern, $normalizedSku)) {
+                return $family;
+            }
+        }
+
+        if (strpos($normalizedName, 'FILTER') !== false || strpos($normalizedName, 'F.UDARA') !== false) {
+            return 'FILTER';
+        }
+
+        $fallback = preg_replace('/[\d.\/-]+.*$/', '', $normalizedSku) ?: '';
+        $fallback = trim($fallback, '-_ ');
+
+        return strlen($fallback) >= 3 ? $fallback : null;
     }
 
     private function callPythonEngine(array $payload): array

@@ -17,9 +17,6 @@
                                 <i class="fas fa-border-all mr-1"></i> Daftar Sel
                             </div>
                             <div class="d-flex" style="gap:6px;">
-                                <a href="{{ route('location.cells.scan') }}" class="btn btn-sm btn-avian-secondary">
-                                    <i class="fas fa-qrcode mr-1"></i>Scan QR Cell
-                                </a>
                                 <a href="#" id="btnBulkQr" class="btn btn-sm btn-outline-success"
                                    title="Pilih rak di filter lalu klik untuk cetak semua label QR sekaligus">
                                     <i class="fas fa-layer-group mr-1"></i>Cetak Label Rak

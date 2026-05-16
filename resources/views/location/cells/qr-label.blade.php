@@ -62,11 +62,11 @@
                 <div class="card-header py-2 font-weight-bold">
                     <i class="fas fa-eye mr-1"></i>Preview Label
                 </div>
-                <div class="card-body text-center py-4">
+                <div class="card-body py-4 d-flex flex-column align-items-center">
 
                     {{-- Label utama yang akan dicetak --}}
-                    <div id="qr-label-print" class="d-inline-block border rounded p-3 text-left"
-                        style="width:240px; background:#fff;">
+                    <div id="qr-label-print" class="border rounded text-center"
+                        style="width:220px; padding:12px 10px; background:#fff;">
 
                         {{-- Header gudang --}}
                         <div class="text-center mb-2">
@@ -76,13 +76,13 @@
                         </div>
 
                         {{-- QR Code --}}
-                        <div id="wrapQr" class="text-center mb-2">
-                            <canvas id="qrCanvas"></canvas>
+                        <div id="wrapQr" class="mb-2 ml-2" style="width:100%;text-align:center; just">
+                            <canvas id="qrCanvas" style="display:block;margin:0 0;"></canvas>
                         </div>
 
                         {{-- Barcode --}}
-                        <div id="wrapBarcode" class="text-center mb-2" style="display:none;">
-                            <svg id="barcodeBar"></svg>
+                        <div id="wrapBarcode" class="mb-2" style="display:none;width:100%;text-align:center;">
+                            <svg id="barcodeBar" style="display:block;margin:0 auto;"></svg>
                         </div>
 
                         {{-- Kode Cell Besar --}}
@@ -157,34 +157,10 @@
                         <a href="{{ route('location.cells.stock', $cell->id) }}" class="btn btn-sm btn-outline-info">
                             <i class="fas fa-box mr-1"></i>Lihat Stok Detail
                         </a>
-                        <a href="{{ route('location.cells.scan') }}" class="btn btn-sm btn-outline-success ml-1">
-                            <i class="fas fa-qrcode mr-1"></i>Buka Scanner
-                        </a>
                     </div>
                 </div>
             </div>
 
-            {{-- Panduan cetak --}}
-            <div class="card mt-3">
-                <div class="card-header py-2 font-weight-bold">
-                    <i class="fas fa-print mr-1"></i>Panduan Cetak & Pasang
-                </div>
-                <div class="card-body small">
-                    <ol class="pl-3 mb-0" style="line-height:2;">
-                        <li>Pilih format label: <strong>QR Code</strong> (tablet/kamera) atau <strong>Barcode</strong> (scanner fisik)</li>
-                        <li>Klik tombol <strong>Cetak Label</strong> di atas</li>
-                        <li>Pilih printer → atur ukuran kertas <strong>A4</strong></li>
-                        <li>Cetak, lalu <strong>potong</strong> label sesuai garis</li>
-                        <li><strong>Tempel</strong> di bagian depan cell yang sesuai pada rak fisik</li>
-                        <li>Pastikan kode <strong>tidak tertutup</strong> dan mudah discan</li>
-                        <li>Gunakan <strong>laminating/plastik</strong> agar tahan lama</li>
-                    </ol>
-                    <div class="alert alert-info py-1 mt-2 small mb-0">
-                        <i class="fas fa-lightbulb mr-1"></i>
-                        <strong>Tips:</strong> Pasang kedua format (QR + Barcode) jika memiliki dua jenis scanner.
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>
@@ -226,23 +202,24 @@
 <script src="{{ asset('js/qrious.min.js') }}"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script>
-const CELL_CODE = '{{ url("/c/" . ($cell->qr_code ?? $cell->code)) }}';
+const CELL_CODE      = '{{ url("/c/" . ($cell->qr_code ?? $cell->code)) }}';
+const CELL_CODE_BARE = '{{ $cell->qr_code ?? $cell->code }}';
 let currentFormat = 'qr';
 
 // ─── Render QR Code ───────────────────────────────────────────────────────────
 var qrObj = new QRious({
     element: document.getElementById('qrCanvas'),
     value: CELL_CODE,
-    size: 160,
+    size: 200,
     level: 'H',
     background: '#ffffff',
     foreground: '#1a2332',
-    padding: 6,
+    padding: 4,
 });
 
-// ─── Render Barcode ───────────────────────────────────────────────────────────
+// ─── Render Barcode (encodes bare code so scanner gun outputs short string) ───
 function renderBarcode() {
-    JsBarcode('#barcodeBar', CELL_CODE, {
+    JsBarcode('#barcodeBar', CELL_CODE_BARE, {
         format: 'CODE128',
         width: 2,
         height: 55,
@@ -258,14 +235,14 @@ function renderBarcode() {
 function setFormat(format) {
     currentFormat = format;
     if (format === 'qr') {
-        $('#wrapQr').show();
-        $('#wrapBarcode').hide();
+        $('#wrapQr').css('display', 'block');
+        $('#wrapBarcode').css('display', 'none');
         $('#btnQr').removeClass('btn-outline-secondary').addClass('btn-success');
         $('#btnBarcode').removeClass('btn-success').addClass('btn-outline-secondary');
         $('#formatNote').text('QR Code cocok untuk scan via kamera tablet — bisa dari berbagai sudut');
     } else {
-        $('#wrapQr').hide();
-        $('#wrapBarcode').show();
+        $('#wrapQr').css('display', 'none');
+        $('#wrapBarcode').css('display', 'block');
         renderBarcode();
         $('#btnBarcode').removeClass('btn-outline-secondary').addClass('btn-success');
         $('#btnQr').removeClass('btn-success').addClass('btn-outline-secondary');

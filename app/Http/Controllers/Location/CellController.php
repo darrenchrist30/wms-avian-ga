@@ -139,12 +139,6 @@ class CellController extends Controller
         }
     }
 
-    // ─── Halaman Scan QR Cell (untuk operator tablet) ───────────────────────────
-    public function scanPage()
-    {
-        return view('location.cells.scan');
-    }
-
     // ─── AJAX lookup cell berdasarkan QR / kode ──────────────────────────────────
     public function lookup(Request $request)
     {

@@ -767,7 +767,7 @@ function doModalScanQr(code) {
     $.ajax({
         url: scanQrUrl,
         method: 'POST',
-        data: { _token: csrfToken, qr_code: code },
+        data: { _token: csrfToken, qr_code: code, ga_cell_id: (!isOverride && modalGaCell) ? modalGaCell.id : null },
         success: function(res) {
             const c    = res.cell;
             const cell = {
@@ -838,11 +838,13 @@ function doModalScanQr(code) {
                 showConfirmButton: false, timer: 3000,
                 title: xhr.responseJSON?.message || 'QR tidak dikenali sistem.'
             });
-            $('#modalQrInput').focus();
         },
         complete: function() {
             $('#scanLoading').hide();
             $('#modalQrInput').prop('disabled', false);
+            if ($('#phaseScan').is(':visible')) {
+                $('#modalQrInput').val('').focus();
+            }
         }
     });
 }

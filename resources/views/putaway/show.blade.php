@@ -1681,7 +1681,8 @@
                 method: 'POST',
                 data: {
                     _token: csrfToken,
-                    qr_code: code
+                    qr_code: code,
+                    ga_cell_id: (!isOverride && modalGaCell) ? modalGaCell.id : null
                 },
                 success: function(res) {
                     const c = res.cell;
@@ -1753,18 +1754,17 @@
                 },
                 error: function(xhr) {
                     Swal.fire({
-                        icon: 'error',
-                        toast: true,
-                        position: 'top-end',
-                        showConfirmButton: false,
-                        timer: 3000,
+                        icon: 'error', toast: true, position: 'top-end',
+                        showConfirmButton: false, timer: 3000,
                         title: xhr.responseJSON?.message || 'QR tidak dikenali sistem.'
                     });
-                    $('#modalQrInput').focus();
                 },
                 complete: function() {
                     $('#scanLoading').hide();
                     $('#modalQrInput').prop('disabled', false);
+                    if ($('#phaseScan').is(':visible')) {
+                        $('#modalQrInput').val('').focus();
+                    }
                 }
             });
         }

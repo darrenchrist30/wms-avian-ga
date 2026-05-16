@@ -78,14 +78,10 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('warehouses/datatable', [\App\Http\Controllers\Location\WarehouseController::class, 'datatable'])->name('warehouses.datatable');
         Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class);
 
-        Route::get('mspart/import',  [\App\Http\Controllers\Location\MspartImportController::class, 'index'])->name('mspart.import')->middleware('role:admin');
-        Route::post('mspart/import', [\App\Http\Controllers\Location\MspartImportController::class, 'import'])->name('mspart.import.post')->middleware('role:admin');
-
 Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
         Route::resource('racks', \App\Http\Controllers\Location\RackController::class);
 
         Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');
-        Route::get('cells/scan',      [\App\Http\Controllers\Location\CellController::class, 'scanPage'])->name('cells.scan');
         Route::get('cells/lookup',    [\App\Http\Controllers\Location\CellController::class, 'lookup'])->name('cells.lookup');
         Route::get('cells/bulk-qr',   [\App\Http\Controllers\Location\CellController::class, 'bulkQrLabel'])->name('cells.bulk-qr');
         Route::resource('cells', \App\Http\Controllers\Location\CellController::class);

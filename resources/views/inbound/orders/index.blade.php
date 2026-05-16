@@ -125,7 +125,6 @@
                                         <th>No. Surat Jalan</th>
                                         @if(!auth()->user()->hasRole('operator'))<th class="text-center">Fitness</th>@endif
                                         <th class="text-center">Hasil</th>
-                                        <th class="text-center">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody id="batchResultBody"></tbody>
@@ -133,12 +132,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer" id="batchFooter" style="display:none;">
-                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal"
-                        onclick="location.reload()">
-                        <i class="fas fa-times mr-1"></i>Tutup & Refresh
-                    </button>
-                </div>
+                <div class="modal-footer" id="batchFooter" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -148,8 +142,9 @@
     <script>
         $(document).ready(function() {
             var baseURL      = "{{ route('inbound.orders.datatable') }}";
-            var routeDestroy = "{{ route('inbound.orders.destroy', ':id') }}";
-            var routeBatchGa = "{{ route('inbound.orders.batch-ga') }}";
+            var routeDestroy    = "{{ route('inbound.orders.destroy', ':id') }}";
+            var routeBatchGa    = "{{ route('inbound.orders.batch-ga') }}";
+            var routePutawayQ   = "{{ route('putaway.queue') }}";
             var csrfToken    = $('meta[name="csrf-token"]').attr('content');
             var isOperator   = {{ auth()->user()->hasRole('operator') ? 'true' : 'false' }};
 
@@ -270,7 +265,7 @@
                             $('#batchLoading').hide();
                             $('#batchResults').show();
                             $('#batchResultBody').html(
-                                '<tr><td colspan="5" class="text-center text-danger"><i class="fas fa-exclamation-circle mr-1"></i>' + msg + '</td></tr>'
+                                '<tr><td colspan="4" class="text-center text-danger"><i class="fas fa-exclamation-circle mr-1"></i>' + msg + '</td></tr>'
                             );
                             $('#batchFooter').show();
                         }
@@ -291,13 +286,10 @@
 
                 var rows = '';
                 $.each(response.results, function(i, r) {
-                    var statusBadge, actionBtn = '-';
+                    var statusBadge;
 
                     if (r.status === 'accepted') {
                         statusBadge = '<span class="badge badge-success">Diterima (Auto)</span>';
-                        if (r.putaway_url) {
-                            actionBtn = '<a href="' + r.putaway_url + '" class="btn btn-xs btn-primary" target="_blank"><i class="fas fa-boxes mr-1"></i>Put-Away</a>';
-                        }
                     } else if (r.status === 'pending_review') {
                         statusBadge = '<span class="badge badge-warning">Perlu Review</span>';
                     } else if (r.status === 'skip') {
@@ -314,13 +306,23 @@
                         '<td><code>' + r.do_number + '</code><br><small class="text-muted">' + r.message + '</small></td>' +
                         fitnessCell +
                         '<td class="text-center">' + statusBadge + '</td>' +
-                        '<td class="text-center">' + actionBtn + '</td>' +
                         '</tr>';
                 });
 
                 $('#batchResultBody').html(rows);
                 $('#batchResults').show();
-                $('#batchFooter').show();
+
+                // Bangun footer: tombol Put-Away (jika ada order diterima) + Tutup & Refresh
+                var footerHtml = '<button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal" onclick="location.reload()">'
+                    + '<i class="fas fa-times mr-1"></i>Tutup &amp; Refresh</button>';
+
+                if (s.accepted > 0) {
+                    footerHtml = '<a href="' + routePutawayQ + '" class="btn btn-success btn-sm mr-2">'
+                        + '<i class="fas fa-dolly-flatbed mr-1"></i>Mulai Put-Away (' + s.accepted + ' DO)</a>'
+                        + footerHtml;
+                }
+
+                $('#batchFooter').html(footerHtml).show();
 
                 // Reset selection
                 selectedIds = {};

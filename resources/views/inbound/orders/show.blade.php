@@ -817,15 +817,22 @@ $('#btnProcessGA').on('click', function () {
             timeout: 180000,
             success(res) {
                 if (res.status === 'success') {
+                    const putAwayUrl = res.data?.redirect || '{{ route("putaway.queue") }}';
                     Swal.fire({
                         icon: 'success',
-                        title: 'GA Selesai & Diterima Otomatis!',
-                        html: res.message + '<br><small class="text-muted">Mengalihkan ke halaman put-away…</small>',
-                        timer: 2500,
-                        showConfirmButton: false,
-                    }).then(() => showNavLoader(() => {
-                        window.location.href = res.data?.redirect || location.href;
-                    }));
+                        title: 'GA Selesai & Diterima!',
+                        html: res.message,
+                        showConfirmButton: true,
+                        confirmButtonText: '<i class="fas fa-dolly-flatbed mr-1"></i> Buka Antrian Put-Away',
+                        confirmButtonColor: '#0d8564',
+                        showCancelButton: true,
+                        cancelButtonText: 'Tutup',
+                        allowOutsideClick: true,
+                    }).then(result => {
+                        if (result.isConfirmed) {
+                            showNavLoader(() => window.location.href = putAwayUrl);
+                        }
+                    });
                 } else {
                     Swal.fire({
                         icon: 'info',
