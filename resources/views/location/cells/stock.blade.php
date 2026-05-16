@@ -29,7 +29,7 @@
                         <div class="row">
                             <div class="col-md-3">
                                 <small class="text-muted">Warehouse</small>
-                                <div class="font-weight-bold">{{ $cell->rack->zone->warehouse->name ?? '-' }}</div>
+                                <div class="font-weight-bold">{{ $cell->rack->warehouse->name ?? '-' }}</div>
                             </div>
                             <div class="col-md-2">
                                 <small class="text-muted">Rak</small>

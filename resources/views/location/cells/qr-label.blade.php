@@ -71,7 +71,7 @@
                         {{-- Header gudang --}}
                         <div class="text-center mb-2">
                             <small style="font-size:9px; letter-spacing:1px; text-transform:uppercase; color:#6c757d;">
-                                {{ $cell->rack?->zone?->warehouse?->name ?? 'Gudang Sparepart' }}
+                                {{ $cell->rack?->warehouse?->name ?? 'Gudang Sparepart' }}
                             </small>
                         </div>
 
@@ -124,7 +124,7 @@
                         </tr>
                         <tr>
                             <td class="text-muted">Gudang</td>
-                            <td>{{ $cell->rack?->zone?->warehouse?->name ?? '—' }}</td>
+                            <td>{{ $cell->rack?->warehouse?->name ?? '—' }}</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Kapasitas Maks</td>

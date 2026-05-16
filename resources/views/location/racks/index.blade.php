@@ -35,13 +35,12 @@
                             <div class="row m-2 filter collapse mb-3">
                                 <div class="col-sm-12 col-md-4">
                                     <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Zona</label>
+                                        <label class="col-sm-4 col-form-label small font-weight-bold">Gudang</label>
                                         <div class="col-sm-8">
-                                            <select class="form-control form-control-sm" id="filter-zone">
-                                                <option value="">Semua Zona</option>
-                                                @foreach ($zones as $zone)
-                                                    <option value="{{ $zone->id }}">{{ $zone->code }} - {{ $zone->name }}
-                                                        ({{ $zone->warehouse->name ?? '-' }})</option>
+                                            <select class="form-control form-control-sm" id="filter-warehouse">
+                                                <option value="">Semua Gudang</option>
+                                                @foreach ($warehouses as $warehouse)
+                                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -69,7 +68,7 @@
                                     <th width="50" class="text-center">#</th>
                                     <th width="100">Kode Rak</th>
                                     <th width="120">Nama</th>
-                                    <th>Lokasi (Warehouse / Zona)</th>
+                                    <th>Gudang</th>
                                     <th width="140">Kategori Dominan</th>
                                     <th width="70" class="text-center">Level</th>
                                     <th width="60" class="text-center">Sel</th>
@@ -100,8 +99,8 @@
                 ajax: {
                     url: baseURL,
                     data: function(d) {
-                        d.zone_id = $('#filter-zone').val();
-                        d.status  = $('#filter-status').val();
+                        d.warehouse_id = $('#filter-warehouse').val();
+                        d.status       = $('#filter-status').val();
                     },
                     type: 'GET'
                 },
@@ -125,7 +124,7 @@
                         name: 'name',
                         render: function(data) { return data || '<span class="text-muted">-</span>'; }
                     },
-                    { data: 'lokasi',   name: 'zone.code', orderable: false },
+                    { data: 'lokasi',   name: 'warehouse.name', orderable: false },
                     { data: 'kategori', name: 'dominantCategory.name', orderable: false, searchable: false },
                     { data: 'total_levels', name: 'total_levels', className: 'text-center' },
                     { data: 'cells_count',  name: 'cells_count',  className: 'text-center', orderable: false },
@@ -140,11 +139,11 @@
             });
 
             $('.btnRefresh').on('click', function() {
-                $('#filter-zone, #filter-status').val('');
+                $('#filter-warehouse, #filter-status').val('');
                 table.ajax.reload();
             });
 
-            $('#filter-zone, #filter-status').on('change', function() {
+            $('#filter-warehouse, #filter-status').on('change', function() {
                 table.ajax.reload();
             });
 

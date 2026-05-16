@@ -178,14 +178,20 @@
     </div>
     <div class="col-6 col-md-2 mb-2">
         <div class="small-box bg-success mb-0">
-            <div class="inner"><h4>{{ $summary['used_cells'] }}</h4><p>Terisi</p></div>
+            <div class="inner"><h4>{{ $summary['used_cells'] }}</h4><p>Cell Terisi</p></div>
             <div class="icon"><i class="fas fa-box"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-2 mb-2">
         <div class="small-box bg-danger mb-0">
-            <div class="inner"><h4>{{ $summary['full_cells'] }}</h4><p>Penuh</p></div>
+            <div class="inner"><h4>{{ $summary['full_cells'] }}</h4><p>Cell Penuh</p></div>
             <div class="icon"><i class="fas fa-exclamation-circle"></i></div>
+        </div>
+    </div>
+    <div class="col-6 col-md-2 mb-2">
+        <div class="small-box bg-purple mb-0" style="background:#6f42c1;">
+            <div class="inner"><h4>{{ $summary['total_sku'] }}</h4><p>SKU Tersimpan</p></div>
+            <div class="icon"><i class="fas fa-tags"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-2 mb-2">
@@ -198,11 +204,12 @@
 </div>
 @endif
 
-{{-- ── Highlight Banner ───────────────────────────────────────────────────── --}}
+{{-- ── Highlight Banner (hanya tampil saat ada cell yang disorot dari rekomendasi GA / pencarian) ── --}}
 <div id="highlightBanner" class="alert py-2 px-3 mb-2 d-flex align-items-center justify-content-between" style="display:none;border-radius:8px">
     <span id="highlightBannerText" class="font-weight-bold" style="font-size:13px"></span>
-    <button class="btn btn-sm ml-3" id="btnClearHighlight" style="white-space:nowrap">
-        <i class="fas fa-times mr-1"></i>Hapus Highlight
+    <button class="btn btn-sm ml-3" id="btnClearHighlight" style="white-space:nowrap"
+            title="Kembalikan tampilan cell ke warna normal">
+        <i class="fas fa-times mr-1"></i>Reset Tampilan
     </button>
 </div>
 

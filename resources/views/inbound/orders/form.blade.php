@@ -124,24 +124,6 @@
                                                 </div>
                                             </div>
 
-                                            <div class="form-group row">
-                                                <label class="col-sm-4 col-form-label">Supplier</label>
-                                                <div class="col-sm-8">
-                                                    <select name="supplier_id"
-                                                        class="form-control @error('supplier_id') is-invalid @enderror">
-                                                        <option value="">-- Tanpa Supplier --</option>
-                                                        @foreach ($suppliers as $sup)
-                                                            <option value="{{ $sup->id }}"
-                                                                {{ old('supplier_id', $data->supplier_id ?? '') == $sup->id ? 'selected' : '' }}>
-                                                                {{ $sup->name }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    @error('supplier_id')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
 
                                         </div>
                                     </div>

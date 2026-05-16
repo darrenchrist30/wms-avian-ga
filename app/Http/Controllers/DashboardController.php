@@ -11,7 +11,6 @@ use App\Models\PutAwayConfirmation;
 use App\Models\Rack;
 use App\Models\Stock;
 use App\Models\StockMovement;
-use App\Models\Zone;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +26,7 @@ class DashboardController extends Controller
         $usedCells      = Cell::where('is_active', true)->whereIn('status', ['partial', 'full'])->count();
         $utilizationPct = $totalCells > 0 ? round($usedCells / $totalCells * 100, 1) : 0;
         $totalStockQty  = Stock::where('status', 'available')->sum('quantity');
+        $mappedSku      = Stock::where('status', 'available')->distinct('item_id')->count('item_id');
 
         $inboundToday  = InboundOrder::whereDate('received_at', today())->count();
         $outboundToday = StockMovement::ofType('outbound')->today()->count();
@@ -38,23 +38,24 @@ class DashboardController extends Controller
         $activeOrders    = InboundOrder::whereIn('status', ['inbound', 'put_away'])->count();
         $deadstockCount  = Stock::deadstock($deadstockDays)->distinct('item_id')->count('item_id');
 
-        // ── Zona Gudang ─────────────────────────────────────────────────────────
-        $zones = Zone::with('racks.cells')->get()->map(function ($zone) {
-            $cells = $zone->cells;
-            $max   = $cells->sum('capacity_max');
-            $used  = $cells->sum('capacity_used');
-            $pct   = $max > 0 ? round($used / $max * 100, 1) : 0;
-            return [
-                'name'    => $zone->name,
-                'code'    => $zone->code,
-                'max'     => $max,
-                'used'    => $used,
-                'free'    => $max - $used,
-                'percent' => $pct,
-            ];
-        });
+        // ── Kapasitas Gudang ─────────────────────────────────────────────────────
+        $capacityUsedTotal = Cell::where('is_active', true)->sum('capacity_used');
+        $capacityMaxTotal  = max(1, Cell::where('is_active', true)->sum('capacity_max'));
+        $capacityFreeTotal = max(0, $capacityMaxTotal - $capacityUsedTotal);
 
-        $fullZones = $zones->filter(fn($z) => $z['percent'] >= 85)->values();
+        $fullRacks = Rack::with('warehouse')
+            ->where('is_active', true)
+            ->withSum('cells as cap_used', 'capacity_used')
+            ->withSum('cells as cap_max', 'capacity_max')
+            ->get()
+            ->filter(fn($r) => $r->cap_max > 0 && round($r->cap_used / $r->cap_max * 100, 1) >= 85)
+            ->map(fn($r) => [
+                'name'    => $r->code . ' (' . ($r->warehouse?->name ?? '-') . ')',
+                'percent' => round($r->cap_used / $r->cap_max * 100, 1),
+                'used'    => (int) $r->cap_used,
+                'max'     => (int) $r->cap_max,
+            ])
+            ->values();
 
         // ── Order Status Breakdown (real) ────────────────────────────────────────
         $orderStatusCounts = InboundOrder::selectRaw('status, COUNT(*) as cnt')
@@ -147,24 +148,24 @@ class DashboardController extends Controller
                 'min'     => $item->min_stock,
             ]);
 
-        $deadstockStocks = Stock::with(['item.category', 'cell.rack.zone'])
+        $deadstockStocks = Stock::with(['item.category', 'cell.rack.warehouse'])
             ->deadstock($deadstockDays)
             ->orderByRaw('COALESCE(last_moved_at, inbound_date) ASC')
             ->take(8)
             ->get();
 
-        $recentMovements = StockMovement::with(['item', 'fromCell.rack.zone', 'toCell.rack.zone', 'performedBy'])
+        $recentMovements = StockMovement::with(['item', 'fromCell.rack', 'toCell.rack', 'performedBy'])
             ->latest()
             ->take(10)
             ->get();
 
-        $expiryStocks = Stock::with(['item', 'cell.rack.zone'])
+        $expiryStocks = Stock::with(['item', 'cell.rack'])
             ->nearExpiry(90)
             ->orderBy('expiry_date')
             ->take(10)
             ->get();
 
-        $scheduledInbound = InboundOrder::with(['supplier', 'items'])
+        $scheduledInbound = InboundOrder::with(['items'])
             ->whereIn('status', ['inbound', 'put_away'])
             ->orderBy('do_date')
             ->take(5)
@@ -223,7 +224,7 @@ class DashboardController extends Controller
             ],
         ];
 
-        $oldestOpenOrders = InboundOrder::with(['warehouse', 'supplier'])
+        $oldestOpenOrders = InboundOrder::with(['warehouse'])
             ->whereIn('status', ['inbound', 'put_away'])
             ->orderBy('created_at')
             ->take(4)
@@ -233,7 +234,6 @@ class DashboardController extends Controller
                 'do_number' => $order->do_number,
                 'status'    => $order->status,
                 'warehouse' => $order->warehouse?->name ?? '-',
-                'supplier'  => $order->supplier?->name ?? '-',
                 'age_days'  => $order->created_at?->diffInDays(now()) ?? 0,
             ]);
 
@@ -262,7 +262,7 @@ class DashboardController extends Controller
         $gaTrendFitness = $gaTrendDays->map(fn($d) => round((float) ($gaRunsByDay[$d->format('Y-m-d')]->avg_fitness ?? 0), 1))->toArray();
 
         // ── Warehouse capacity drill-down ──────────────────────────────────
-        $topRacksUtilization = Rack::with('zone')
+        $topRacksUtilization = Rack::with('warehouse')
             ->where('is_active', true)
             ->withSum('cells as capacity_used_sum', 'capacity_used')
             ->withSum('cells as capacity_max_sum', 'capacity_max')
@@ -271,26 +271,25 @@ class DashboardController extends Controller
                 $max  = (int) ($rack->capacity_max_sum ?? 0);
                 $used = (int) ($rack->capacity_used_sum ?? 0);
                 return [
-                    'code'    => $rack->code,
-                    'name'    => $rack->name,
-                    'zone'    => $rack->zone?->name ?? '-',
-                    'used'    => $used,
-                    'max'     => $max,
-                    'percent' => $max > 0 ? round($used / $max * 100, 1) : 0,
+                    'code'      => $rack->code,
+                    'name'      => $rack->name,
+                    'warehouse' => $rack->warehouse?->name ?? '-',
+                    'used'      => $used,
+                    'max'       => $max,
+                    'percent'   => $max > 0 ? round($used / $max * 100, 1) : 0,
                 ];
             })
             ->sortByDesc('percent')
             ->take(8)
             ->values();
 
-        $criticalCells = Cell::with('rack.zone')
+        $criticalCells = Cell::with('rack')
             ->where('is_active', true)
             ->where('capacity_max', '>', 0)
             ->get()
             ->map(fn($cell) => [
                 'code'      => $cell->code,
                 'rack'      => $cell->rack?->code ?? '-',
-                'zone'      => $cell->rack?->zone?->name ?? '-',
                 'used'      => $cell->capacity_used,
                 'max'       => $cell->capacity_max,
                 'remaining' => max(0, $cell->capacity_max - $cell->capacity_used),
@@ -366,11 +365,11 @@ class DashboardController extends Controller
 
         return view('dashboard', compact(
             // KPI
-            'totalItems', 'totalCells', 'usedCells', 'utilizationPct', 'totalStockQty',
+            'totalItems', 'totalCells', 'usedCells', 'utilizationPct', 'totalStockQty', 'mappedSku',
             'inboundToday', 'outboundToday', 'lowStockItems',
             'nearExpiryItems', 'activeOrders', 'deadstockCount', 'deadstockDays',
-            // Zona
-            'zones', 'fullZones',
+            // Kapasitas
+            'capacityUsedTotal', 'capacityMaxTotal', 'capacityFreeTotal', 'fullRacks',
             // Order status
             'orderStatusCounts',
             // Chart 7 hari

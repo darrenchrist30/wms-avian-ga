@@ -19,7 +19,6 @@ class InboundOrder extends Model
 
     protected $fillable = [
         'warehouse_id',
-        'supplier_id',
         'received_by',
         'do_number',
         'no_bukti_manual',
@@ -42,11 +41,6 @@ class InboundOrder extends Model
     public function warehouse()
     {
         return $this->belongsTo(Warehouse::class);
-    }
-
-    public function supplier()
-    {
-        return $this->belongsTo(Supplier::class);
     }
 
     public function receivedBy()

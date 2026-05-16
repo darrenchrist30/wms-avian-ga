@@ -143,8 +143,7 @@ body {
         <h5><i>🏷</i> Label QR — Rak {{ $rack->code }}</h5>
         <small>
             {{ $cells->count() }} label ·
-            {{ $rack->zone->name ?? '—' }} ·
-            {{ $rack->zone->warehouse->name ?? '—' }}
+            {{ $rack->warehouse->name ?? '—' }}
             &nbsp;·&nbsp; Ukuran label: 60 × 90 mm
         </small>
     </div>
@@ -159,7 +158,7 @@ body {
     <div class="label-card">
 
         <div class="lbl-warehouse">
-            {{ $rack->zone->warehouse->name ?? 'Gudang Sparepart' }}
+            {{ $rack->warehouse->name ?? 'Gudang Sparepart' }}
         </div>
 
         <div class="lbl-qr-wrap">

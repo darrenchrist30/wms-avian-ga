@@ -61,8 +61,7 @@
                                 @foreach ($racks as $rack)
                                     <option value="{{ $rack->id }}"
                                         {{ old('rack_id') == $rack->id ? 'selected' : '' }}>
-                                        {{ $rack->code }}
-                                        ({{ $rack->zone->code ?? '-' }} / {{ $rack->zone->warehouse->name ?? '-' }})
+                                        {{ $rack->code }} ({{ $rack->warehouse->name ?? '-' }})
                                     </option>
                                 @endforeach
                             </select>
@@ -103,7 +102,7 @@
                         <div class="col-6">
                             <strong>Kode Sel:</strong> <code>{{ $data->code }}</code><br>
                             <strong>Rak:</strong> {{ $data->rack->code ?? '-' }}<br>
-                            <strong>Zona:</strong> {{ $data->rack->zone->code ?? '-' }}
+                            <strong>Gudang:</strong> {{ $data->rack->warehouse->name ?? '-' }}
                         </div>
                         <div class="col-6">
                             <strong>Level:</strong> {{ chr(64 + $data->level) }}<br>

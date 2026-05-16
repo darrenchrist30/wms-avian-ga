@@ -53,7 +53,7 @@ class WarehouseController extends Controller
 
     public function edit($id)
     {
-        $data = Warehouse::withCount('zones')->findOrFail($id);
+        $data = Warehouse::withCount('racks')->findOrFail($id);
         return view('location.warehouses.form', ['typeForm' => 'edit', 'data' => $data]);
     }
 
@@ -89,9 +89,9 @@ class WarehouseController extends Controller
 
     public function destroy($id)
     {
-        $warehouse = Warehouse::withCount('zones')->findOrFail($id);
-        if ($warehouse->zones_count > 0) {
-            return response()->json(['status' => 'error', 'message' => 'Warehouse tidak dapat dihapus karena masih memiliki ' . $warehouse->zones_count . ' zona.'], 422);
+        $warehouse = Warehouse::withCount('racks')->findOrFail($id);
+        if ($warehouse->racks_count > 0) {
+            return response()->json(['status' => 'error', 'message' => 'Warehouse tidak dapat dihapus karena masih memiliki ' . $warehouse->racks_count . ' rak.'], 422);
         }
         DB::beginTransaction();
         try {
@@ -107,7 +107,7 @@ class WarehouseController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = Warehouse::withCount('zones');
+        $query = Warehouse::withCount('racks');
         if ($request->filled('status')) {
             $query->where('is_active', $request->status);
         }

@@ -161,11 +161,11 @@ class ImportMspart extends Command
                     $this->error("Sel ID {$startCellId} tidak ditemukan.");
                 } else {
                     // Load cells starting from picked cell (same warehouse, active, has capacity)
-                    $warehouseId = $startCell->rack?->zone?->warehouse_id;
-                    $availCells  = Cell::with('rack.zone')
+                    $warehouseId = $startCell->rack?->warehouse_id;
+                    $availCells  = Cell::with('rack')
                         ->where('is_active', true)
                         ->where('status', '!=', 'blocked')
-                        ->whereHas('rack.zone', fn($q) => $q->where('warehouse_id', $warehouseId))
+                        ->whereHas('rack', fn($q) => $q->where('warehouse_id', $warehouseId))
                         ->where(fn($q) => $q->where('id', '>=', $startCellId)->orWhere('capacity_used', '<', DB::raw('capacity_max')))
                         ->orderByRaw('id >= ? DESC', [$startCellId])
                         ->orderBy('id')
@@ -461,7 +461,7 @@ class ImportMspart extends Command
 
     private function pickCell(): ?int
     {
-        $cells = Cell::with('rack.zone.warehouse')
+        $cells = Cell::with('rack.warehouse')
             ->where('is_active', true)
             ->where('status', '!=', 'blocked')
             ->orderBy('id')
@@ -474,7 +474,7 @@ class ImportMspart extends Command
         }
 
         $choices = $cells->mapWithKeys(function ($cell) {
-            $wh    = $cell->rack?->zone?->warehouse?->name ?? '-';
+            $wh    = $cell->rack?->warehouse?->name ?? '-';
             $label = "[{$cell->id}] {$cell->code} ({$wh}) — kapasitas: {$cell->capacity_used}/{$cell->capacity_max}";
             return [$cell->id => $label];
         })->toArray();

@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Item;
+use App\Models\Rack;
 use App\Models\Stock;
-use App\Models\Zone;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -83,15 +83,15 @@ class SendWhatsappAlert extends Command
             ->get();
 
         // ── Kapasitas Kritis ────────────────────────────────────────────────
-        $criticalZones = Zone::with('racks.cells')->get()
-            ->map(function ($zone) {
-                $cells = $zone->cells;
-                $max   = $cells->sum('capacity_max');
-                $used  = $cells->sum('capacity_used');
-                $pct   = $max > 0 ? round($used / $max * 100, 1) : 0;
-                return ['name' => $zone->name, 'pct' => $pct];
-            })
-            ->filter(fn($z) => $z['pct'] >= 85)
+        $criticalZones = Rack::where('is_active', true)
+            ->withSum('cells as cap_used', 'capacity_used')
+            ->withSum('cells as cap_max', 'capacity_max')
+            ->get()
+            ->filter(fn($r) => $r->cap_max > 0 && round($r->cap_used / $r->cap_max * 100, 1) >= 85)
+            ->map(fn($r) => [
+                'name' => $r->code,
+                'pct'  => round($r->cap_used / $r->cap_max * 100, 1),
+            ])
             ->values();
 
         // ── Susun Pesan ─────────────────────────────────────────────────────

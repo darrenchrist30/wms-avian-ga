@@ -6,7 +6,6 @@ use App\Models\Cell;
 use App\Models\Item;
 use App\Models\Rack;
 use App\Models\Stock;
-use App\Models\Zone;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -219,7 +218,6 @@ class ImportMspartLayout extends Command
             if (!$subRack) {
                 if (!$this->dryRun) {
                     $subRack = Rack::create([
-                        'zone_id'       => $parentRack->zone_id,
                         'warehouse_id'  => $warehouseId,
                         'code'          => $subCode,
                         'name'          => "Rak {$blok} Grup {$grup}",

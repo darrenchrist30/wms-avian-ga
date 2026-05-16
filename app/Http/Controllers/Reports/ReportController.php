@@ -49,8 +49,9 @@ class ReportController extends Controller
 
         // Utilization gudang (cell terpakai vs tersedia)
         $warehouseUtil = DB::table('warehouses as w')
-            ->leftJoin('zones as z', 'z.warehouse_id', '=', 'w.id')
-            ->leftJoin('racks as r', 'r.zone_id', '=', 'z.id')
+            ->leftJoin('racks as r', function ($join) {
+                $join->on('r.warehouse_id', '=', 'w.id')->whereNull('r.deleted_at');
+            })
             ->leftJoin('cells as c', 'c.rack_id', '=', 'r.id')
             ->leftJoin(DB::raw('(SELECT cell_id, SUM(quantity) as qty FROM stock_records WHERE status="available" GROUP BY cell_id HAVING qty > 0) as stk'), 'stk.cell_id', '=', 'c.id')
             ->where('w.is_active', true)

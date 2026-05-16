@@ -12,7 +12,7 @@
                 {{ $typeForm == 'create' ? 'Tambah Rak' : 'Edit Rak' }}
             </h5>
             <small class="text-muted">
-                {{ $typeForm == 'create' ? 'Daftarkan rak baru dalam zona gudang' : 'Perbarui data rak: ' . ($data->code ?? '') }}
+                {{ $typeForm == 'create' ? 'Daftarkan rak baru dalam gudang' : 'Perbarui data rak: ' . ($data->code ?? '') }}
             </small>
         </div>
         <a href="{{ route('location.racks.index') }}" class="btn btn-sm btn-outline-secondary">
@@ -43,27 +43,27 @@
 
             <div class="card-body">
 
-                {{-- Zona --}}
+                {{-- Gudang --}}
                 <div class="form-group row mb-3">
                     <label class="col-sm-3 col-form-label" style="font-weight:600">
-                        Zona <span class="text-danger">*</span>
+                        Gudang <span class="text-danger">*</span>
                     </label>
                     <div class="col-sm-9">
                         <div class="input-group">
                             <div class="input-group-prepend">
                                 <span class="input-group-text" style="min-width:40px;"></span>
                             </div>
-                            <select name="zone_id"
-                                class="form-control @error('zone_id') is-invalid @enderror">
-                                <option value="">-- Pilih Zona --</option>
-                                @foreach ($zones as $zone)
-                                    <option value="{{ $zone->id }}"
-                                        {{ old('zone_id', $data->zone_id ?? '') == $zone->id ? 'selected' : '' }}>
-                                        [{{ $zone->warehouse->name ?? '-' }}] {{ $zone->code }} - {{ $zone->name }}
+                            <select name="warehouse_id"
+                                class="form-control @error('warehouse_id') is-invalid @enderror">
+                                <option value="">-- Pilih Gudang --</option>
+                                @foreach ($warehouses as $warehouse)
+                                    <option value="{{ $warehouse->id }}"
+                                        {{ old('warehouse_id', $data->warehouse_id ?? '') == $warehouse->id ? 'selected' : '' }}>
+                                        {{ $warehouse->name }}
                                     </option>
                                 @endforeach
                             </select>
-                            @error('zone_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            @error('warehouse_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
                 </div>
@@ -109,7 +109,7 @@
                                 maxlength="20">
                             @error('code')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-                        <small class="text-muted">Unik per zona, maks 20 karakter.</small>
+                        <small class="text-muted">Unik per gudang, maks 20 karakter.</small>
                     </div>
                 </div>
 
@@ -182,7 +182,7 @@
                 @if ($typeForm == 'edit')
                     <div class="alert alert-light border small text-muted mt-3 mb-0">
                         <i class="fas fa-info-circle mr-1"></i>
-                        Zona: {{ $data->zone->code ?? '-' }} |
+                        Gudang: {{ $data->warehouse->name ?? '-' }} |
                         Level: {{ $data->total_levels }} (A–{{ chr(64 + $data->total_levels) }}) |
                         Dibuat: {{ $data->created_at->format('d M Y') }}
                     </div>

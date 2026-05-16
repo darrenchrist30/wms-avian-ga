@@ -7,7 +7,6 @@ use App\Models\GaRecommendation;
 use App\Models\InboundOrder;
 use App\Models\InboundOrderItem;
 use App\Models\Item;
-use App\Models\Supplier;
 use App\Models\User;
 use App\Models\Warehouse;
 use App\Notifications\GaAcceptedNotification;
@@ -30,8 +29,7 @@ class InboundOrderController extends Controller
     public function index()
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
-        $suppliers  = \App\Models\Supplier::where('is_active', true)->orderBy('name')->get();
-        return view('inbound.orders.index', compact('warehouses', 'suppliers'));
+        return view('inbound.orders.index', compact('warehouses'));
     }
 
     public function datatable(Request $request)
@@ -89,13 +87,11 @@ class InboundOrderController extends Controller
     {
         $items      = Item::where('is_active', true)->with('unit')->orderBy('name')->get();
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
-        $suppliers  = \App\Models\Supplier::where('is_active', true)->orderBy('name')->get();
         return view('inbound.orders.form', [
             'typeForm'   => 'create',
             'data'       => null,
             'items'      => $items,
             'warehouses' => $warehouses,
-            'suppliers'  => $suppliers,
         ]);
     }
 
@@ -153,7 +149,6 @@ class InboundOrderController extends Controller
     {
         $order = InboundOrder::with([
             'warehouse',
-            'supplier',
             'receivedBy',
             'items.item.unit',
             'items.item.category',
@@ -178,13 +173,11 @@ class InboundOrderController extends Controller
         }
         $items      = Item::where('is_active', true)->with('unit')->orderBy('name')->get();
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
-        $suppliers  = \App\Models\Supplier::where('is_active', true)->orderBy('name')->get();
         return view('inbound.orders.form', [
             'typeForm'   => 'edit',
             'data'       => $order,
             'items'      => $items,
             'warehouses' => $warehouses,
-            'suppliers'  => $suppliers,
         ]);
     }
 

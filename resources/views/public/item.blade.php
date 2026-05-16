@@ -161,7 +161,7 @@
         } elseif ($cell?->rack) {
             $rackCode = $cell->rack->code;
         }
-        $warehouse = $cell?->rack?->zone?->warehouse?->name ?? $cell?->rack?->warehouse?->name ?? null;
+        $warehouse = $cell?->rack?->warehouse?->name ?? null;
     @endphp
     <div class="stock-card" style="border-left-color:{{ $item->category->color_code ?? '#28a745' }};">
         <div class="stock-card-body">

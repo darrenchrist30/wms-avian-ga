@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cell;
 use App\Models\ItemCategory;
 use App\Models\Rack;
-use App\Models\Zone;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\DataTables;
@@ -15,21 +15,21 @@ class RackController extends Controller
 {
     public function index()
     {
-        $zones = Zone::with('warehouse')->where('is_active', true)->orderBy('code')->get();
-        return view('location.racks.index', compact('zones'));
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
+        return view('location.racks.index', compact('warehouses'));
     }
 
     public function create()
     {
-        $zones      = Zone::with('warehouse')->where('is_active', true)->orderBy('code')->get();
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
         $categories = ItemCategory::where('is_active', true)->orderBy('name')->get();
-        return view('location.racks.form', ['typeForm' => 'create', 'data' => null, 'zones' => $zones, 'categories' => $categories]);
+        return view('location.racks.form', ['typeForm' => 'create', 'data' => null, 'warehouses' => $warehouses, 'categories' => $categories]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'zone_id'               => 'required|exists:zones,id',
+            'warehouse_id'          => 'required|exists:warehouses,id',
             'dominant_category_id'  => 'nullable|exists:item_categories,id',
             'code'                  => 'required|string|max:20',
             'name'                  => 'nullable|string|max:100',
@@ -39,15 +39,15 @@ class RackController extends Controller
             'rotation_y'            => 'nullable|numeric',
             'is_active'             => 'boolean',
         ]);
-        $exists = Rack::where('zone_id', $request->zone_id)
+        $exists = Rack::where('warehouse_id', $request->warehouse_id)
             ->where('code', strtoupper($request->code))->exists();
         if ($exists) {
-            return back()->withInput()->withErrors(['code' => 'Kode rak sudah digunakan di zona ini.']);
+            return back()->withInput()->withErrors(['code' => 'Kode rak sudah digunakan di gudang ini.']);
         }
         DB::beginTransaction();
         try {
             $rack = Rack::create([
-                'zone_id'              => $request->zone_id,
+                'warehouse_id'         => $request->warehouse_id,
                 'dominant_category_id' => $request->dominant_category_id,
                 'code'                 => strtoupper($request->code),
                 'name'                 => $request->name,
@@ -87,16 +87,16 @@ class RackController extends Controller
     public function edit($id)
     {
         $data       = Rack::withCount('cells')->findOrFail($id);
-        $zones      = Zone::with('warehouse')->where('is_active', true)->orderBy('code')->get();
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
         $categories = ItemCategory::where('is_active', true)->orderBy('name')->get();
-        return view('location.racks.form', ['typeForm' => 'edit', 'data' => $data, 'zones' => $zones, 'categories' => $categories]);
+        return view('location.racks.form', ['typeForm' => 'edit', 'data' => $data, 'warehouses' => $warehouses, 'categories' => $categories]);
     }
 
     public function update(Request $request, $id)
     {
         $rack = Rack::findOrFail($id);
         $request->validate([
-            'zone_id'              => 'required|exists:zones,id',
+            'warehouse_id'         => 'required|exists:warehouses,id',
             'dominant_category_id' => 'nullable|exists:item_categories,id',
             'code'                 => 'required|string|max:20',
             'name'                 => 'nullable|string|max:100',
@@ -105,16 +105,16 @@ class RackController extends Controller
             'rotation_y'           => 'nullable|numeric',
             'is_active'            => 'boolean',
         ]);
-        $exists = Rack::where('zone_id', $request->zone_id)
+        $exists = Rack::where('warehouse_id', $request->warehouse_id)
             ->where('code', strtoupper($request->code))
             ->where('id', '!=', $id)->exists();
         if ($exists) {
-            return back()->withInput()->withErrors(['code' => 'Kode rak sudah digunakan di zona ini.']);
+            return back()->withInput()->withErrors(['code' => 'Kode rak sudah digunakan di gudang ini.']);
         }
         DB::beginTransaction();
         try {
             $rack->update([
-                'zone_id'              => $request->zone_id,
+                'warehouse_id'         => $request->warehouse_id,
                 'dominant_category_id' => $request->dominant_category_id,
                 'code'                 => strtoupper($request->code),
                 'name'                 => $request->name,
@@ -154,9 +154,9 @@ class RackController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = Rack::with(['zone.warehouse', 'dominantCategory'])->withCount('cells');
-        if ($request->filled('zone_id')) {
-            $query->where('zone_id', $request->zone_id);
+        $query = Rack::with(['warehouse', 'dominantCategory'])->withCount('cells');
+        if ($request->filled('warehouse_id')) {
+            $query->where('warehouse_id', $request->warehouse_id);
         }
         if ($request->filled('status')) {
             $query->where('is_active', $request->status);
@@ -164,9 +164,8 @@ class RackController extends Controller
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('lokasi', function ($row) {
-                $wh   = $row->zone->warehouse->name ?? '-';
-                $zone = $row->zone->code ?? '-';
-                return '<small class="text-muted">' . e($wh) . ' / <span class="text-primary">' . e($zone) . '</span></small>';
+                $wh = $row->warehouse->name ?? '-';
+                return '<small class="text-muted">' . e($wh) . '</small>';
             })
             ->addColumn('kategori', function ($row) {
                 if (!$row->dominantCategory) return '<span class="text-muted">-</span>';

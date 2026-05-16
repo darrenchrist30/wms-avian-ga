@@ -15,7 +15,7 @@ class FifoPickingService
      */
     public function preview(int $itemId, int $warehouseId, int $requestedQty): array
     {
-        $stocks = Stock::with(['cell.rack.zone'])
+        $stocks = Stock::with(['cell.rack'])
             ->where('item_id', $itemId)
             ->where('warehouse_id', $warehouseId)
             ->where('status', 'available')
@@ -36,7 +36,7 @@ class FifoPickingService
                 'cell_id'      => $stock->cell_id,
                 'cell_code'    => $stock->cell?->code ?? '–',
                 'rack_code'    => $stock->cell?->rack?->code ?? '–',
-                'zone_code'    => $stock->cell?->rack?->zone?->code ?? '–',
+                'warehouse_name'=> $stock->cell?->rack?->warehouse?->name ?? '–',
                 'inbound_date' => $stock->inbound_date?->format('d M Y') ?? '–',
                 'lpn'          => $stock->lpn,
                 'available_qty'=> $stock->quantity,

@@ -854,7 +854,7 @@
                     <i class="fas fa-boxes kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($totalItems) }}</div>
                     <div class="kpi-label">Total SKU / Item</div>
-                    <div class="kpi-trend"><span class="up">▲ Aktif</span></div>
+                    <div class="kpi-trend"><span class="up">{{ number_format($mappedSku) }} tersimpan di denah gudang</span></div>
                 </div>
             </a>
         </div>
@@ -869,12 +869,12 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('inbound.orders.index') }}" class="kpi-link">
+            <a href="{{ route('inbound.orders.index', ['status' => '']) }}" class="kpi-link">
                 <div class="kpi-card kpi-teal">
                     <i class="fas fa-sign-in-alt kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($inboundToday) }}</div>
                     <div class="kpi-label">Inbound Hari Ini</div>
-                    <div class="kpi-trend"><span class="up">Surat jalan diterima</span></div>
+                    <div class="kpi-trend"><span class="up">Order masuk hari ini (semua status)</span></div>
                 </div>
             </a>
         </div>
@@ -899,12 +899,12 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('inbound.orders.index') }}" class="kpi-link">
+            <a href="{{ route('inbound.orders.index', ['status' => 'inbound']) }}" class="kpi-link">
                 <div class="kpi-card kpi-purple">
                     <i class="fas fa-clipboard-list kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($activeOrders) }}</div>
                     <div class="kpi-label">Order Inbound Aktif</div>
-                    <div class="kpi-trend"><span class="up">Sedang diproses</span></div>
+                    <div class="kpi-trend"><span class="up">Belum diproses GA / put-away</span></div>
                 </div>
             </a>
         </div>
@@ -1029,7 +1029,7 @@
                                 <tr style="cursor:pointer;" onclick="location.href='{{ $orderUrl }}'">
                                     <td>
                                         <strong class="text-primary">{{ $order['do_number'] }}</strong><br>
-                                        <small class="text-muted">{{ $order['supplier'] }}</small>
+                                        <small class="text-muted">{{ $order['warehouse'] }}</small>
                                     </td>
                                     <td><span class="badge badge-status badge-pending">{{ ucfirst(str_replace('_', ' ', $order['status'])) }}</span></td>
                                     <td class="text-right"><strong>{{ $order['age_days'] }}</strong></td>
@@ -1055,9 +1055,7 @@
                 </div>
                 <div class="panel-body">
                     @php
-                        $capacityUsedTotal = $zones->sum('used');
-                        $capacityMaxTotal = max(1, $zones->sum('max'));
-                        $capacityFreeTotal = max(0, $capacityMaxTotal - $capacityUsedTotal);
+                        // $capacityUsedTotal, $capacityMaxTotal, $capacityFreeTotal are from controller
                     @endphp
                     <div class="capacity-stats">
                         <div class="capacity-stat">
@@ -1148,7 +1146,7 @@
                     @php
                         $totalAlerts =
                             $lowStockAlerts->count() +
-                            $fullZones->count() +
+                            $fullRacks->count() +
                             ($nearExpiryItems > 0 ? 1 : 0) +
                             ($deadstockCount > 0 ? 1 : 0);
                     @endphp
@@ -1169,8 +1167,8 @@
                 </div>
                 <div class="panel-body" style="padding-top:8px;">
 
-                    {{-- Zona hampir penuh (≥ 85%) --}}
-                    @foreach ($fullZones as $fz)
+                    {{-- Rak hampir penuh (≥ 85%) --}}
+                    @foreach ($fullRacks as $fz)
                         <div class="alert-item">
                             <div class="alert-dot critical"></div>
                             <div>
@@ -1302,7 +1300,7 @@
                                             $daysStatic = $ds->days_since_last_movement;
                                             $threshold = $ds->item?->deadstock_threshold_days ?? 90;
                                             $overDays = $daysStatic - $threshold;
-                                            $zoneName = $ds->cell?->rack?->zone?->name ?? '–';
+                                            $zoneName = $ds->cell?->rack?->warehouse?->name ?? '–';
                                             $cellCode = $ds->cell?->code ?? '–';
                                         @endphp
                                         <tr>
@@ -1687,12 +1685,7 @@
             lang: { thousandsSep: '.' }
         });
 
-        // ── 1. Donut Utilisasi Zona ─────────────────────────────────────────────
-
-        @php
-            $capacityUsedTotal = $zones->sum('used');
-            $capacityFreeTotal = max(0, $zones->sum('max') - $capacityUsedTotal);
-        @endphp
+        // ── 1. Donut Utilisasi Gudang ───────────────────────────────────────────
         Highcharts.chart('chartZoneDonut', {
             chart: { type: 'pie', spacing: [0, 0, 0, 0] },
             tooltip: { pointFormat: '<b>{point.y:,.0f}</b> unit' },
@@ -1707,8 +1700,8 @@
             series: [{
                 name: 'Kapasitas',
                 data: [
-                    { name: 'Terpakai', y: {{ (int) $zones->sum('used') }}, color: '#0d8564' },
-                    { name: 'Kosong', y: {{ (int) max(0, $zones->sum('max') - $zones->sum('used')) }}, color: '#e5e7eb' }
+                    { name: 'Terpakai', y: {{ (int) $capacityUsedTotal }}, color: '#0d8564' },
+                    { name: 'Kosong', y: {{ (int) $capacityFreeTotal }}, color: '#e5e7eb' }
                 ]
             }]
         });

@@ -236,11 +236,11 @@ class ItemController extends Controller
         $locations = DB::table('stock_records as sr')
             ->join('cells as c', 'c.id', '=', 'sr.cell_id')
             ->join('racks as r', 'r.id', '=', 'c.rack_id')
-            ->join('zones as z', 'z.id', '=', 'r.zone_id')
+            ->join('warehouses as w', 'w.id', '=', 'r.warehouse_id')
             ->where('sr.item_id', $item->id)
             ->where('sr.status', 'available')
             ->where('sr.quantity', '>', 0)
-            ->select('c.code as cell_code', 'r.code as rack_code', 'z.name as zone_name', 'sr.quantity', 'sr.inbound_date', 'sr.expiry_date')
+            ->select('c.code as cell_code', 'r.code as rack_code', 'w.name as warehouse_name', 'sr.quantity', 'sr.inbound_date', 'sr.expiry_date')
             ->orderBy('sr.inbound_date', 'asc')
             ->limit(5)
             ->get();

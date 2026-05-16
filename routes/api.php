@@ -48,15 +48,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         | Sebaiknya dijadwalkan setiap malam atau saat ada perubahan di ERP.
         |
         | POST /api/v1/master/items/sync      — upsert item dari ERP
-        | POST /api/v1/master/suppliers/sync  — upsert supplier dari ERP
         |------------------------------------------------------------------
         */
         Route::prefix('master')->name('master.')->group(function () {
-            Route::post('items/sync',     [MasterSyncController::class, 'syncItems'])
+            Route::post('items/sync', [MasterSyncController::class, 'syncItems'])
                 ->name('items.sync');
-
-            Route::post('suppliers/sync', [MasterSyncController::class, 'syncSuppliers'])
-                ->name('suppliers.sync');
         });
 
         /*

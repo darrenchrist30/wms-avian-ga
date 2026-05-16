@@ -54,9 +54,6 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::get('units/datatable', [\App\Http\Controllers\Master\UnitController::class, 'datatable'])->name('units.datatable');
         Route::resource('units', \App\Http\Controllers\Master\UnitController::class);
 
-        Route::get('suppliers/datatable', [\App\Http\Controllers\Master\SupplierController::class, 'datatable'])->name('suppliers.datatable');
-        Route::resource('suppliers', \App\Http\Controllers\Master\SupplierController::class);
-
         Route::get('affinities/datatable', [\App\Http\Controllers\Master\ItemAffinityController::class, 'datatable'])->name('affinities.datatable');
         Route::get('affinities',           [\App\Http\Controllers\Master\ItemAffinityController::class, 'index'])->name('affinities.index');
 

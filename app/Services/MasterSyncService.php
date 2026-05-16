@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Item;
 use App\Models\ItemCategory;
-use App\Models\Supplier;
 use App\Models\Unit;
 use Illuminate\Support\Facades\Log;
 
@@ -192,95 +191,6 @@ class MasterSyncService
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // SUPPLIERS
-    // ═══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Sinkronisasi master data supplier dari ERP.
-     */
-    public function syncSuppliers(array $rows): array
-    {
-        $report = $this->emptyReport(count($rows));
-
-        foreach ($rows as $row) {
-            $result = $this->processOneSupplier($row);
-            $report[$result['status']]++;
-            $report['results'][] = $result;
-        }
-
-        Log::info('[MasterSync:Suppliers] Sync selesai', [
-            'total'   => $report['total_received'],
-            'created' => $report['created'],
-            'updated' => $report['updated'],
-            'skipped' => $report['skipped'],
-            'failed'  => $report['failed'],
-        ]);
-
-        return $report;
-    }
-
-    private function processOneSupplier(array $row): array
-    {
-        $erpVendorId = $row['erp_vendor_id'];
-
-        try {
-            $existing = Supplier::withTrashed()->where('erp_vendor_id', $erpVendorId)->first();
-
-            $attributes = array_filter([
-                'name'           => $row['name'],
-                'code'           => $row['code']           ?? $existing?->code ?? $erpVendorId,
-                'contact_person' => $row['contact_person'] ?? $existing?->contact_person,
-                'phone'          => $row['phone']          ?? $existing?->phone,
-                'email'          => $row['email']          ?? $existing?->email,
-                'address'        => $row['address']        ?? $existing?->address,
-                'is_active'      => $row['is_active']      ?? $existing?->is_active ?? true,
-            ], fn($v) => $v !== null);
-
-            if (!$existing) {
-                $supplier = Supplier::create(array_merge($attributes, ['erp_vendor_id' => $erpVendorId]));
-
-                return [
-                    'erp_vendor_id' => $erpVendorId,
-                    'status'        => 'created',
-                    'id'            => $supplier->id,
-                    'name'          => $supplier->name,
-                ];
-            }
-
-            $existing->fill($attributes);
-            $changes = array_keys($existing->getDirty());
-
-            if (empty($changes)) {
-                return [
-                    'erp_vendor_id' => $erpVendorId,
-                    'status'        => 'skipped',
-                    'id'            => $existing->id,
-                ];
-            }
-
-            $existing->save();
-
-            if ($existing->trashed() && ($row['is_active'] ?? true)) {
-                $existing->restore();
-            }
-
-            return [
-                'erp_vendor_id' => $erpVendorId,
-                'status'        => 'updated',
-                'id'            => $existing->id,
-                'changes'       => $changes,
-            ];
-
-        } catch (\Throwable $e) {
-            Log::error('[MasterSync:Suppliers] Error proses supplier', [
-                'erp_vendor_id' => $erpVendorId,
-                'error'         => $e->getMessage(),
-            ]);
-
-            return $this->failResult('supplier', $erpVendorId, 'Error sistem: ' . $e->getMessage());
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════════════
     // HELPERS
     // ═══════════════════════════════════════════════════════════════════════

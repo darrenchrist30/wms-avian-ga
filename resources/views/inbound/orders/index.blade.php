@@ -141,6 +141,12 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
+            // Pre-fill filter dari URL param ?status=
+            var urlStatus = new URLSearchParams(window.location.search).get('status');
+            if (urlStatus !== null) {
+                $('#filter-status').val(urlStatus);
+            }
+
             var baseURL      = "{{ route('inbound.orders.datatable') }}";
             var routeDestroy    = "{{ route('inbound.orders.destroy', ':id') }}";
             var routeBatchGa    = "{{ route('inbound.orders.batch-ga') }}";

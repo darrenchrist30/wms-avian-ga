@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Models\Warehouse;
-use App\Models\Zone;
 use App\Models\Rack;
 use App\Models\Cell;
 use App\Models\ItemCategory;
@@ -29,13 +28,13 @@ class WarehouseSeeder extends Seeder
             'is_active' => true,
         ]);
 
-        // ── Zona Gudang ────────────────────────────────────────────
-        // 3 zona: Fast Moving (rak 1–8), Slow Moving (rak 9–16), Heavy (rak 17–20)
+        // ── Rak Gudang ─────────────────────────────────────────────
+        // 20 rak: Fast Moving (rak 1–8), Slow Moving (rak 9–16), Heavy (rak 17–20)
         //
         // Distribusi kategori per rak (FC_CAT GA reference):
-        //   Zona A – Fast Moving  : Consumables(×2), Brake(×2), Electrical(×2), Fuel(×1), Accessories(×1)
-        //   Zona B – Slow Moving  : Engine(×2), Cooling(×2), Transmission(×1), Suspension(×1), Body&Frame(×1), Fuel(×1)
-        //   Zona C – Heavy        : Body&Frame(×1), Suspension(×1), Transmission(×1), Engine(×1)
+        //   Grup A (zone_category A) – Fast Moving  : Consumables(×2), Brake(×2), Electrical(×2), Fuel(×1), Accessories(×1)
+        //   Grup B (zone_category B) – Slow Moving  : Engine(×2), Cooling(×2), Transmission(×1), Suspension(×1), Body&Frame(×1), Fuel(×1)
+        //   Grup C (zone_category C) – Heavy        : Body&Frame(×1), Suspension(×1), Transmission(×1), Engine(×1)
         $zoneData = [
             [
                 'code'  => 'A',
@@ -84,16 +83,7 @@ class WarehouseSeeder extends Seeder
         ];
 
         foreach ($zoneData as $zd) {
-            $zone = Zone::create([
-                'warehouse_id' => $warehouse->id,
-                'code'         => $zd['code'],
-                'name'         => $zd['name'],
-                'pos_x'        => $zd['pos_x'],
-                'pos_z'        => $zd['pos_z'],
-                'is_active'    => true,
-            ]);
-
-            // Each zone has 2 rows: front (pos_z=0) and back (pos_z=2.4)
+            // Each group has 2 rows: front and back
             $racksPerRow = intdiv(count($zd['racks']), 2);
 
             foreach ($zd['racks'] as $i => $rackInfo) {
@@ -101,7 +91,6 @@ class WarehouseSeeder extends Seeder
                 $catId  = $cat[$rackInfo['cat']] ?? null;
 
                 $rack = Rack::create([
-                    'zone_id'              => $zone->id,
                     'warehouse_id'         => $warehouse->id,
                     'dominant_category_id' => $catId,
                     'code'                 => (string) $rackNo,

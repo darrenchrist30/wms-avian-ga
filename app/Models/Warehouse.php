@@ -14,9 +14,9 @@ class Warehouse extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
-    public function zones()
+    public function racks()
     {
-        return $this->hasMany(Zone::class);
+        return $this->hasMany(Rack::class);
     }
 
     public function inboundOrders()
@@ -24,20 +24,16 @@ class Warehouse extends Model
         return $this->hasMany(InboundOrder::class);
     }
 
-    // Total kapasitas seluruh cell dalam gudang
     public function getTotalCapacityAttribute(): int
     {
-        return $this->zones()->with('racks.cells')->get()
-            ->flatMap(fn($z) => $z->racks)
+        return $this->racks()->with('cells')->get()
             ->flatMap(fn($r) => $r->cells)
             ->sum('capacity_max');
     }
 
-    // Total kapasitas terpakai
     public function getUsedCapacityAttribute(): int
     {
-        return $this->zones()->with('racks.cells')->get()
-            ->flatMap(fn($z) => $z->racks)
+        return $this->racks()->with('cells')->get()
             ->flatMap(fn($r) => $r->cells)
             ->sum('capacity_used');
     }

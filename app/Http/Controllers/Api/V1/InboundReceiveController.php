@@ -119,8 +119,6 @@ class InboundReceiveController extends Controller
             'orders.*.do_number'        => ['required', 'string', 'max:100'],
             'orders.*.do_date'          => ['required', 'date_format:Y-m-d'],
             'orders.*.notes'            => ['nullable', 'string', 'max:1000'],
-            'orders.*.supplier_erp_id'  => ['nullable', 'string', 'max:100'],
-            'orders.*.supplier_code'    => ['nullable', 'string', 'max:50'],
             'orders.*.items'            => ['required', 'array', 'min:1', 'max:500'],
             'orders.*.items.*.sku'      => ['required', 'string', 'max:100'],
             'orders.*.items.*.quantity' => ['required', 'integer', 'min:1', 'max:999999'],
@@ -213,7 +211,7 @@ class InboundReceiveController extends Controller
     public function show(string $doNumber): JsonResponse
     {
         $transaction = InboundOrder::where('do_number', $doNumber)
-            ->with(['warehouse', 'supplier', 'items.item'])
+            ->with(['warehouse', 'items.item'])
             ->first();
 
         if (!$transaction) {
@@ -249,7 +247,7 @@ class InboundReceiveController extends Controller
     {
         $perPage = min((int) ($request->per_page ?? 20), 100);
 
-        $transactions = InboundOrder::with(['warehouse', 'supplier'])
+        $transactions = InboundOrder::with(['warehouse'])
             ->when(
                 $request->filled('status'),
                 fn($q) => $q->where('status', $request->status)

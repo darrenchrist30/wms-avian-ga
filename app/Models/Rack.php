@@ -11,7 +11,7 @@ class Rack extends Model
     use SoftDeletes, Auditable;
 
     protected $fillable = [
-        'zone_id', 'warehouse_id', 'dominant_category_id',
+        'warehouse_id', 'dominant_category_id',
         'code', 'name', 'rack_number',
         'total_levels', 'total_columns',
         'pos_x', 'pos_y', 'pos_z', 'rotation_y',
@@ -20,11 +20,6 @@ class Rack extends Model
     ];
 
     protected $casts = ['is_active' => 'boolean'];
-
-    public function zone()
-    {
-        return $this->belongsTo(Zone::class);
-    }
 
     public function warehouse()
     {

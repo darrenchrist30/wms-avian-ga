@@ -7,7 +7,7 @@ use App\Models\Cell;
 use App\Models\ItemCategory;
 use App\Models\Rack;
 use App\Models\Stock;
-use App\Models\Zone;
+use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
@@ -17,14 +17,14 @@ class CellController extends Controller
 {
     public function index()
     {
-        $zones = Zone::with('warehouse')->where('is_active', true)->orderBy('code')->get();
-        $racks = Rack::with('zone')->where('is_active', true)->orderBy('code')->get();
-        return view('location.cells.index', compact('zones', 'racks'));
+        $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
+        $racks      = Rack::where('is_active', true)->orderBy('code')->get();
+        return view('location.cells.index', compact('warehouses', 'racks'));
     }
 
     public function create()
     {
-        $racks      = Rack::with('zone.warehouse')->where('is_active', true)->orderBy('code')->get();
+        $racks      = Rack::with('warehouse')->where('is_active', true)->orderBy('code')->get();
         $categories = ItemCategory::where('is_active', true)->orderBy('name')->get();
         return view('location.cells.form', [
             'typeForm'   => 'create',
@@ -77,8 +77,8 @@ class CellController extends Controller
 
     public function edit($id)
     {
-        $data       = Cell::with('rack.zone.warehouse')->findOrFail($id);
-        $racks      = Rack::with('zone.warehouse')->where('is_active', true)->orderBy('code')->get();
+        $data       = Cell::with('rack.warehouse')->findOrFail($id);
+        $racks      = Rack::with('warehouse')->where('is_active', true)->orderBy('code')->get();
         $categories = ItemCategory::where('is_active', true)->orderBy('name')->get();
         return view('location.cells.form', [
             'typeForm'   => 'edit',
@@ -147,7 +147,7 @@ class CellController extends Controller
             return response()->json(['found' => false, 'message' => 'Kode tidak boleh kosong.']);
         }
 
-        $cell = Cell::with(['rack.zone.warehouse', 'dominantCategory'])
+        $cell = Cell::with(['rack.warehouse', 'dominantCategory'])
             ->where(function ($q) use ($code) {
                 $q->where('code', $code)
                   ->orWhere('qr_code', $code)
@@ -182,8 +182,7 @@ class CellController extends Controller
                 'code'          => $cell->code,
                 'label'         => $cell->label ?? $cell->code,
                 'rack'          => $cell->rack?->code ?? '—',
-                'zone'          => $cell->rack?->zone?->name ?? '—',
-                'warehouse'     => $cell->rack?->zone?->warehouse?->name ?? '—',
+                'warehouse'     => $cell->rack?->warehouse?->name ?? '—',
                 'level'         => chr(64 + $cell->level),
                 'status'        => $cell->status,
                 'capacity_max'  => $cell->capacity_max,
@@ -219,7 +218,7 @@ class CellController extends Controller
             return back()->with('error', 'Pilih rak terlebih dahulu.');
         }
 
-        $rack  = Rack::with('zone.warehouse')->findOrFail($rackId);
+        $rack  = Rack::with('warehouse')->findOrFail($rackId);
         $cells = Cell::where('rack_id', $rackId)
             ->where('is_active', true)
             ->orderBy('level')
@@ -243,7 +242,7 @@ class CellController extends Controller
     // ─── Print QR Label untuk Cell ───────────────────────────────────────────────
     public function qrLabel(Cell $cell)
     {
-        $cell->load(['rack.zone.warehouse', 'dominantCategory']);
+        $cell->load(['rack.warehouse', 'dominantCategory']);
 
         // Generate & simpan qr_code jika belum ada
         if (!$cell->qr_code) {
@@ -262,7 +261,7 @@ class CellController extends Controller
     public function stockDetail($id)
     {
         $cell = Cell::with([
-            'rack.zone.warehouse',
+            'rack.warehouse',
             'dominantCategory',
             'stocks.item.category',
             'stocks.item.unit',
@@ -272,10 +271,10 @@ class CellController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = Cell::with(['rack.zone.warehouse', 'dominantCategory'])->withCount('stocks');
+        $query = Cell::with(['rack.warehouse', 'dominantCategory'])->withCount('stocks');
 
-        if ($request->filled('zone_id')) {
-            $query->whereHas('rack.zone', fn($q) => $q->where('id', $request->zone_id));
+        if ($request->filled('warehouse_id')) {
+            $query->whereHas('rack', fn($q) => $q->where('warehouse_id', $request->warehouse_id));
         }
         if ($request->filled('rack_id')) {
             $query->where('rack_id', $request->rack_id);
@@ -288,10 +287,9 @@ class CellController extends Controller
             ->addIndexColumn()
             ->addColumn('level_label', fn($row) => chr(64 + $row->level))
             ->addColumn('lokasi', function ($row) {
-                $wh   = $row->rack->zone->warehouse->name ?? '-';
-                $zone = $row->rack->zone->code ?? '-';
+                $wh   = $row->rack->warehouse->name ?? '-';
                 $rack = $row->rack->code ?? '-';
-                return '<small class="text-muted">' . e($wh) . ' / <span class="text-primary">' . e($zone) . '</span> / <strong>' . e($rack) . '</strong></small>';
+                return '<small class="text-muted">' . e($wh) . ' / <strong>' . e($rack) . '</strong></small>';
             })
             ->addColumn('kapasitas', function ($row) {
                 $pct = $row->capacity_max > 0 ? round(($row->capacity_used / $row->capacity_max) * 100) : 0;

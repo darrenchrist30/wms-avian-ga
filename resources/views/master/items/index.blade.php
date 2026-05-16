@@ -76,7 +76,8 @@
                                     <th>SKU / Nama Sparepart</th>
                                     <th width="120">Kategori</th>
                                     <th width="80">Satuan</th>
-                                    <th width="100" class="text-center">Min / Max</th>
+                                    <th width="80" class="text-center">Min Order</th>
+                                    <th width="80" class="text-center">Max Order</th>
                                     <th width="80" class="text-center">Status</th>
                                 </tr>
                             </thead>
@@ -222,14 +223,18 @@
                         orderable: false
                     },
                     {
-                        data: null,
-                        name: 'min_max',
-                        orderable: false,
+                        data: 'min_stock',
+                        name: 'min_stock',
+                        orderable: true,
                         searchable: false,
-                        className: 'text-center',
-                        render: function(data) {
-                            return data.min_stock + ' / ' + data.max_stock;
-                        }
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'max_stock',
+                        name: 'max_stock',
+                        orderable: true,
+                        searchable: false,
+                        className: 'text-center'
                     },
                     {
                         data: 'status_badge',

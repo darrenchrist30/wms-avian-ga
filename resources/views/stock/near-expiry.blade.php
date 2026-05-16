@@ -111,8 +111,8 @@
                         </td>
                         <td>
                             <strong>{{ $s->cell?->code ?? '—' }}</strong>
-                            @if($s->cell?->rack?->zone)
-                                <br><small class="text-muted">{{ $s->cell->rack->zone->name }}</small>
+                            @if($s->cell?->rack?->warehouse)
+                                <br><small class="text-muted">{{ $s->cell->rack->warehouse->name }}</small>
                             @endif
                         </td>
                         <td class="text-center font-weight-bold">

@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\ItemSyncRequest;
-use App\Http\Requests\Api\V1\SupplierSyncRequest;
 use App\Services\MasterSyncService;
 use Illuminate\Http\JsonResponse;
 
@@ -70,41 +69,6 @@ class MasterSyncController extends Controller
         }
     }
 
-    // ───────────────────────────────────────────────────────────────────────
-    // POST /api/v1/master/suppliers/sync
-    // ───────────────────────────────────────────────────────────────────────
-    /**
-     * Sinkronisasi master data supplier dari ERP.
-     * Behavior sama dengan syncItems — upsert berdasarkan erp_vendor_id.
-     */
-    public function syncSuppliers(SupplierSyncRequest $request): JsonResponse
-    {
-        try {
-            $report  = $this->service->syncSuppliers($request->validated()['suppliers']);
-            $hasFail = $report['failed'] > 0;
-
-            return response()->json([
-                'success'      => true,
-                'message'      => $this->buildSupplierMessage($report),
-                'report'       => [
-                    'total_received' => $report['total_received'],
-                    'created'        => $report['created'],
-                    'updated'        => $report['updated'],
-                    'skipped'        => $report['skipped'],
-                    'failed'         => $report['failed'],
-                ],
-                'results'      => $report['results'],
-                'has_failures' => $hasFail,
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Sync gagal: ' . $e->getMessage(),
-            ], 500);
-        }
-    }
-
     // ── Helpers ─────────────────────────────────────────────────────────────
 
     private function buildItemMessage(array $r): string
@@ -120,16 +84,4 @@ class MasterSyncController extends Controller
             : 'Sync selesai: ' . implode(', ', $parts) . '.';
     }
 
-    private function buildSupplierMessage(array $r): string
-    {
-        $parts = [];
-        if ($r['created'] > 0) $parts[] = "{$r['created']} supplier baru ditambahkan";
-        if ($r['updated'] > 0) $parts[] = "{$r['updated']} supplier diperbarui";
-        if ($r['skipped'] > 0) $parts[] = "{$r['skipped']} supplier tidak berubah";
-        if ($r['failed']  > 0) $parts[] = "{$r['failed']} supplier gagal (periksa 'results')";
-
-        return empty($parts)
-            ? 'Tidak ada supplier yang diproses.'
-            : 'Sync selesai: ' . implode(', ', $parts) . '.';
-    }
 }

@@ -141,11 +141,7 @@
     <div class="cell-location-row">
         <div class="loc-item">
             <div class="loc-label">Gudang</div>
-            <div class="loc-val">{{ $cell->rack?->zone?->warehouse?->name ?? '—' }}</div>
-        </div>
-        <div class="loc-item">
-            <div class="loc-label">Zona</div>
-            <div class="loc-val">{{ $cell->rack?->zone?->code ?? '—' }}</div>
+            <div class="loc-val">{{ $cell->rack?->warehouse?->name ?? '—' }}</div>
         </div>
         <div class="loc-item">
             <div class="loc-label">Rak</div>

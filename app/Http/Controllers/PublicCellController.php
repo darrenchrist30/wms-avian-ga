@@ -18,7 +18,7 @@ class PublicCellController extends Controller
 
         $cell = Cell::where('is_active', true)
             ->where(fn($q) => $q->where('code', $code)->orWhere('qr_code', $code)->orWhere('label', $code))
-            ->with(['rack.zone.warehouse', 'dominantCategory'])
+            ->with(['rack.warehouse', 'dominantCategory'])
             ->first();
 
         if (!$cell) {
@@ -29,7 +29,7 @@ class PublicCellController extends Controller
                 ->first();
 
             if ($item) {
-                $itemStocks = Stock::with(['cell.rack.zone.warehouse'])
+                $itemStocks = Stock::with(['cell.rack.warehouse'])
                     ->where('item_id', $item->id)
                     ->where('status', 'available')
                     ->where('quantity', '>', 0)
@@ -69,7 +69,7 @@ class PublicCellController extends Controller
                 $rackBlok = $parts[0];
                 $rackGrup = strtoupper($parts[1]);
 
-                $rackCells = Cell::with(['dominantCategory', 'rack.zone.warehouse'])
+                $rackCells = Cell::with(['dominantCategory', 'rack.warehouse'])
                     ->where('is_active', true)
                     ->where('blok', $rackBlok)
                     ->whereRaw('UPPER(grup) = ?', [$rackGrup])
@@ -79,9 +79,7 @@ class PublicCellController extends Controller
 
                 if ($rackCells->isNotEmpty()) {
                     $rackCode      = $rackBlok . '-' . $rackGrup;
-                    $warehouseName = $rackCells->first()->rack?->zone?->warehouse?->name
-                                  ?? $rackCells->first()->rack?->warehouse?->name
-                                  ?? '—';
+                    $warehouseName = $rackCells->first()->rack?->warehouse?->name ?? '—';
 
                     if ($request->expectsJson()) {
                         return response()->json([
@@ -133,8 +131,7 @@ class PublicCellController extends Controller
                     'zone_category'    => $cell->zone_category,
                     'capacity_max'     => $cell->capacity_max,
                     'capacity_used'    => $cell->capacity_used,
-                    'warehouse'        => $cell->rack?->zone?->warehouse?->name ?? '—',
-                    'zone'             => $cell->rack?->zone?->code ?? '—',
+                    'warehouse'        => $cell->rack?->warehouse?->name ?? '—',
                     'rack'             => $cell->rack?->code ?? '—',
                     'level'            => $cell->level,
                     'dominant_category'=> $cell->dominantCategory?->name,

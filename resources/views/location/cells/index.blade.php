@@ -41,12 +41,12 @@
                             <div class="row m-2 filter collapse mb-3">
                                 <div class="col-sm-12 col-md-4">
                                     <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Zona</label>
+                                        <label class="col-sm-4 col-form-label small font-weight-bold">Gudang</label>
                                         <div class="col-sm-8">
-                                            <select class="form-control form-control-sm" id="filter-zone">
-                                                <option value="">Semua Zona</option>
-                                                @foreach ($zones as $zone)
-                                                    <option value="{{ $zone->id }}">{{ $zone->code }} - {{ $zone->name }}</option>
+                                            <select class="form-control form-control-sm" id="filter-warehouse">
+                                                <option value="">Semua Gudang</option>
+                                                @foreach ($warehouses as $warehouse)
+                                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -119,9 +119,9 @@
                 ajax: {
                     url: baseURL,
                     data: function(d) {
-                        d.zone_id = $('#filter-zone').val();
-                        d.rack_id = $('#filter-rack').val();
-                        d.status  = $('#filter-status').val();
+                        d.warehouse_id = $('#filter-warehouse').val();
+                        d.rack_id      = $('#filter-rack').val();
+                        d.status       = $('#filter-status').val();
                     },
                     type: 'GET'
                 },
@@ -154,11 +154,11 @@
             });
 
             $('.btnRefresh').on('click', function() {
-                $('#filter-zone, #filter-rack, #filter-status').val('');
+                $('#filter-warehouse, #filter-rack, #filter-status').val('');
                 table.ajax.reload();
             });
 
-            $('#filter-zone, #filter-rack, #filter-status').on('change', function() {
+            $('#filter-warehouse, #filter-rack, #filter-status').on('change', function() {
                 table.ajax.reload();
             });
 

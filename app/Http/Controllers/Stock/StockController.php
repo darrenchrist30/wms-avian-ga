@@ -165,7 +165,7 @@ class StockController extends Controller
             return $this->itemMovementsDatatable($item);
         }
 
-        $stocks = Stock::with(['cell.rack.zone', 'warehouse'])
+        $stocks = Stock::with(['cell.rack', 'warehouse'])
             ->where('item_id', $item->id)
             ->where('status', 'available')
             ->where('quantity', '>', 0)
@@ -194,7 +194,7 @@ class StockController extends Controller
     private function itemMovementsDatatable(Item $item)
     {
         $query = StockMovement::with([
-                'fromCell.rack.zone', 'toCell.rack.zone',
+                'fromCell.rack', 'toCell.rack',
                 'performedBy', 'warehouse',
             ])
             ->where('item_id', $item->id)
@@ -262,7 +262,7 @@ class StockController extends Controller
     {
         $query = StockMovement::with([
                 'item.unit', 'item.category',
-                'fromCell.rack.zone', 'toCell.rack.zone',
+                'fromCell.rack', 'toCell.rack',
                 'performedBy', 'warehouse',
             ])
             ->when($request->filled('type'),
@@ -373,7 +373,7 @@ class StockController extends Controller
         $days = (int) ($request->days ?? 30);
         $days = in_array($days, [7, 30, 60, 90]) ? $days : 30;
 
-        $stocks = Stock::with(['item.category', 'item.unit', 'cell.rack.zone', 'warehouse'])
+        $stocks = Stock::with(['item.category', 'item.unit', 'cell.rack', 'warehouse'])
             ->available()
             ->whereNotNull('expiry_date')
             ->where('quantity', '>', 0)
@@ -413,7 +413,7 @@ class StockController extends Controller
         ]);
 
         $stock  = Stock::with(['cell', 'item', 'warehouse'])->findOrFail($validated['stock_id']);
-        $toCell = Cell::with('rack.zone')->findOrFail($validated['to_cell_id']);
+        $toCell = Cell::with('rack')->findOrFail($validated['to_cell_id']);
         $qty    = (int) $validated['quantity'];
 
         if ($stock->status !== 'available') {
@@ -462,7 +462,7 @@ class StockController extends Controller
                     Stock::create([
                         'item_id'               => $itemId,
                         'cell_id'               => $toCell->id,
-                        'warehouse_id'          => $toCell->rack->zone->warehouse_id ?? $warehouseId,
+                        'warehouse_id'          => $toCell->rack->warehouse_id ?? $warehouseId,
                         'inbound_order_item_id' => $stock->inbound_order_item_id,
                         'lpn'                   => $stock->lpn,
                         'batch_no'              => $stock->batch_no,

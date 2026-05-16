@@ -35,21 +35,20 @@ class Warehouse3DController extends Controller
         // Summary utilisasi
         $summary = null;
         if ($selectedWarehouse) {
+            $wid = $selectedWarehouse->id;
+            $totalCells = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->count();
+            $usedCells  = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->where('capacity_used', '>', 0)->count();
+
             $summary = [
-                'total_racks' => Rack::where('warehouse_id', $selectedWarehouse->id)->where('is_active', true)->count(),
-                'total_cells' => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))->where('is_active', true)->count(),
-                'used_cells'  => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
-                                    ->where('is_active', true)
-                                    ->where('capacity_used', '>', 0)->count(),
-                'full_cells'  => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
-                                    ->where('is_active', true)
-                                    ->where('status', 'full')->count(),
-                'blocked_cells' => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $selectedWarehouse->id))
-                                    ->where('is_active', true)
-                                    ->where('status', 'blocked')->count(),
+                'total_racks'   => Rack::where('warehouse_id', $wid)->where('is_active', true)->count(),
+                'total_cells'   => $totalCells,
+                'total_sku'     => Stock::where('warehouse_id', $wid)->where('status', 'available')->distinct('item_id')->count('item_id'),
+                'used_cells'    => $usedCells,
+                'full_cells'    => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->where('status', 'full')->count(),
+                'blocked_cells' => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->where('status', 'blocked')->count(),
             ];
-            $summary['utilization'] = $summary['total_cells'] > 0
-                ? round(($summary['used_cells'] / $summary['total_cells']) * 100, 1) : 0;
+            $summary['utilization'] = $totalCells > 0
+                ? round(($usedCells / $totalCells) * 100, 1) : 0;
         }
 
         return view('warehouse3d.index', compact('warehouses', 'selectedWarehouse', 'summary', 'highlightCellId'));
