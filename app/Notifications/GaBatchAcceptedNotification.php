@@ -31,7 +31,7 @@ class GaBatchAcceptedNotification extends Notification
             'color'   => 'warning',
             'title'   => 'GA Selesai — Siap Put-Away',
             'message' => "{$this->count} DO sudah diproses GA oleh <strong>{$this->acceptedBy}</strong> dan siap put-away.",
-            'url'     => route('putaway.queue'),
+            'url'     => route('putaway.queue', [], false),
         ];
     }
 }

@@ -127,11 +127,6 @@
                                 <td><code>/api/v1/master/items/sync</code></td>
                                 <td>Sinkronisasi item dari ERP</td>
                             </tr>
-                            <tr>
-                                <td><span class="badge badge-warning text-dark">POST</span></td>
-                                <td><code>/api/v1/master/suppliers/sync</code></td>
-                                <td>Sinkronisasi supplier dari ERP</td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>

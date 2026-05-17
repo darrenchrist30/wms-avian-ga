@@ -117,7 +117,12 @@ class Cell extends Model
     public function getUtilizationPercentAttribute(): float
     {
         if ($this->capacity_max === 0) return 0;
-        return round($this->capacity_used / $this->capacity_max * 100, 1);
+
+        $used = $this->isMspartCell()
+            ? $this->physical_capacity_used
+            : $this->capacity_used;
+
+        return round($used / $this->capacity_max * 100, 1);
     }
 
     // Otomatis update status berdasarkan kapasitas
@@ -125,13 +130,29 @@ class Cell extends Model
     {
         if ($this->status === 'blocked' || $this->status === 'reserved') return;
 
-        if ($this->capacity_used === 0) {
+        $used = $this->isMspartCell()
+            ? $this->physical_capacity_used
+            : (int) $this->capacity_used;
+
+        if ($this->isMspartCell() && (int) $this->capacity_used !== $used) {
+            $this->capacity_used = $used;
+        }
+
+        if ($used === 0) {
             $this->status = 'available';
-        } elseif ($this->capacity_used >= $this->capacity_max) {
+        } elseif ($used >= (int) $this->capacity_max) {
             $this->status = 'full';
         } else {
             $this->status = 'partial';
         }
         $this->save();
+    }
+
+    private function isMspartCell(): bool
+    {
+        return $this->blok !== null
+            && $this->grup !== null
+            && $this->kolom !== null
+            && $this->baris !== null;
     }
 }

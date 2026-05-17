@@ -29,7 +29,7 @@ class QtyConfirmedNotification extends Notification
             'title'     => 'Qty Fisik Dikonfirmasi — Siap Proses GA',
             'message'   => "DO <strong>{$this->order->do_number}</strong> — qty fisik sudah dikonfirmasi oleh "
                          . "<strong>{$this->confirmedBy}</strong>. Siap dijalankan Genetic Algorithm.",
-            'url'       => route('inbound.orders.show', $this->order->id),
+            'url'       => route('inbound.orders.show', $this->order->id, false),
             'order_id'  => $this->order->id,
             'do_number' => $this->order->do_number,
         ];

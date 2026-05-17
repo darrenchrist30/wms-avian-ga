@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\InboundOrder;
 use App\Models\InboundOrderItem;
 use App\Models\Item;
-use App\Models\Supplier;
 use App\Models\Warehouse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -14,7 +13,7 @@ use Illuminate\Support\Facades\Log;
  * Service: InboundReceiveService
  *
  * Bertanggung jawab memproses data inbound yang masuk dari ERP:
- *   1. Resolve warehouse & supplier dari kode/ID ERP
+ *   1. Resolve warehouse dari kode ERP
  *   2. Idempotency check — DO yang sama tidak boleh dibuat dua kali
  *   3. Resolve tiap item dari erp_item_code atau sku
  *   4. Simpan inbound_transactions + inbound_details dalam satu DB transaction
@@ -47,20 +46,6 @@ class InboundReceiveService
             );
         }
 
-        // ── 2. Resolve Supplier (opsional) ──────────────────────────────────
-        // Coba erp_vendor_id dulu (lebih akurat), fallback ke supplier code.
-        $supplier = null;
-        if (!empty($data['supplier_erp_id'])) {
-            $supplier = Supplier::where('erp_vendor_id', $data['supplier_erp_id'])
-                ->where('is_active', true)
-                ->first();
-        }
-        if (!$supplier && !empty($data['supplier_code'])) {
-            $supplier = Supplier::where('code', $data['supplier_code'])
-                ->where('is_active', true)
-                ->first();
-        }
-
         // ── 3. Idempotency Check ────────────────────────────────────────────
         // Jika DO number sudah ada (termasuk yang di-soft-delete), kembalikan data existing.
         // Ini mencegah duplikasi jika ERP mengirim ulang karena timeout/retry.
@@ -75,7 +60,7 @@ class InboundReceiveService
             ]);
 
             return [
-                'transaction'    => $existing->load('items.item', 'warehouse', 'supplier'),
+                'transaction'    => $existing->load('items.item', 'warehouse'),
                 'is_new'         => false,
                 'unmatched_items'=> [],
             ];
@@ -121,12 +106,11 @@ class InboundReceiveService
         // Seluruh proses simpan dibungkus dalam satu DB transaction.
         // Jika ada error di tengah (mis. FK violation), semua rollback otomatis.
         $inbound = DB::transaction(function () use (
-            $data, $warehouse, $supplier, $resolvedLines
+            $data, $warehouse, $resolvedLines
         ) {
             // Buat header transaksi inbound
             $inbound = InboundOrder::create([
                 'warehouse_id'  => $warehouse->id,
-                'supplier_id'   => $supplier?->id,
                 'do_number'     => $data['do_number'],
                 'do_date'       => $data['do_date'],
                 'notes'         => $data['notes'] ?? null,
@@ -150,13 +134,12 @@ class InboundReceiveService
         });
 
         // Eager load relasi setelah simpan
-        $inbound->load('items.item', 'warehouse', 'supplier');
+        $inbound->load('items.item', 'warehouse');
 
         Log::info('[InboundReceive] DO baru berhasil diterima dari ERP', [
             'do_number'       => $data['do_number'],
             'transaction_id'  => $inbound->id,
             'warehouse'       => $warehouse->code,
-            'supplier'        => $supplier?->code ?? 'N/A',
             'total_resolved'  => count($resolvedLines),
             'total_unmatched' => count($unmatchedLines),
         ]);

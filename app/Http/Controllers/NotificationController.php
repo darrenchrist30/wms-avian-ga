@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\InboundOrder;
-use Illuminate\Http\Request;
-use Illuminate\Notifications\DatabaseNotification;
 
 class NotificationController extends Controller
 {
@@ -25,7 +23,7 @@ class NotificationController extends Controller
                 'color'      => $n->data['color']      ?? 'secondary',
                 'title'      => $n->data['title']      ?? 'Notifikasi',
                 'message'    => $n->data['message']    ?? '',
-                'url'        => $n->data['url']        ?? '#',
+                'url'        => $this->normalizeNotificationUrl($n->data['url'] ?? '#'),
                 'is_read'    => !is_null($n->read_at),
                 'created_at' => $n->created_at->diffForHumans(),
             ]);
@@ -57,6 +55,35 @@ class NotificationController extends Controller
             ->count();
 
         return $counts;
+    }
+
+    private function normalizeNotificationUrl(string $url): string
+    {
+        if ($url === '' || $url === '#') {
+            return '#';
+        }
+
+        $parts = parse_url($url);
+        $path = $parts['path'] ?? $url;
+
+        if (!empty($parts['query'])) {
+            $path .= '?' . $parts['query'];
+        }
+
+        if (!empty($parts['fragment'])) {
+            $path .= '#' . $parts['fragment'];
+        }
+
+        if (!str_starts_with($path, '/')) {
+            $path = '/' . ltrim($path, '/');
+        }
+
+        $baseUrl = rtrim(request()->getBaseUrl(), '/');
+        if ($baseUrl !== '' && !str_starts_with($path, $baseUrl . '/')) {
+            $path = $baseUrl . $path;
+        }
+
+        return $path;
     }
 
     // POST /notifications/{id}/read — tandai satu notifikasi sudah dibaca

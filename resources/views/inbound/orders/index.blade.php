@@ -18,7 +18,7 @@
                             </div>
                             <div class="d-flex align-items-center flex-wrap" style="gap:6px;">
                                 {{-- Batch GA button --}}
-                                <button id="btnBatchGa" class="btn btn-sm btn-success" disabled
+                                <button id="btnBatchGa" class="btn btn-primary btn-sm" disabled
                                     title="Pilih order terlebih dahulu">
                                     <i class="fas fa-dna mr-1"></i>
                                     Run GA Batch
@@ -32,7 +32,7 @@
                                     <button class="btn btn-sm btn-outline-dark btnRefresh">
                                         <i class="fas fa-redo mr-2"></i>Refresh
                                     </button>
-                                    <a href="{{ route('inbound.orders.create') }}" class="btn btn-sm btn-outline-dark">
+                                    <a href="{{ route('inbound.orders.create') }}" class="btn btn-primary btn-sm">
                                         <i class="fas fa-plus mr-2"></i>Add
                                     </a>
                                 </div>

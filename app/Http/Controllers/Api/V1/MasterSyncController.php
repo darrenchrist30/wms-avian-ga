@@ -10,12 +10,10 @@ use Illuminate\Http\JsonResponse;
 /**
  * Controller: MasterSyncController
  *
- * Endpoint sinkronisasi master data dari ERP ke WMS.
- * Dipanggil oleh ERP saat ada item/supplier baru atau perubahan data.
+ * Endpoint sinkronisasi master data item dari ERP ke WMS.
  *
  * Endpoint:
  *   POST /api/v1/master/items/sync      — sync item dari ERP
- *   POST /api/v1/master/suppliers/sync  — sync supplier dari ERP
  */
 class MasterSyncController extends Controller
 {

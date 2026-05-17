@@ -17,7 +17,7 @@
                                 <i class="fas fa-border-all mr-1"></i> Daftar Sel
                             </div>
                             <div class="d-flex" style="gap:6px;">
-                                <a href="#" id="btnBulkQr" class="btn btn-sm btn-outline-success"
+                                <a href="#" id="btnBulkQr" class="btn btn-primary btn-sm"
                                    title="Pilih rak di filter lalu klik untuk cetak semua label QR sekaligus">
                                     <i class="fas fa-layer-group mr-1"></i>Cetak Label Rak
                                 </a>
@@ -29,7 +29,7 @@
                                     <button class="btn btn-sm btn-outline-dark btnRefresh">
                                         <i class="fas fa-redo mr-2"></i>Refresh
                                     </button>
-                                    <a href="{{ route('location.cells.create') }}" class="btn btn-sm btn-outline-dark">
+                                    <a href="{{ route('location.cells.create') }}" class="btn btn-primary btn-sm">
                                         <i class="fas fa-plus mr-2"></i>Add
                                     </a>
                                 </div>

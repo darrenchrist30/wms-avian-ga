@@ -95,8 +95,8 @@
                     </div>
 
                     <div class="mt-3 text-muted small">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Label ukuran 6×9 cm — cocok untuk label rak gudang
+                        {{-- <i class="fas fa-info-circle mr-1"></i>
+                        Label ukuran 6×9 cm — cocok untuk label rak gudang --}}
                     </div>
                 </div>
             </div>

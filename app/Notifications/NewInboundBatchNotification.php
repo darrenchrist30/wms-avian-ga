@@ -31,7 +31,7 @@ class NewInboundBatchNotification extends Notification
             'color'   => 'primary',
             'title'   => 'Inbound Baru Masuk',
             'message' => "{$count} DO baru masuk dari ERP — menunggu proses GA.",
-            'url'     => route('inbound.orders.index') . '?status=inbound',
+            'url'     => route('inbound.orders.index', ['status' => 'inbound'], false),
         ];
     }
 }

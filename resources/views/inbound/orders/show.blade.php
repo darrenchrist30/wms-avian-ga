@@ -716,9 +716,9 @@
 
 @if ($latestGa)
 @push('scripts')
-<script src="https://code.highcharts.com/highcharts.js"></script>
-<script src="https://code.highcharts.com/highcharts-more.js"></script>
-<script src="https://code.highcharts.com/modules/solid-gauge.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.4.8/highcharts.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.4.8/highcharts-more.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.4.8/modules/solid-gauge.js"></script>
 <script>
 (function () {
     const score = {{ round((float)($latestGa->fitness_score ?? 0), 1) }};

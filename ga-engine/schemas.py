@@ -80,10 +80,10 @@ class GeneResult(BaseModel):
     cell_id:           int
     quantity:          int
     gene_fitness:      float   # total per-gen (maks 100)
-    fc_cap:            float   # komponen kapasitas (maks 40)
-    fc_cat:            float   # komponen kategori/zona (maks 30)
+    fc_cap:            float   # komponen kapasitas (maks 35)
+    fc_cat:            float   # komponen kategori/zona (maks 25)
     fc_aff:            float   # komponen afinitas (maks 20)
-    fc_split:          float   # komponen anti-split (maks 10)
+    fc_split:          float   # komponen anti-split (maks 20)
 
 
 class GAResponse(BaseModel):

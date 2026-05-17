@@ -77,7 +77,10 @@
                 Semua item dari {{ $totalOrders }} DO yang siap ditempatkan, terbaru di atas.
             </p>
         </div>
-        <div class="col-auto">
+        <div class="col-auto d-flex" style="gap:8px;">
+            <button type="button" id="btnBatchScan" class="btn btn-sm btn-outline-success">
+                <i class="fas fa-layer-group mr-1"></i> Scan Cell Batch
+            </button>
             <a href="{{ route('putaway.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="fas fa-list mr-1"></i> Lihat per DO
             </a>
@@ -88,28 +91,28 @@
     <div class="row mb-3" id="summaryRow">
         <div class="col-6 col-md-3">
             <div class="info-box shadow-sm mb-2">
-                <span class="info-box-icon bg-warning"><i class="fas fa-boxes"></i></span>
+                <span class="info-box-icon bg-primary"><i class="fas fa-file-alt"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">Total Item</span>
-                    <span class="info-box-number" id="statTotal">{{ $items->count() }}</span>
+                    <span class="info-box-text">Total DO</span>
+                    <span class="info-box-number">{{ $activeDOs + $completedDOs }}</span>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="info-box shadow-sm mb-2">
-                <span class="info-box-icon bg-success"><i class="fas fa-check"></i></span>
+                <span class="info-box-icon bg-success"><i class="fas fa-check-double"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">Selesai</span>
-                    <span class="info-box-number" id="statDone">0</span>
+                    <span class="info-box-text">DO Selesai</span>
+                    <span class="info-box-number" id="statDone">{{ $completedDOs }}</span>
                 </div>
             </div>
         </div>
         <div class="col-6 col-md-3">
             <div class="info-box shadow-sm mb-2">
-                <span class="info-box-icon bg-primary"><i class="fas fa-truck-loading"></i></span>
+                <span class="info-box-icon bg-warning"><i class="fas fa-spinner"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">DO Terlibat</span>
-                    <span class="info-box-number">{{ $totalOrders }}</span>
+                    <span class="info-box-text">DO Aktif</span>
+                    <span class="info-box-number" id="statActive">{{ $activeDOs }}</span>
                 </div>
             </div>
         </div>
@@ -117,7 +120,7 @@
             <div class="info-box shadow-sm mb-2">
                 <span class="info-box-icon bg-info"><i class="fas fa-percent"></i></span>
                 <div class="info-box-content">
-                    <span class="info-box-text">Progress</span>
+                    <span class="info-box-text">Progress DO</span>
                     <span class="info-box-number" id="statPct">0%</span>
                 </div>
             </div>
@@ -139,7 +142,7 @@
                 <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
                 <p class="mb-0 font-weight-bold">Semua item sudah di-put-away!</p>
                 <p class="small">Tidak ada item yang menunggu penempatan.</p>
-                <a href="{{ route('putaway.index') }}" class="btn btn-sm btn-outline-primary mt-2">Lihat Riwayat</a>
+                <a href="{{ route('putaway.index', ['status' => 'completed']) }}" class="btn btn-sm btn-outline-primary mt-2">Lihat Riwayat</a>
             </div>
         </div>
     @else
@@ -237,6 +240,7 @@
                                 <td class="text-center align-middle" style="white-space:nowrap">
                                     <button class="btn btn-xs btn-success btnConfirm"
                                             data-order-id="{{ $order->id }}"
+                                            data-do-number="{{ $order->do_number }}"
                                             data-detail-id="{{ $detail->inboundOrderItem->id }}"
                                             data-ga-detail-id="{{ $detail->id }}"
                                             data-row-id="{{ $rowId }}"
@@ -252,6 +256,7 @@
                                     </button>
                                     <button class="btn btn-xs btn-warning text-dark btnOverride"
                                             data-order-id="{{ $order->id }}"
+                                            data-do-number="{{ $order->do_number }}"
                                             data-detail-id="{{ $detail->inboundOrderItem->id }}"
                                             data-ga-detail-id="{{ $detail->id }}"
                                             data-row-id="{{ $rowId }}"
@@ -513,16 +518,199 @@
         </div>
     </div>
 
+    {{-- ══════════════════════════════════════════════════════
+         MODAL BATCH SCAN — Scan cell sekali, konfirmasi semua item
+    ══════════════════════════════════════════════════════ --}}
+    <div class="modal fade" id="modalBatch" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="border-radius:12px;overflow:hidden;border:none;position:relative">
+
+                {{-- Saving overlay --}}
+                <div id="batchSavingOverlay" style="display:none;position:absolute;inset:0;
+                     background:rgba(255,255,255,.92);z-index:200;
+                     display:none;align-items:center;justify-content:center;flex-direction:column;gap:6px;border-radius:12px">
+                    <div style="background:#fff;border-radius:10px;padding:2.2em 3em;text-align:center;
+                                box-shadow:0 0 0 1px rgba(0,0,0,.06),0 8px 28px rgba(0,0,0,.18);min-width:260px">
+                        <div style="font-size:1.4em;font-weight:600;color:#545454;margin-bottom:14px">Menyimpan…</div>
+                        <i class="fas fa-circle-notch fa-spin" style="font-size:2.4em;color:#0d8564"></i>
+                    </div>
+                </div>
+
+                {{-- Header --}}
+                <div class="modal-header py-2 px-3" style="background:linear-gradient(135deg,#0d8564,#1a9e78)">
+                    <div>
+                        <h6 class="modal-title text-white mb-0">
+                            <i class="fas fa-layer-group mr-1"></i> Scan Rak — Batch Put-Away
+                        </h6>
+                        {{-- <small class="text-white" style="opacity:.8;font-size:11px">
+                            Scan QR satu cell → semua item yang direkomendasikan GA ke cell itu akan dikonfirmasi sekaligus
+                        </small> --}}
+                    </div>
+                    <button type="button" class="close text-white" data-dismiss="modal">&times;</button>
+                </div>
+
+                <div class="modal-body p-0">
+
+                    {{-- ── PHASE 1: SCAN ── --}}
+                    <div id="batchPhaseScan" class="px-3 py-3">
+
+                        {{-- Camera viewport --}}
+                        <div id="batchCameraSection" style="display:none" class="mb-3">
+                            <div id="batchCameraViewport" style="position:relative;border-radius:10px;overflow:hidden;background:#000;min-height:200px">
+                                <div id="batchQrReader"></div>
+                                <div id="batchScanLine" style="position:absolute;left:8%;width:84%;height:2px;
+                                     background:linear-gradient(90deg,transparent,#0d8564 40%,#38c172,#0d8564 60%,transparent);
+                                     animation:scanMove 2s ease-in-out infinite;z-index:10;pointer-events:none"></div>
+                                <div id="batchScanSuccess" style="display:none;position:absolute;inset:0;
+                                     background:rgba(13,133,100,.38);align-items:center;justify-content:center;
+                                     z-index:12;border-radius:10px">
+                                    <i class="fas fa-check-circle" style="color:#fff;font-size:52px"></i>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center mt-2" style="gap:6px">
+                                <select id="batchCameraSelect" class="form-control form-control-sm" style="flex:1;font-size:12px"></select>
+                                <button type="button" id="btnBatchCloseCamera" class="btn btn-sm btn-outline-danger" style="flex-shrink:0">
+                                    <i class="fas fa-times mr-1"></i>Tutup
+                                </button>
+                            </div>
+                            <div id="batchCameraStatus" class="text-center mt-1" style="font-size:11px;color:#6c757d">
+                                <i class="fas fa-circle-notch fa-spin mr-1"></i>Mengaktifkan kamera…
+                            </div>
+                        </div>
+
+                        <button type="button" id="btnBatchOpenCamera" class="btn btn-block mb-3"
+                            style="background:#1a2332;color:#fff;border:none;border-radius:8px;
+                                   padding:11px 16px;font-size:14px;font-weight:600;
+                                   box-shadow:0 3px 10px rgba(0,0,0,.18)">
+                            <i class="fas fa-camera mr-2"></i>Scan dengan Kamera
+                            <span style="font-size:10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:10px;margin-left:6px">
+                                QR &amp; Barcode 1D/2D
+                            </span>
+                        </button>
+
+                        <div class="d-flex align-items-center mb-3">
+                            <hr style="flex:1;margin:0">
+                            <span class="text-muted px-2" style="font-size:11px">atau ketik kode manual</span>
+                            <hr style="flex:1;margin:0">
+                        </div>
+
+                        <div class="input-group mb-2" style="box-shadow:0 2px 8px rgba(0,0,0,.08)">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text" style="background:#1a2332;border-color:#1a2332">
+                                    <i class="fas fa-qrcode text-white" style="font-size:16px"></i>
+                                </span>
+                            </div>
+                            <input type="text" id="batchQrInput" class="form-control"
+                                placeholder="Scan pistol / ketik kode cell…" autocomplete="off"
+                                style="font-size:16px;font-weight:600;letter-spacing:.5px">
+                            <div class="input-group-append">
+                                <button class="btn" type="button" id="btnBatchSearch"
+                                    style="background:#0d8564;color:#fff;border-color:#0d8564;font-size:13px">
+                                    <i class="fas fa-search mr-1"></i>Cari
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="batchScanLoading" class="text-center py-2" style="display:none">
+                            <i class="fas fa-spinner fa-spin text-primary mr-1"></i>
+                            <small class="text-muted">Mencari item untuk cell ini…</small>
+                        </div>
+                    </div>
+
+                    {{-- ── PHASE 2: RESULTS ── --}}
+                    <div id="batchPhaseResult" style="display:none">
+
+                        {{-- Cell result banner --}}
+                        <div class="px-3 pt-3 pb-2">
+                            <div class="d-flex align-items-center justify-content-between p-3 rounded"
+                                 style="border:2px solid #0d8564;background:#f0fff4">
+                                <div>
+                                    <div style="font-size:26px;font-weight:800;letter-spacing:1px;color:#0d8564;line-height:1"
+                                         id="batchResultCellCode">—</div>
+                                    <div class="text-muted mt-1" style="font-size:12px" id="batchResultCellMeta"></div>
+                                </div>
+                                <div class="text-right">
+                                    <div id="batchResultCount" style="font-size:28px;font-weight:900;color:#1a2332;line-height:1">0</div>
+                                    <div class="text-muted" style="font-size:11px">item ditemukan</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Items list --}}
+                        <div class="px-3 pb-1">
+                            <div class="table-responsive" style="max-height:280px;overflow-y:auto">
+                                <table class="table table-sm table-bordered mb-0" id="batchItemsTable">
+                                    <thead class="thead-light" style="position:sticky;top:0">
+                                        <tr>
+                                            <th width="30" class="text-center">#</th>
+                                            <th>Item / SKU</th>
+                                            <th width="110">No. SJ</th>
+                                            <th width="60" class="text-center">Qty</th>
+                                            <th width="55" class="text-center">Satuan</th>
+                                            <th width="80" class="text-center">Sel GA</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="batchItemsTbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {{-- Notes --}}
+                        <div class="px-3 pb-2 pt-1">
+                            <input type="text" id="batchNotes" class="form-control form-control-sm"
+                                placeholder="Catatan opsional untuk semua item…">
+                        </div>
+
+                        {{-- Scan again --}}
+                        <div class="px-3 pb-3">
+                            <button type="button" id="btnBatchRescan" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-redo mr-1"></i>Scan cell lain
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- Empty state --}}
+                    <div id="batchPhaseEmpty" style="display:none" class="text-center py-4 px-3">
+                        <i class="fas fa-check-circle fa-3x text-success mb-2 d-block"></i>
+                        <div class="font-weight-bold" id="batchEmptyCellCode" style="font-size:20px;color:#0d8564"></div>
+                        <p class="text-muted mt-1 mb-2">Tidak ada item pending untuk cell ini.</p>
+                        <button type="button" id="btnBatchRescan2" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-redo mr-1"></i>Scan cell lain
+                        </button>
+                    </div>
+
+                </div>
+
+                {{-- Footer --}}
+                <div class="modal-footer py-2 px-3 justify-content-between">
+                    <button type="button" class="btn btn-secondary btn-sm" data-dismiss="modal">
+                        <i class="fas fa-times mr-1"></i>Batal
+                    </button>
+                    <button type="button" id="btnDoBatchConfirm" class="btn btn-success btn-sm" style="display:none;">
+                        <i class="fas fa-check mr-1"></i>
+                        <span id="btnBatchConfirmLabel">Konfirmasi Semua</span>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
 </div>
 @endsection
 
 @push('scripts')
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
-const TOTAL      = {{ $items->count() }};
-const scanQrUrl  = "{{ route('putaway.scan-qr') }}";
-const csrfToken  = $('meta[name="csrf-token"]').attr('content');
-let   done       = 0;
+const DO_TOTAL         = {{ $activeDOs + $completedDOs }};
+const scanQrUrl        = "{{ route('putaway.scan-qr') }}";
+const batchScanUrl     = "{{ route('putaway.batch-scan') }}";
+const batchConfirmUrl  = "{{ route('putaway.batch-confirm') }}";
+const confirmUrlTpl    = "{{ route('putaway.confirm', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
+const overrideUrlTpl   = "{{ route('putaway.override', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
+const csrfToken        = $('meta[name="csrf-token"]').attr('content');
+let   doSelesai  = {{ $completedDOs }};
+let   doAktif    = {{ $activeDOs }};
 let   queueTable = null;
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -536,8 +724,12 @@ let modalGaCell      = null;
 let modalQty         = 0;
 let modalUnitLabel   = 'unit';
 let qtyEditing       = false;
+let modalItemName    = '';
+let modalDoNumber    = '';
 
 $(function() {
+    updateStats();
+
     if ($('#datatable').length) {
         queueTable = $('#datatable').DataTable({
             responsive: true,
@@ -552,10 +744,42 @@ $(function() {
 });
 
 function updateStats() {
-    $('#statDone').text(done);
-    const pct = TOTAL > 0 ? Math.round(done / TOTAL * 100) : 0;
+    $('#statDone').text(doSelesai);
+    $('#statActive').text(doAktif);
+    const pct = DO_TOTAL > 0 ? Math.round(doSelesai / DO_TOTAL * 100) : 0;
     $('#statPct').text(pct + '%');
     $('#progressBar').css('width', pct + '%');
+}
+
+function fmtNumber(value) {
+    return Number(value || 0).toLocaleString('id-ID');
+}
+
+function slotDemand(cell) {
+    return cell?.item_stock?.will_merge ? 0 : 1;
+}
+
+function itemStockInfoHtml(cell) {
+    const stock = cell?.item_stock;
+    if (!stock || !stock.will_merge) return '';
+
+    const current = Number(stock.current_qty || 0);
+    const after = current + Number(modalQty || 0);
+    const unit = stock.unit || modalUnitLabel || 'unit';
+    const maxStock = Number(stock.max_stock || 0);
+    const maxText = maxStock > 0 ? ' / ' + fmtNumber(maxStock) : '';
+
+    return '<p class="mb-0 text-muted" style="font-size:13px">' +
+        'SKU sudah ada di cell ini. Stok: <strong>' + fmtNumber(current) + '</strong> ' + unit +
+        ' &rarr; <strong>' + fmtNumber(after) + maxText + '</strong> ' + unit +
+        '. Tidak memakai slot baru.</p>';
+}
+
+function slotCapacityInfoHtml(cell) {
+    return '<p class="mb-1 text-muted" style="font-size:13px">Slot kosong: ' +
+        '<strong>' + (cell.capacity_remaining || 0) + '</strong> / ' +
+        '<strong>' + (cell.capacity_max || 0) + '</strong> cell</p>' +
+        itemStockInfoHtml(cell);
 }
 
 // ── Helper: tampilkan Phase 1 ─────────────────────────────────────────────────
@@ -601,23 +825,17 @@ function showConfirmPhase(cell) {
 
     const rem = cell.capacity_remaining || 0;
     const max = cell.capacity_max || 0;
+    const demand = slotDemand(cell);
     let capOk = true;
 
     if (max > 0) {
         const usedPct = Math.min(100, Math.round((max - rem) / max * 100));
-        $('#resultCapInfo').text('Sisa kapasitas: ' + rem + ' / ' + max + ' unit');
+        $('#resultCapInfo').html(slotCapacityInfoHtml(cell));
         $('#resultCapBarUsed').css('width', usedPct + '%');
         $('#resultCapBar').show();
 
-        if (rem <= 0) {
+        if (rem < demand) {
             $('#resultCapWarningText').text('Cell ini penuh — scan cell lain yang cukup kapasitasnya.');
-            $('#resultCapWarning').show();
-            capOk = false;
-        } else if (modalQty > rem) {
-            $('#resultCapWarningText').html(
-                'Kapasitas tidak cukup: butuh <strong>' + modalQty + '</strong> unit, tersedia <strong>' + rem +
-                '</strong> unit. Scan atau pilih cell lain yang muat.'
-            );
             $('#resultCapWarning').show();
             capOk = false;
         } else {
@@ -671,8 +889,8 @@ const MIN_LOADER_MS = 800;
 
 function doSaveConfirm(cellId, qty, notes, cellCode) {
     const url = isOverride
-        ? `/putaway/${currentOrderId}/items/${currentDetailId}/override`
-        : `/putaway/${currentOrderId}/items/${currentDetailId}/confirm`;
+        ? overrideUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId)
+        : confirmUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId);
 
     const overlayStart = Date.now();
     $('#modalSavingOverlay').show();
@@ -714,7 +932,10 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
                     });
                 }, 800);
 
-                done++;
+                if (res.progress && res.progress.is_complete) {
+                    doSelesai++;
+                    doAktif = Math.max(0, doAktif - 1);
+                }
                 updateStats();
 
                 if (done === TOTAL) {
@@ -724,7 +945,7 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
                             title: 'Semua item selesai!',
                             text: 'Seluruh item dalam queue sudah di-put-away.',
                             confirmButtonText: 'Lihat Riwayat',
-                        }).then(() => window.location.href = '{{ route("putaway.index") }}');
+                        }).then(() => window.location.href = '{{ route("putaway.index", ["status" => "completed"]) }}');
                     }, 1000);
                 } else {
                     Swal.fire({
@@ -757,6 +978,88 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
     });
 }
 
+// ── Tampilkan hasil scan QR (inline, gaya batch) ─────────────────────────────
+function showScanResultSwal(cell, matchesGa, capOk) {
+    modalCell = cell;
+    $('#modalConfirm').data('cell-id', cell.id);
+    qtyEditing = false;
+
+    let borderColor, bgColor, textColor, badgeHtml;
+    if (isOverride) {
+        borderColor = '#fd7e14'; bgColor = '#fff8f0'; textColor = '#fd7e14';
+        badgeHtml = '<span class="badge badge-warning text-dark" style="font-size:11px">'
+                  + '<i class="fas fa-exclamation-triangle mr-1"></i>Override Lokasi</span>';
+    } else if (matchesGa) {
+        borderColor = '#0d8564'; bgColor = '#f0fff4'; textColor = '#0d8564';
+        badgeHtml = '<span class="badge badge-success" style="font-size:11px">'
+                  + '<i class="fas fa-check-circle mr-1"></i>Sesuai GA</span>';
+    } else {
+        borderColor = '#6c757d'; bgColor = '#f8f9fa'; textColor = '#6c757d';
+        badgeHtml = '<span class="badge badge-secondary" style="font-size:11px">Sel Manual</span>';
+    }
+
+    const rackMeta   = cell.rack_code ? 'Rak ' + cell.rack_code : '';
+    const gaCellCode = modalGaCell ? modalGaCell.code : '—';
+    const notesVal   = isOverride ? '[OVERRIDE] ' : '';
+
+    const warnRow = !capOk
+        ? '<tr><td colspan="6" class="p-0"><div class="alert alert-danger py-1 px-2 mb-0 rounded-0" style="font-size:12px">'
+          + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan cell lain yang memiliki slot kosong.</div></td></tr>'
+        : '';
+
+    const html =
+        '<div class="px-3 pt-3 pb-2">'
+        + '<div class="d-flex align-items-center justify-content-between p-3 rounded"'
+        + ' style="border:2px solid ' + borderColor + ';background:' + bgColor + '">'
+        + '<div>'
+        + '<div style="font-size:26px;font-weight:800;letter-spacing:1px;color:' + textColor + ';line-height:1">' + cell.code + '</div>'
+        + '<div class="text-muted mt-1" style="font-size:12px">' + rackMeta + '</div>'
+        + '</div>'
+        + '<div class="text-right">' + badgeHtml + '</div>'
+        + '</div></div>'
+        + '<div class="px-3 pb-1">'
+        + '<div class="table-responsive" style="max-height:200px;overflow-y:auto">'
+        + '<table class="table table-sm table-bordered mb-0">'
+        + '<thead class="thead-light" style="position:sticky;top:0"><tr>'
+        + '<th width="30" class="text-center">#</th><th>Item</th><th width="110">No. SJ</th>'
+        + '<th width="60" class="text-center">Qty</th><th width="55" class="text-center">Satuan</th>'
+        + '<th width="80" class="text-center">Sel GA</th>'
+        + '</tr></thead><tbody>'
+        + warnRow
+        + '<tr>'
+        + '<td class="text-center align-middle text-muted small">1</td>'
+        + '<td class="align-middle" style="font-size:12px;line-height:1.3"><strong>' + (modalItemName || '—') + '</strong></td>'
+        + '<td class="align-middle" style="font-size:12px">' + (modalDoNumber || '—') + '</td>'
+        + '<td class="text-center font-weight-bold align-middle">' + modalQty + '</td>'
+        + '<td class="text-center align-middle"><small class="text-muted">' + modalUnitLabel + '</small></td>'
+        + '<td class="text-center align-middle"><span class="badge badge-primary px-2" style="font-size:11px">' + gaCellCode + '</span></td>'
+        + '</tr></tbody></table></div></div>'
+        + '<div class="px-3 pb-2 pt-1">'
+        + '<input type="text" id="confirmNotes" class="form-control form-control-sm"'
+        + ' placeholder="Catatan opsional…" value="' + notesVal.replace(/"/g, '&quot;') + '">'
+        + '</div>'
+        + '<div class="px-3 pb-3">'
+        + '<button type="button" id="btnRescan" class="btn btn-sm btn-outline-secondary">'
+        + '<i class="fas fa-redo mr-1"></i>Scan cell lain</button>'
+        + '</div>';
+
+    $('#phaseConfirm').html(html);
+    $('#phaseScan').hide();
+    $('#phaseConfirm').show();
+
+    if (capOk) {
+        $('#btnDoConfirm')
+            .prop('disabled', false)
+            .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi 1 Item (' + modalQty + ' ' + modalUnitLabel + ')')
+            .show();
+    } else {
+        $('#btnDoConfirm')
+            .prop('disabled', true)
+            .html('<i class="fas fa-times-circle mr-1"></i>Kapasitas tidak cukup — scan cell lain')
+            .show();
+    }
+}
+
 // ── Scan QR di dalam modal — Smart routing ───────────────────────────────────
 function doModalScanQr(code) {
     if (!code) return;
@@ -767,7 +1070,13 @@ function doModalScanQr(code) {
     $.ajax({
         url: scanQrUrl,
         method: 'POST',
-        data: { _token: csrfToken, qr_code: code, ga_cell_id: (!isOverride && modalGaCell) ? modalGaCell.id : null },
+        data: {
+            _token:      csrfToken,
+            qr_code:     code,
+            ga_cell_id:  modalGaCell ? modalGaCell.id : null,
+            is_override: isOverride ? 1 : 0,
+            detail_id:   currentDetailId
+        },
         success: function(res) {
             const c    = res.cell;
             const cell = {
@@ -776,12 +1085,13 @@ function doModalScanQr(code) {
                 rack_code:          c.rack_code,
                 capacity_remaining: c.capacity_remaining,
                 capacity_max:       c.capacity_max,
+                item_stock:         c.item_stock || null,
                 source:             'scan',
             };
 
             const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
             const diffFromGa = !isOverride && modalGaCell && (cell.id != modalGaCell.id);
-            const capOk      = cell.capacity_remaining >= modalQty && modalQty > 0;
+            const capOk      = cell.capacity_remaining >= slotDemand(cell) && modalQty > 0;
 
             if (diffFromGa) {
                 $('#scanLoading').hide();
@@ -799,37 +1109,10 @@ function doModalScanQr(code) {
                     confirmButtonColor: '#dc3545',
                 }).then(() => { $('#modalQrInput').val('').focus(); });
 
-            } else if (matchesGa && capOk) {
+            } else {
                 $('#scanLoading').hide();
                 $('#modalQrInput').prop('disabled', false);
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Konfirmasi Penempatan',
-                    html:
-                        '<p>Cell <strong>' + cell.code + '</strong> ' +
-                        '<span class="badge badge-success" style="font-size:12px">' +
-                        '<i class="fas fa-check-circle mr-1"></i>Sesuai rekomendasi GA</span></p>' +
-                        '<p>Qty: <strong>' + modalQty + ' ' + modalUnitLabel + '</strong></p>' +
-                        '<p class="mb-0 text-muted" style="font-size:13px">Sisa kapasitas: ' +
-                        cell.capacity_remaining + ' / ' + cell.capacity_max + ' cell</p>',
-                    showCancelButton: true,
-                    confirmButtonText: '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan',
-                    cancelButtonText: 'Batal',
-                    confirmButtonColor: '#28a745',
-                    cancelButtonColor: '#6c757d',
-                }).then(function(result) {
-                    if (result.isConfirmed) {
-                        modalCell = cell;
-                        $('#modalConfirm').data('cell-id', cell.id);
-                        doSaveConfirm(cell.id, modalQty, '', cell.code);
-                    } else {
-                        $('#modalQrInput').val('').focus();
-                    }
-                });
-
-            } else {
-                modalCell = cell;
-                showConfirmPhase(cell);
+                showScanResultSwal(cell, matchesGa, capOk);
             }
         },
         error: function(xhr) {
@@ -854,13 +1137,13 @@ $('#modalQrInput').on('keydown', function(e) {
     if (e.key === 'Enter') { doModalScanQr($(this).val().trim()); e.preventDefault(); }
 });
 
-$('#btnRescan').on('click', showScanPhase);
+$(document).on('click', '#btnRescan', showScanPhase);
 
 $('#modalConfirm').on('shown.bs.modal', function() { $('#modalQrInput').focus(); });
 
 // ── Buka modal ────────────────────────────────────────────────────────────────
 function openConfirmModal(orderId, detailId, gaDetailId, rowId, itemName, qty, unitLabel, gaCell, gaCellId,
-                          gaCapRemain, gaCapMax, overrideMode) {
+                          gaCapRemain, gaCapMax, overrideMode, doNumber = '') {
     currentOrderId    = orderId;
     currentDetailId   = detailId;
     currentGaDetailId = overrideMode ? null : (gaDetailId || null);
@@ -868,6 +1151,8 @@ function openConfirmModal(orderId, detailId, gaDetailId, rowId, itemName, qty, u
     isOverride        = !!overrideMode;
     modalQty          = qty;
     modalUnitLabel    = unitLabel || 'unit';
+    modalItemName     = itemName || '';
+    modalDoNumber     = doNumber || '';
     modalCell         = null;
 
     modalGaCell = gaCellId ? {
@@ -905,7 +1190,8 @@ $(document).on('click', '.btnConfirm', function() {
         b.data('ga-cell-id'),
         parseInt(b.data('cap-remaining')) || 0,
         parseInt(b.data('cap-max')) || 0,
-        false
+        false,
+        b.data('do-number') || ''
     );
 });
 
@@ -923,41 +1209,27 @@ $(document).on('click', '.btnOverride', function() {
         b.data('ga-cell-id') || '',
         parseInt(b.data('cap-remaining')) || 0,
         parseInt(b.data('cap-max')) || 0,
-        true
+        true,
+        b.data('do-number') || ''
     );
 });
 
-// ── Tombol "Konfirmasi Sekarang" (Phase 2) ───────────────────────────────────
+// ── Tombol "Konfirmasi 1 Item" (Phase 2) ─────────────────────────────────────
 $('#btnDoConfirm').on('click', function() {
     const cellId = $('#modalConfirm').data('cell-id');
-    const qty    = qtyEditing
-        ? (parseInt($('#confirmQty').val()) || 0)
-        : (parseInt($('#qtyDisplay').text()) || 0);
-    const notes  = $('#confirmNotes').val();
+    const notes  = $('#confirmNotes').val() || '';
 
     if (!cellId) {
         Swal.fire('Cell Belum Dipilih', 'Scan QR cell terlebih dahulu.', 'warning');
         return;
     }
-    if (!qty || qty < 1) {
+    if (!modalQty || modalQty < 1) {
         Swal.fire('Error', 'Jumlah harus minimal 1.', 'error');
         return;
     }
 
-    const cellCode = modalCell?.code || cellId;
-    Swal.fire({
-        title: 'Konfirmasi Penempatan?',
-        html:  'Simpan item ke cell <strong>' + cellCode + '</strong><br>Jumlah: <strong>' + qty + ' ' + modalUnitLabel + '</strong>',
-        icon:  'question',
-        showCancelButton:   true,
-        confirmButtonColor: '#28a745',
-        cancelButtonColor:  '#6c757d',
-        confirmButtonText:  '<i class="fas fa-check-circle mr-1"></i> Ya, Simpan',
-        cancelButtonText:   'Batal',
-        reverseButtons:     true
-    }).then(function(result) {
-        if (result.isConfirmed) doSaveConfirm(cellId, qty, notes, cellCode);
-    });
+    const cellCode = modalCell?.code || String(cellId);
+    doSaveConfirm(cellId, modalQty, notes, cellCode);
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1097,6 +1369,261 @@ $('#btnTorch').on('click', async function() {
 $('#modalConfirm').on('hide.bs.modal', function() {
     stopCamera();
     $('#modalSavingOverlay').hide();
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  BATCH SCAN LOGIC
+// ══════════════════════════════════════════════════════════════════════════════
+let batchItems       = [];
+let batchCellId      = null;
+let batchCellCode    = '';
+let batchQrScanner   = null;
+let batchCamActive   = false;
+
+function batchShowScan() {
+    $('#batchPhaseScan').show();
+    $('#batchPhaseResult').hide();
+    $('#batchPhaseEmpty').hide();
+    $('#btnDoBatchConfirm').hide();
+    $('#batchScanLoading').hide();
+    $('#batchQrInput').val('').prop('disabled', false).focus();
+}
+
+function batchShowResult(res) {
+    batchItems    = res.items;
+    batchCellCode = res.display_code;
+
+    $('#batchResultCellCode').text(res.display_code);
+    $('#batchResultCellMeta').text('Rak ' + res.display_rack);
+    $('#batchResultCount').text(res.items.length);
+
+    const tbody = $('#batchItemsTbody').empty();
+    res.items.forEach(function(item, i) {
+        tbody.append(
+            '<tr>' +
+            '<td class="text-center text-muted">' + (i + 1) + '</td>' +
+            '<td><div class="font-weight-bold" style="font-size:13px">' + $('<span>').text(item.item_name).html() + '</div>' +
+            '<small class="text-muted">' + $('<span>').text(item.item_sku).html() + '</small></td>' +
+            '<td style="font-size:12px;font-weight:600;color:#0056b3">' + $('<span>').text(item.do_number).html() + '</td>' +
+            '<td class="text-center font-weight-bold">' + item.quantity + '</td>' +
+            '<td class="text-center text-muted">' + $('<span>').text(item.unit).html() + '</td>' +
+            '<td class="text-center"><span class="badge badge-primary px-1" style="font-size:10px">' + $('<span>').text(item.cell_code).html() + '</span></td>' +
+            '</tr>'
+        );
+    });
+
+    const totalQty = res.items.reduce(function(s, it) { return s + it.quantity; }, 0);
+    $('#btnBatchConfirmLabel').text('Konfirmasi ' + res.items.length + ' Item (' + totalQty + ' unit)');
+
+    $('#batchPhaseScan').hide();
+    $('#batchPhaseResult').show();
+    $('#batchPhaseEmpty').hide();
+    $('#btnDoBatchConfirm').show();
+    $('#batchNotes').val('');
+}
+
+function batchShowEmpty(cellCode) {
+    $('#batchPhaseScan').hide();
+    $('#batchPhaseResult').hide();
+    $('#batchPhaseEmpty').show();
+    $('#btnDoBatchConfirm').hide();
+    $('#batchEmptyCellCode').text(cellCode);
+}
+
+function doBatchScan(qrCode) {
+    if (!qrCode) return;
+    $('#batchQrInput').prop('disabled', true);
+    $('#batchScanLoading').show();
+
+    $.ajax({
+        url: batchScanUrl,
+        method: 'GET',
+        data: { qr_code: qrCode },
+        success: function(res) {
+            if (res.status === 'found') {
+                batchShowResult(res);
+            } else {
+                batchShowEmpty(res.display_code ?? qrCode);
+            }
+        },
+        error: function(xhr) {
+            Swal.fire({
+                icon: 'error', toast: true, position: 'top-end',
+                showConfirmButton: false, timer: 3000,
+                title: xhr.responseJSON?.message || 'Cell tidak ditemukan.'
+            });
+        },
+        complete: function() {
+            $('#batchScanLoading').hide();
+            $('#batchQrInput').prop('disabled', false);
+        }
+    });
+}
+
+$('#btnBatchSearch').on('click', function() { doBatchScan($('#batchQrInput').val().trim()); });
+$('#batchQrInput').on('keydown', function(e) {
+    if (e.key === 'Enter') { doBatchScan($(this).val().trim()); e.preventDefault(); }
+});
+$('#btnBatchRescan,  #btnBatchRescan2').on('click', function() {
+    stopBatchCamera();
+    batchShowScan();
+});
+
+// ── Batch confirm ─────────────────────────────────────────────────────────────
+$('#btnDoBatchConfirm').on('click', function() {
+    if (!batchItems.length) return;
+
+    const totalQty = batchItems.reduce(function(s, it) { return s + it.quantity; }, 0);
+    Swal.fire({
+        title: 'Konfirmasi Batch?',
+        html:  'Simpan <strong>' + batchItems.length + ' item (' + totalQty + ' unit)</strong> dari rak <strong>' + batchCellCode + '</strong> ke sel GA masing-masing.',
+        icon:  'question',
+        showCancelButton: true,
+        confirmButtonColor: '#0d8564',
+        cancelButtonColor:  '#6c757d',
+        confirmButtonText:  '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan Semua',
+        cancelButtonText:   'Batal',
+        reverseButtons: true
+    }).then(function(result) {
+        if (!result.isConfirmed) return;
+
+        $('#batchSavingOverlay').css('display', 'flex');
+        $('#btnDoBatchConfirm').prop('disabled', true)
+            .html('<i class="fas fa-circle-notch fa-spin mr-2"></i>Menyimpan…');
+
+        $.ajax({
+            url:         batchConfirmUrl,
+            method:      'POST',
+            contentType: 'application/json',
+            headers:     { 'X-CSRF-TOKEN': csrfToken },
+            data: JSON.stringify({
+                items: batchItems,
+                notes: $('#batchNotes').val() || '',
+            }),
+            success: function(res) {
+                if (res.status !== 'success') return;
+
+                setTimeout(function() {
+                    $('#modalBatch').modal('hide');
+
+                    // Remove confirmed rows from the DataTable
+                    batchItems.forEach(function(item) {
+                        const $row = $('#' + item.row_id);
+                        $row.addClass('row-save-flash');
+                        setTimeout(function() {
+                            $row.fadeOut(400, function() {
+                                if (queueTable) {
+                                    queueTable.row(this).remove().draw(false);
+                                } else {
+                                    $(this).remove();
+                                }
+                            });
+                        }, 600);
+                    });
+
+                    if (res.orders_completed > 0) {
+                        doSelesai += res.orders_completed;
+                        doAktif = Math.max(0, doAktif - res.orders_completed);
+                    }
+                    updateStats();
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Batch Berhasil!',
+                        html:  res.message,
+                        timer: 2500,
+                        timerProgressBar: true,
+                        showConfirmButton: false,
+                    });
+                }, 600);
+            },
+            error: function(xhr) {
+                $('#batchSavingOverlay').hide();
+                $('#btnDoBatchConfirm').prop('disabled', false)
+                    .html('<i class="fas fa-check-circle mr-2"></i><span id="btnBatchConfirmLabel">Konfirmasi Semua</span>');
+                Swal.fire('Gagal', xhr.responseJSON?.message || 'Terjadi kesalahan server.', 'error');
+            }
+        });
+    });
+});
+
+// ── Batch open/close ──────────────────────────────────────────────────────────
+$('#btnBatchScan').on('click', function() {
+    batchShowScan();
+    $('#modalBatch').modal('show');
+});
+
+$('#modalBatch').on('shown.bs.modal', function() { $('#batchQrInput').focus(); });
+$('#modalBatch').on('hide.bs.modal', function() {
+    stopBatchCamera();
+    $('#batchSavingOverlay').hide();
+});
+
+// ── Batch camera ──────────────────────────────────────────────────────────────
+function onBatchCameraSuccess(text) {
+    playBeep();
+    const flash = document.getElementById('batchScanSuccess');
+    if (flash) { flash.style.display = 'flex'; setTimeout(() => flash.style.display = 'none', 650); }
+    stopBatchCamera().then(() => doBatchScan(text.trim()));
+}
+
+async function startBatchCamera(modeIdx) {
+    const mode = CAM_MODES[modeIdx];
+    if (!batchQrScanner) {
+        batchQrScanner = new Html5Qrcode('batchQrReader', { verbose: false });
+    }
+    $('#batchCameraSelect').val(String(modeIdx));
+    $('#batchCameraStatus').html('<i class="fas fa-circle-notch fa-spin mr-1"></i>Mengaktifkan kamera…').show();
+
+    const formats = getSupportedFormats();
+    const config  = {
+        fps: 15,
+        qrbox: function(w, h) { const s = Math.round(Math.min(w, h) * 0.72); return { width: s, height: s }; },
+        aspectRatio: 1.1,
+        ...(formats.length ? { formatsToSupport: formats } : {}),
+    };
+
+    try {
+        await batchQrScanner.start(mode.constraint, config, onBatchCameraSuccess, () => {});
+        batchCamActive = true;
+        $('#batchCameraStatus').html('<i class="fas fa-circle mr-1" style="font-size:8px;color:#0d8564"></i>Kamera aktif — arahkan ke QR / barcode').css('color', '#0d8564');
+    } catch(err) {
+        batchCamActive = false;
+        if (modeIdx === 0) { setTimeout(() => startBatchCamera(1), 400); return; }
+        await stopBatchCamera();
+        Swal.fire({ icon: 'error', toast: true, position: 'top-end', showConfirmButton: false,
+            timer: 5000, title: 'Gagal membuka kamera', text: err.message || String(err) });
+    }
+}
+
+async function stopBatchCamera() {
+    if (batchQrScanner) {
+        if (batchCamActive) { try { await batchQrScanner.stop(); } catch(e) {} }
+        try { await batchQrScanner.clear(); } catch(e) {}
+        batchQrScanner = null;
+    }
+    batchCamActive = false;
+    $('#batchCameraSection').hide();
+    $('#btnBatchOpenCamera').show();
+}
+
+$('#btnBatchOpenCamera').on('click', function() {
+    $(this).hide();
+    const $sel = $('#batchCameraSelect').empty();
+    CAM_MODES.forEach((m, i) => $sel.append(`<option value="${i}">${m.label}</option>`));
+    $('#batchCameraSection').show();
+    startBatchCamera(0);
+});
+
+$('#btnBatchCloseCamera').on('click', stopBatchCamera);
+
+$('#batchCameraSelect').on('change', async function() {
+    if (batchQrScanner && batchCamActive) {
+        try { await batchQrScanner.stop(); } catch(e) {}
+        try { await batchQrScanner.clear(); } catch(e) {}
+        batchQrScanner = null; batchCamActive = false;
+    }
+    startBatchCamera(parseInt($(this).val()));
 });
 </script>
 @endpush

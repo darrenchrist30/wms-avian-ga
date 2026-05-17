@@ -24,7 +24,7 @@
                                 <button class="btn btn-sm btn-outline-dark btnRefresh">
                                     <i class="fas fa-redo mr-2"></i>Refresh
                                 </button>
-                                <a href="{{ route('location.warehouses.create') }}" class="btn btn-sm btn-outline-dark">
+                                <a href="{{ route('location.warehouses.create') }}" class="btn btn-primary btn-sm">
                                     <i class="fas fa-plus mr-2"></i>Add
                                 </a>
                             </div>
@@ -58,7 +58,7 @@
                                     <th width="130">PIC</th>
                                     <th width="120">Telepon</th>
                                     <th>Alamat</th>
-                                    <th width="70" class="text-center">Zona</th>
+                                    <th width="70" class="text-center">Rak</th>
                                     <th width="80" class="text-center">Status</th>
                                 </tr>
                             </thead>
@@ -122,8 +122,8 @@
                         render: function(data) { return data || '<span class="text-muted">-</span>'; }
                     },
                     {
-                        data: 'zones_count',
-                        name: 'zones_count',
+                        data: 'racks_count',
+                        name: 'racks_count',
                         className: 'text-center',
                         orderable: false
                     },

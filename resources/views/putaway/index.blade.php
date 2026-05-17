@@ -14,7 +14,7 @@
                 <p class="text-muted mb-0 mt-1">Daftar inbound order yang sudah disetujui GA dan siap di-put-away oleh operator.</p>
             </div>
             <div class="col-auto mt-2">
-                <a href="{{ route('putaway.queue') }}" class="btn btn-warning btn-sm shadow-sm">
+                <a href="{{ route('putaway.queue') }}" class="btn btn-primary btn-sm shadow-sm">
                     <i class="fas fa-stream mr-1"></i> Put-Away Queue
                 </a>
             </div>

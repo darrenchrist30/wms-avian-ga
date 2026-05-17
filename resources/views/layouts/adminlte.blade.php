@@ -243,9 +243,8 @@
         }
 
         .navbar-breadcrumb .breadcrumb-item+.breadcrumb-item::before {
-            color: rgba(255, 255, 255, .35);
-            content: "›";
-            font-size: 14px;
+            content: "";
+            padding: 0;
         }
 
         /* Notification bell */
@@ -957,7 +956,7 @@
                             @if (Request::is('dashboard'))
                                 {{-- no extra crumb on dashboard --}}
                             @else
-                                <li class="breadcrumb-item active">@yield('page_title', '—')</li>
+                                <li class="breadcrumb-item active">@yield('page_title', '')</li>
                             @endif
                         @endif
                     </ol>
@@ -1009,12 +1008,6 @@
                     </div>
                 </li>
 
-                {{-- Full-screen toggle --}}
-                <li class="nav-item d-none d-md-flex">
-                    <a class="nav-link" data-widget="fullscreen" href="#" title="Layar Penuh">
-                        <i class="fas fa-expand-arrows-alt" style="font-size:14px;"></i>
-                    </a>
-                </li>
 
                 {{-- Divider --}}
                 <li class="nav-item d-flex align-items-center">
@@ -1047,13 +1040,13 @@
                             </div>
                         </div>
                         <div class="dropdown-divider m-0"></div>
-                        <a href="#" class="dropdown-item">
+                        <a href="{{ route('users.edit', auth()->id()) }}" class="dropdown-item">
                             <i class="fas fa-user-cog"></i> Pengaturan Profil
                         </a>
                         <div class="dropdown-divider m-0"></div>
                         <form action="{{ route('logout') }}" method="POST" class="m-0">
                             @csrf
-                            <button type="submit" class="dropdown-item text-danger">
+                            <button type="submit" class="dropdown-item text-danger" style="outline:none;box-shadow:none;border:none">
                                 <i class="fas fa-sign-out-alt"></i> Keluar
                             </button>
                         </form>
@@ -1183,14 +1176,6 @@
                                         </p>
                                     </a>
                                 </li>
-                                <li class="nav-item">
-                                    <a href="{{ route('inbound.orders.create') }}"
-                                        class="nav-link {{ request()->routeIs('inbound.orders.create') ? 'active' : '' }}">
-                                        <i class="fas fa-plus-circle nav-icon"
-                                            style="font-size:12px;color:#10b981;"></i>
-                                        <p>Tambah DO Manual</p>
-                                    </a>
-                                </li>
 
                             </ul>
                         </li>
@@ -1240,13 +1225,6 @@
                                         class="nav-link {{ request()->routeIs('outbound.index') ? 'active' : '' }}">
                                         <i class="fas fa-history nav-icon" style="font-size:12px;"></i>
                                         <p>Riwayat Outbound</p>
-                                    </a>
-                                </li>
-                                <li class="nav-item">
-                                    <a href="{{ route('outbound.create') }}"
-                                        class="nav-link {{ request()->routeIs('outbound.create') ? 'active' : '' }}">
-                                        <i class="fas fa-plus-circle nav-icon" style="font-size:12px;color:#10b981;"></i>
-                                        <p>Outbound Baru</p>
                                     </a>
                                 </li>
                             </ul>
@@ -1464,8 +1442,8 @@
             info:         'Data _START_–_END_ dari _TOTAL_',
             infoEmpty:    'Tidak ada data',
             infoFiltered: '(dari _MAX_ total)',
-            zeroRecords:  '<div class="text-center text-muted py-3 small"><i class="fas fa-search fa-lg d-block mb-1"></i>Data tidak ditemukan</div>',
-            emptyTable:   '<div class="text-center text-muted py-3 small"><i class="fas fa-inbox fa-lg d-block mb-1"></i>Belum ada data</div>',
+            zeroRecords:  '<div class="text-center text-muted py-5"><i class="fas fa-search fa-3x d-block mb-3"></i><span style="font-size:15px">Data tidak ditemukan</span></div>',
+            emptyTable:   '<div class="text-center text-muted py-5"><i class="fas fa-inbox fa-3x d-block mb-3"></i><span style="font-size:15px">Belum ada data</span></div>',
             paginate: { first: '«', last: '»', next: '›', previous: '‹' },
         },
     });
@@ -1660,6 +1638,13 @@
         // ── Tampilkan satu toast via SweetAlert2 ────────────────────────
         function showNextToast() {
             if (toastRunning || toastQueue.length === 0) return;
+
+            // Tunggu sampai Swal lain (confirm/success dari put-away) selesai dulu
+            if (Swal.isVisible()) {
+                setTimeout(showNextToast, 1200);
+                return;
+            }
+
             toastRunning = true;
 
             const n    = toastQueue.shift();
@@ -1701,22 +1686,19 @@
             wrap.appendChild(textBox);
 
             Swal.fire({
-                toast:             false,   // bukan toast kecil — pakai popup full supaya pasti terlihat
+                toast:             true,
                 position:          'top-end',
                 html:              wrap.outerHTML,
-                showConfirmButton: true,
-                confirmButtonText: '<i class="fas fa-arrow-right mr-1"></i>Buka',
-                confirmButtonColor: meta.color,
-                showCloseButton:   true,
-                timer:             12000,
+                showConfirmButton: false,
+                showCloseButton:   false,
+                timer:             3500,
                 timerProgressBar:  true,
-                width:             '380px',
-                padding:           '1.2em',
+                width:             '360px',
+                padding:           '0.9em 1em',
                 customClass:       { popup: 'wms-notif-popup' },
                 didOpen: function (popup) {
-                    // Klik area konten → langsung navigasi
-                    popup.querySelector('.swal2-html-container').style.cursor = 'pointer';
-                    popup.querySelector('.swal2-html-container').addEventListener('click', function () {
+                    popup.style.cursor = 'pointer';
+                    popup.addEventListener('click', function () {
                         Swal.close();
                         $.post(markReadUrl + '/' + n.id + '/read', { _token: csrfToken });
                         if (n.url && n.url !== '#') window.location.href = n.url;
@@ -1724,13 +1706,7 @@
                 },
                 didClose: function () {
                     toastRunning = false;
-                    // Jika masih ada antrian, tampilkan berikutnya setelah jeda singkat
                     if (toastQueue.length > 0) setTimeout(showNextToast, 400);
-                }
-            }).then(function (result) {
-                if (result.isConfirmed) {
-                    $.post(markReadUrl + '/' + n.id + '/read', { _token: csrfToken });
-                    if (n.url && n.url !== '#') window.location.href = n.url;
                 }
             });
         }
@@ -1864,6 +1840,8 @@
 
     <script>
     (function () {
+        const PUBLIC_CELL_BASE = "{{ url('/c') }}";
+
         // ── Scanner gun buffer ─────────────────────────────────────────────
         // Scanner guns send keystrokes very fast (~10ms apart) followed by Enter.
         // We accumulate characters and process on Enter.
@@ -1907,10 +1885,10 @@
             // Show modal with loading state immediately
             $('#globalCellModalTitle').html('<i class="fas fa-map-marker-alt mr-1"></i> ' + escHtml(code));
             $('#globalCellModalBody').html('<div class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin mr-1"></i> Memuat…</div>');
-            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(code));
+            $('#globalCellModalLink').attr('href', PUBLIC_CELL_BASE + '/' + encodeURIComponent(code));
             $('#globalCellModal').modal('show');
 
-            fetch('/c/' + encodeURIComponent(code), {
+            fetch(PUBLIC_CELL_BASE + '/' + encodeURIComponent(code), {
                 headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
             })
             .then(function (r) { return r.json(); })
@@ -1936,7 +1914,7 @@
                 '<i class="fas fa-map-marker-alt mr-1"></i> ' + escHtml(cell.code) +
                 (cell.label && cell.label !== cell.code ? ' <small style="font-weight:400;opacity:.75">· ' + escHtml(cell.label) + '</small>' : '')
             );
-            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(cell.code));
+            $('#globalCellModalLink').attr('href', PUBLIC_CELL_BASE + '/' + encodeURIComponent(cell.code));
 
             const capPct = cell.capacity_max > 0
                 ? Math.min(100, Math.round(cell.capacity_used / cell.capacity_max * 100))
@@ -2010,7 +1988,7 @@
             $('#globalCellModalTitle').html(
                 '<i class="fas fa-layer-group mr-1"></i> Rak ' + escHtml(rack.code)
             );
-            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(rack.code));
+            $('#globalCellModalLink').attr('href', PUBLIC_CELL_BASE + '/' + encodeURIComponent(rack.code));
 
             const statusMap = {
                 available: ['#d4edda','#155724','Tersedia'],
@@ -2051,7 +2029,7 @@
             $('#globalCellModalTitle').html(
                 '<i class="fas fa-box mr-1"></i> ' + escHtml(item.sku)
             );
-            $('#globalCellModalLink').attr('href', '/c/' + encodeURIComponent(item.sku));
+            $('#globalCellModalLink').attr('href', PUBLIC_CELL_BASE + '/' + encodeURIComponent(item.sku));
 
             // Header info
             let headerHtml = '<div style="margin-bottom:10px;">'

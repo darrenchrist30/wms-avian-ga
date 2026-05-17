@@ -18,7 +18,8 @@
       "Read(//c/laragon/www/avian-hr/**)",
       "Bash(grep -E \"\\\\.\\(php|sql\\)$\")",
       "Bash(grep -oE \"Controller::\\\\\\\\\\\\w+\\\\\\\\\\\\\\\\[A-Za-z]+Controller\")",
-      "Bash(awk '{print $NF}')"
+      "Bash(awk '{print $NF}')",
+      "Bash(php -l app/Http/Controllers/DashboardController.php)"
     ]
   }
 }

@@ -36,11 +36,6 @@ class InboundReceiveRequest extends FormRequest
             'do_date'         => ['required', 'date_format:Y-m-d'],
             'notes'           => ['nullable', 'string', 'max:1000'],
 
-            // ── Identifikasi Supplier (opsional) ────────────────────────────
-            // Kirim salah satu: supplier_erp_id (ID vendor di ERP) atau supplier_code
-            'supplier_erp_id' => ['nullable', 'string', 'max:100'],
-            'supplier_code'   => ['nullable', 'string', 'max:50'],
-
             // ── Daftar Item ─────────────────────────────────────────────────
             'items'                 => ['required', 'array', 'min:1', 'max:500'],
 

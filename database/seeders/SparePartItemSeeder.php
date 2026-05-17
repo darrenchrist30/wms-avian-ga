@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Item;
 use App\Models\ItemCategory;
-use App\Models\Supplier;
 use App\Models\Unit;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;

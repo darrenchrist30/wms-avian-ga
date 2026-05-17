@@ -7,7 +7,6 @@ use App\Models\GaRecommendation;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
 use App\Models\ItemAffinity;
-use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -76,19 +75,19 @@ class GaService
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // PUBLIC: Run GA untuk banyak order sekaligus (paralel)
+    // PUBLIC: Run GA untuk banyak order sekaligus
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Jalankan GA untuk sekumpulan order secara paralel menggunakan Http::pool().
+     * Jalankan GA untuk sekumpulan order secara sekuensial.
      *
      * Alur:
-     *   1. Bangun semua payload SEKUENSIAL — agar reservedQtyByCell antar-order akurat.
-     *   2. Kirim semua request ke Python FastAPI secara PARALEL (Http::pool).
-     *   3. Simpan semua hasil ke DB SEKUENSIAL.
+     *   1. Bangun payload order saat giliran order tersebut diproses.
+     *   2. Kirim request ke Python FastAPI.
+     *   3. Simpan hasil ke DB sebelum order berikutnya dibangun.
      *
-     * Agar Python benar-benar berjalan paralel, jalankan uvicorn dengan beberapa worker:
-     *   uvicorn main:app --host 127.0.0.1 --port 8001 --workers 4
+     * Batch sengaja tidak paralel supaya accepted recommendation dari order
+     * sebelumnya langsung menjadi slot reservation untuk order berikutnya.
      *
      * @param  InboundOrder[]  $orders
      * @return array  [order_id => ['rec' => GaRecommendation|null, 'error' => string|null]]
@@ -99,59 +98,23 @@ class GaService
             return [];
         }
 
-        // ── 1. Bangun semua payload sekuensial ────────────────────────────────
-        $payloads = [];
-        foreach ($orders as $order) {
-            $payloads[$order->id] = $this->buildPayload($order);
-        }
-
-        // ── 2. Kirim semua request ke Python secara paralel ───────────────────
-        $baseUrl     = $this->baseUrl;
-        $timeout     = $this->timeoutSeconds;
-        $payloadList = array_values($payloads);
-
-        Log::info('[GaService] Batch paralel dimulai', [
+        Log::info('[GaService] Batch sekuensial dimulai', [
             'order_count' => count($orders),
-            'order_ids'   => array_keys($payloads),
+            'order_ids'   => collect($orders)->pluck('id')->all(),
         ]);
 
-        $responses = Http::pool(function (Pool $pool) use ($payloadList, $baseUrl, $timeout) {
-            return array_map(
-                fn($payload) => $pool
-                    ->timeout($timeout)
-                    ->withHeaders(['Content-Type' => 'application/json'])
-                    ->post("{$baseUrl}/ga/run", $payload),
-                $payloadList
-            );
-        });
-
-        // ── 3. Simpan semua hasil ke DB sekuensial ────────────────────────────
         $results = [];
 
-        foreach ($orders as $index => $order) {
-            $response = $responses[$index];
-
-            if ($response instanceof \Throwable) {
-                $results[$order->id] = ['rec' => null, 'error' => $response->getMessage()];
-                continue;
-            }
-
-            if ($response->failed()) {
-                $err = $response->json('detail') ?? $response->body();
-                $results[$order->id] = ['rec' => null, 'error' => "GA Engine error [{$response->status()}]: {$err}"];
-                continue;
-            }
-
-            $gaResult = $response->json();
-
-            if (empty($gaResult['chromosome']) || !isset($gaResult['fitness_score'])) {
-                $results[$order->id] = ['rec' => null, 'error' => 'Respons GA Engine tidak valid: chromosome atau fitness_score kosong.'];
-                continue;
-            }
-
+        foreach ($orders as $order) {
             try {
+                // Build each payload after previous orders are persisted, so
+                // accepted recommendations from this batch reserve slots for
+                // the next orders.
+                $payload = $this->buildPayload($order);
+                $gaResult = $this->callPythonEngine($payload);
+
                 $rec = DB::transaction(fn() => $this->persistResult(
-                    $order, $userId, $gaResult, $payloads[$order->id]['parameters']
+                    $order, $userId, $gaResult, $payload['parameters']
                 ));
                 $results[$order->id] = ['rec' => $rec, 'error' => null];
 
@@ -222,8 +185,7 @@ class GaService
         // fisik dikecualikan agar GA tidak membuat rekomendasi ke lokasi yang tidak ada di denah.
         $cellsCollection = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
             ->where('is_active', true)
-            ->whereIn('status', ['available', 'partial'])
-            ->where('capacity_used', '<', DB::raw('capacity_max'))
+            ->whereIn('status', ['available', 'partial', 'full'])
             ->whereNotNull('blok')
             ->whereNotNull('grup')
             ->whereNotNull('kolom')
@@ -236,22 +198,31 @@ class GaService
             ->select('cell_id', DB::raw('GROUP_CONCAT(DISTINCT item_id) as item_ids'))
             ->whereIn('cell_id', $cellsCollection->pluck('id'))
             ->where('quantity', '>', 0)
-            ->whereIn('status', ['available', 'reserved'])
+            ->where('status', 'available')
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
 
-        // Hitung jumlah gene (stock record slot) yang sudah di-reserve oleh order lain,
-        // BUKAN sum quantity fisik. Satu gene = satu slot kapasitas.
+        // Hitung jumlah slot stock record baru yang sudah di-reserve order lain,
+        // bukan sum quantity fisik. Rekomendasi ke SKU yang sudah available di
+        // cell yang sama tidak memakai slot baru karena put-away akan upsert.
         $reservedQtyByCell = DB::table('ga_recommendation_details as grd')
             ->join('ga_recommendations as gr', 'gr.id', '=', 'grd.ga_recommendation_id')
             ->join('inbound_transactions as it', 'it.id', '=', 'gr.inbound_order_id')
             ->join('inbound_details as idt', 'idt.id', '=', 'grd.inbound_order_item_id')
-            ->select('grd.cell_id', DB::raw('COUNT(*) as reserved_qty'))
+            ->leftJoin('stock_records as existing_stock', function ($join) {
+                $join->on('existing_stock.cell_id', '=', 'grd.cell_id')
+                    ->on('existing_stock.item_id', '=', 'idt.item_id')
+                    ->where('existing_stock.quantity', '>', 0)
+                    ->where('existing_stock.status', 'available');
+            })
+            ->select(
+                'grd.cell_id',
+                DB::raw('COUNT(DISTINCT CASE WHEN existing_stock.id IS NULL THEN grd.id END) as reserved_qty')
+            )
             ->whereIn('grd.cell_id', $cellsCollection->pluck('id'))
             ->where('gr.status', 'accepted')
             ->where('it.warehouse_id', $order->warehouse_id)
             ->where('it.id', '!=', $order->id)
-            ->where('it.status', 'put_away')
             ->whereIn('idt.status', ['pending', 'partial', 'partial_put_away'])
             ->groupBy('grd.cell_id')
             ->pluck('reserved_qty', 'cell_id');
@@ -280,7 +251,6 @@ class GaService
             $existingCell = $cellCandidates
                 ->filter(fn(array $cell) =>
                     in_array((int) $detail->item_id, $cell['existing_item_ids'], true)
-                    && (int) $cell['capacity_remaining'] > 0
                 )
                 ->sortBy(fn(array $cell) => sprintf(
                     '%05d-%05d',
@@ -314,8 +284,22 @@ class GaService
         if (empty($cells)) {
             throw new \Exception(
                 'Tidak ada sel tersedia di warehouse ini. '
-                    . 'Pastikan ada sel dengan status available atau partial.'
+                    . 'Pastikan ada sel MSpart aktif dengan slot kosong atau stok existing.'
             );
+        }
+
+        foreach ($items as $item) {
+            $hasFeasibleCell = collect($cells)->contains(fn(array $cell) =>
+                (int) $cell['capacity_remaining'] >= 1
+                || in_array((int) $item['item_id'], $cell['existing_item_ids'] ?? [], true)
+            );
+
+            if (!$hasFeasibleCell) {
+                throw new \Exception(
+                    "Tidak ada slot tersedia untuk SKU {$item['sku']}. "
+                        . 'Tambahkan cell kosong atau konsolidasikan stok existing terlebih dahulu.'
+                );
+            }
         }
 
         // Ambil semua affinitas yang relevan (melibatkan item-item dalam order ini)
@@ -426,7 +410,8 @@ class GaService
                     ->values()
                     ->all();
 
-                $reservedQty = (int) ($reservedQtyByCell->get($representative->id) ?? 0);
+                $reservedQty = collect($cellIds)
+                    ->sum(fn($cellId) => (int) ($reservedQtyByCell->get($cellId) ?? 0));
 
                 if (!$this->isMspartCell($representative)) {
                     $capacityRemaining = max(
@@ -451,7 +436,7 @@ class GaService
 
                 $capacityMax = max(1, (int) ($representative->capacity_max ?: 20));
                 $capacityUsed = DB::table('stock_records')
-                    ->where('cell_id', $representative->id)
+                    ->whereIn('cell_id', $cellIds)
                     ->where('quantity', '>', 0)
                     ->whereIn('status', ['available', 'reserved'])
                     ->count();
@@ -483,7 +468,13 @@ class GaService
                     'physical_cell_ids'      => $cellIds,
                 ];
             })
-            ->filter(fn($cell) => $cell && (int) $cell['capacity_remaining'] > 0)
+            ->filter(fn($cell) =>
+                $cell
+                && (
+                    (int) $cell['capacity_remaining'] > 0
+                    || !empty($cell['existing_item_ids'])
+                )
+            )
             ->values()
             ->all();
     }
@@ -752,7 +743,10 @@ class GaService
                 $cell = $cells->first(fn($c) => (int) $c['cell_id'] === (int) $item['preferred_cell_id']);
             }
 
-            $cell ??= $cells->first(fn($c) => $c['capacity_remaining'] >= $item['quantity']);
+            $cell ??= $cells->first(fn($c) =>
+                (int) $c['capacity_remaining'] >= 1
+                || in_array((int) $item['item_id'], $c['existing_item_ids'] ?? [], true)
+            );
 
             if (!$cell) {
                 // Tidak ada sel yang muat, pakai yang paling besar sisa kapasitasnya

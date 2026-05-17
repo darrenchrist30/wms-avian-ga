@@ -107,16 +107,6 @@ class ReportController extends Controller
             ->get()
             ->keyBy('month');
 
-        // Inbound per supplier (top 10)
-        $bySupplier = DB::table('inbound_transactions as it')
-            ->leftJoin('suppliers as s', 's.id', '=', 'it.supplier_id')
-            ->selectRaw("COALESCE(s.name, 'Manual') as supplier, COUNT(*) as order_count")
-            ->whereYear('it.created_at', $year)
-            ->groupBy('s.id', 's.name')
-            ->orderByDesc('order_count')
-            ->limit(10)
-            ->get();
-
         // Distribusi status
         $statusDist = DB::table('inbound_transactions')
             ->selectRaw('status, COUNT(*) as total')
@@ -135,8 +125,7 @@ class ReportController extends Controller
             'total_orders'    => InboundOrder::whereYear('created_at', $year)->count(),
             'received_orders' => InboundOrder::whereYear('created_at', $year)->whereIn('status', ['recommended','put_away'])->count(),
             'processed_orders'=> InboundOrder::whereYear('created_at', $year)->where('status', 'completed')->count(),
-            'total_suppliers' => DB::table('inbound_transactions')->whereYear('created_at', $year)
-                                    ->distinct('supplier_id')->count('supplier_id'),
+            'total_warehouses' => Warehouse::where('is_active', true)->count(),
         ];
 
         // Build 12-month arrays for chart
@@ -149,7 +138,7 @@ class ReportController extends Controller
         }
 
         return view('reports.inbound', compact(
-            'summary', 'bySupplier', 'statusDist',
+            'summary', 'statusDist',
             'chartOrders', 'chartQty', 'year', 'years'
         ));
     }

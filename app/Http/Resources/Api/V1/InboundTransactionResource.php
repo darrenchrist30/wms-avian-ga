@@ -40,14 +40,6 @@ class InboundTransactionResource extends JsonResource
                 'name' => $this->warehouse->name,
             ]),
 
-            'supplier' => $this->whenLoaded('supplier', fn() =>
-                $this->supplier ? [
-                    'code'          => $this->supplier->code,
-                    'name'          => $this->supplier->name,
-                    'erp_vendor_id' => $this->supplier->erp_vendor_id,
-                ] : null
-            ),
-
             // Ringkasan item
             'summary' => [
                 'total_skus'        => $this->whenLoaded('items', fn() => $this->items->count(), 0),

@@ -24,16 +24,47 @@ class DashboardController extends Controller
         $totalItems     = Item::where('is_active', true)->count();
         $totalCells     = Cell::where('is_active', true)->count();
         $usedCells      = Cell::where('is_active', true)->whereIn('status', ['partial', 'full'])->count();
+        $cellsFull      = Cell::where('is_active', true)->where('status', 'full')->count();
+        $cellsPartial   = Cell::where('is_active', true)->where('status', 'partial')->count();
+        $cellsEmpty     = Cell::where('is_active', true)->where('status', 'available')->count();
         $utilizationPct = $totalCells > 0 ? round($usedCells / $totalCells * 100, 1) : 0;
         $totalStockQty  = Stock::where('status', 'available')->sum('quantity');
+        // SKU dengan stok aktif di sel apapun
         $mappedSku      = Stock::where('status', 'available')->distinct('item_id')->count('item_id');
+        // SKU dengan stok aktif di sel denah (blok/grup/kolom/baris lengkap)
+        $denahSku       = Stock::where('status', 'available')
+            ->whereHas('cell', fn($q) => $q
+                ->whereNotNull('blok')->whereNotNull('grup')
+                ->whereNotNull('kolom')->whereNotNull('baris')
+            )
+            ->distinct('item_id')->count('item_id');
 
         $inboundToday  = InboundOrder::whereDate('received_at', today())->count();
         $outboundToday = StockMovement::ofType('outbound')->today()->count();
 
-        $lowStockItems = Item::where('is_active', true)
+        // Stok habis: monitored items dengan available = 0
+        $stockHabisItems = Item::where('is_active', true)
+            ->where('min_stock', '>', 0)
+            ->whereExists(fn($q) => $q->from('stock_records')->whereColumn('stock_records.item_id', 'items.id'))
+            ->whereRaw('(SELECT COALESCE(SUM(s.quantity),0) FROM stock_records s WHERE s.item_id = items.id AND s.status = "available") = 0')
+            ->count();
+        // Stok menipis: monitored items dengan 0 < available < min_stock
+        $stockMenipisItems = Item::where('is_active', true)
+            ->where('min_stock', '>', 0)
+            ->whereExists(fn($q) => $q->from('stock_records')->whereColumn('stock_records.item_id', 'items.id'))
+            ->whereRaw('(SELECT COALESCE(SUM(s.quantity),0) FROM stock_records s WHERE s.item_id = items.id AND s.status = "available") > 0')
             ->whereRaw('(SELECT COALESCE(SUM(s.quantity),0) FROM stock_records s WHERE s.item_id = items.id AND s.status = "available") < items.min_stock')
             ->count();
+        $lowStockItems = $stockHabisItems + $stockMenipisItems;
+
+        // Stock location quality
+        $stockNoLocation  = Stock::where('status', 'available')->whereNull('cell_id')->count();
+        $stockLegacyCell  = Stock::where('status', 'available')
+            ->whereHas('cell', fn($q) => $q->where(fn($q2) => $q2
+                ->whereNull('blok')->orWhereNull('grup')->orWhereNull('kolom')->orWhereNull('baris')
+            ))
+            ->count();
+        $itemsNoCategory  = Item::where('is_active', true)->whereNull('category_id')->count();
         $nearExpiryItems = Stock::nearExpiry(30)->count();
         $activeOrders    = InboundOrder::whereIn('status', ['inbound', 'put_away'])->count();
         $deadstockCount  = Stock::deadstock($deadstockDays)->distinct('item_id')->count('item_id');
@@ -92,12 +123,26 @@ class DashboardController extends Controller
             ->get();
 
         // ── Top 5 SKU Paling Aktif (real) ────────────────────────────────────────
-        $topMovedItems = StockMovement::with('item.unit')
+        $topMovedItems = StockMovement::with('item.unit', 'item.category')
             ->selectRaw('item_id, SUM(quantity) as total_qty, COUNT(*) as movement_count')
             ->whereNotNull('item_id')
             ->groupBy('item_id')
             ->orderByDesc('total_qty')
-            ->take(5)
+            ->take(10)
+            ->get();
+
+        $worstMovedItems = Item::with('unit', 'category')
+            ->where('is_active', true)
+            ->whereRaw('(SELECT COALESCE(SUM(quantity),0) FROM stock_records WHERE stock_records.item_id = items.id AND status = "available") > 0')
+            ->leftJoin(
+                DB::raw('(SELECT item_id AS mv_id, SUM(quantity) AS total_qty, COUNT(*) AS movement_count FROM stock_movements GROUP BY item_id) AS mv_agg'),
+                'items.id', '=', 'mv_agg.mv_id'
+            )
+            ->select('items.*',
+                DB::raw('COALESCE(mv_agg.total_qty, 0) AS total_qty'),
+                DB::raw('COALESCE(mv_agg.movement_count, 0) AS movement_count'))
+            ->orderBy('total_qty', 'asc')
+            ->take(10)
             ->get();
 
         // ── Aktivitas Put-Away Hari Ini per User (real) ───────────────────────────
@@ -365,9 +410,11 @@ class DashboardController extends Controller
 
         return view('dashboard', compact(
             // KPI
-            'totalItems', 'totalCells', 'usedCells', 'utilizationPct', 'totalStockQty', 'mappedSku',
-            'inboundToday', 'outboundToday', 'lowStockItems',
+            'totalItems', 'totalCells', 'usedCells', 'utilizationPct', 'totalStockQty', 'mappedSku', 'denahSku',
+            'cellsFull', 'cellsPartial', 'cellsEmpty',
+            'inboundToday', 'outboundToday', 'lowStockItems', 'stockHabisItems', 'stockMenipisItems',
             'nearExpiryItems', 'activeOrders', 'deadstockCount', 'deadstockDays',
+            'stockNoLocation', 'stockLegacyCell', 'itemsNoCategory',
             // Kapasitas
             'capacityUsedTotal', 'capacityMaxTotal', 'capacityFreeTotal', 'fullRacks',
             // Order status
@@ -376,8 +423,8 @@ class DashboardController extends Controller
             'chartLabels', 'chartInbound', 'chartOutbound',
             // Stok per kategori
             'stockByCategory',
-            // Top SKU
-            'topMovedItems',
+            // Top / Worst SKU
+            'topMovedItems', 'worstMovedItems',
             // Put-away hari ini
             'putAwayToday', 'putAwayTodayTotal',
             // GA

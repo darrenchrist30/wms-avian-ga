@@ -62,7 +62,7 @@ class GenerateErpApiToken extends Command
 
         // Buat token baru dengan semua ability ERP
         $abilities = [
-            'erp:sync-master',      // sync item & supplier dari ERP
+            'erp:sync-master',      // sync item dari ERP
             'erp:receive-inbound',  // kirim Delivery Order ke WMS
         ];
         $token = $user->createToken($tokenName, $abilities);

@@ -321,15 +321,11 @@
         </div>
 
         {{-- ══════════════════════════════════════════════════════
-     INFO ORDER (Supplier, Tanggal, Warehouse, Diterima)
+     INFO ORDER (Tanggal, Warehouse, Diterima)
 ══════════════════════════════════════════════════════ --}}
-        <div class="card mb-3">
+        <div class="card mb-3 mt-3">
             <div class="card-body py-2">
                 <div class="row" style="font-size:13px">
-                    <div class="col-6 col-md-3 mb-1">
-                        <span class="text-muted d-block">Supplier</span>
-                        <strong>{{ $order->supplier?->name ?? '-' }}</strong>
-                    </div>
                     <div class="col-6 col-md-2 mb-1">
                         <span class="text-muted d-block">Tanggal DO</span>
                         <strong>{{ $order->do_date?->format('d M Y') ?? '-' }}</strong>
@@ -344,11 +340,11 @@
                     </div>
                     <div class="col-6 col-md-1 mb-1 text-center">
                         <span class="text-muted d-block">Total Item</span>
-                        <strong class="text-primary" style="font-size:16px">{{ $totalCount }}</strong>
+                        <strong style="font-size:16px">{{ $totalCount }}</strong>
                     </div>
                     <div class="col-6 col-md-1 mb-1 text-center">
                         <span class="text-muted d-block">Total Qty</span>
-                        <strong class="text-primary" style="font-size:16px">{{ $totalQtyAll }}</strong>
+                        <strong style="font-size:16px">{{ $totalQtyAll }}</strong>
                     </div>
                 </div>
             </div>
@@ -359,13 +355,13 @@
 ══════════════════════════════════════════════════════ --}}
         <div class="row mb-3">
             {{-- Progress --}}
-            <div class="col-md-4">
+            <div class="{{ $order->status === 'completed' ? 'col-md-12' : (auth()->user()->isOperator() ? 'col-md-6' : 'col-md-5') }}">
                 <div class="card card-outline card-primary h-100 mb-0">
                     <div class="card-body py-3">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="font-weight-bold text-muted">Progress Put-Away</span>
                             <strong id="progressText"
-                                class="{{ $doneCount === $totalCount ? 'text-success' : 'text-primary' }}">
+                                class="{{ $doneCount === $totalCount ? 'text-dark' : 'text-primary' }}">
                                 {{ $doneItems }} / {{ $totalItems }} item
                             </strong>
                         </div>
@@ -379,8 +375,8 @@
                             Selesai {{ $doneItems }} item · Menunggu {{ $totalItems - $doneItems }} item
                         </small>
                         @if ($order->status === 'completed')
-                            <div class="alert alert-success mb-0 mt-2 py-1 text-sm">
-                                <i class="fas fa-check-circle mr-1"></i>
+                            <div class="alert alert-secondary mb-0 mt-2 py-1 text-sm">
+                                <i class="fas fa-check-double mr-1"></i>
                                 Semua item selesai. Order <strong>completed</strong>.
                             </div>
                         @endif
@@ -388,8 +384,9 @@
                 </div>
             </div>
 
-            {{-- Sisa Tugas — Operator-friendly task summary --}}
-            <div class="col-md-5">
+            {{-- Sisa Tugas — hanya tampil saat order belum completed --}}
+            @if($order->status !== 'completed')
+            <div class="{{ auth()->user()->isOperator() ? 'col-md-6' : 'col-md-7' }}">
                 @php
                     $pendingItems = $order->items->where('status', '!=', 'put_away');
                     $pendingCount = $pendingItems->count();
@@ -419,6 +416,7 @@
                                     </div>
                                 @endif
                             </div>
+                            @if(!auth()->user()->isOperator())
                             <div class="text-right">
                                 <div class="text-muted mb-1" style="font-size:10px;letter-spacing:.3px">SKOR GA</div>
                                 <span
@@ -449,38 +447,21 @@
                                     @endif
                                 </div>
                             </div>
+                            @endif
                         </div>
-                        @if ($pendingCount > 0)
+                        {{-- @if ($pendingCount > 0)
                             <div class="mt-2 px-2 py-1 rounded"
                                 style="background:#fff8f0;border:1px solid #ffd4a8;font-size:11px">
                                 <i class="fas fa-lightbulb mr-1 text-warning"></i>
                                 <strong>Tips:</strong> Scan QR di rak fisik → jika cocok GA, tersimpan
                                 <strong>otomatis</strong> tanpa tombol tambahan.
                             </div>
-                        @endif
+                        @endif --}}
                     </div>
                 </div>
             </div>
+            @endif
 
-            {{-- Legend --}}
-            <div class="col-md-3">
-                <div class="card h-100 mb-0 border">
-                    <div class="card-body py-3" style="font-size:12px">
-                        <div class="font-weight-bold text-muted mb-2" style="font-size:11px;letter-spacing:.5px">
-                            KETERANGAN KOLOM SEND TO
-                        </div>
-                        @foreach ([['#0056b3', 'Rekomendasi GA (default)'], ['#1a7a38', 'Cell dipilih / alternatif sistem'], ['#7b4f00', 'Cell dari scan QR'], ['#ffc107', 'Kapasitas penuh — wajib ganti'], ['#28a745', 'Sudah dikonfirmasi / put-away']] as [$color, $label])
-                            <div class="mb-1 d-flex align-items-center">
-                                <span
-                                    style="display:inline-block;width:12px;height:12px;
-                                 background:{{ $color }};border-radius:2px;
-                                 flex-shrink:0;margin-right:6px"></span>
-                                {{ $label }}
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
         </div>
 
         {{-- ══════════════════════════════════════════════════════
@@ -649,8 +630,9 @@
                     <div class="card-header d-flex justify-content-between align-items-center flex-wrap" style="gap:8px">
                         <h6 class="mb-0">
                             <i class="fas fa-boxes mr-1"></i>
-                            Daftar Item Inbound &mdash; Input Lokasi Penempatan (Send To)
+                            Daftar Item Put-Away dan Lokasi Penempatan
                         </h6>
+                        @if(!auth()->user()->isOperator())
                         <div class="d-flex align-items-center" style="gap:8px">
                             <small class="text-muted d-none d-md-inline">Mode Rekomendasi:</small>
                             <div class="btn-group btn-group-sm" id="modeSwitcher" role="group">
@@ -669,6 +651,7 @@
                                 <i class="fas fa-circle-notch fa-spin text-info"></i>
                             </span>
                         </div>
+                        @endif
                     </div>
                     <div class="card-body p-0">
                         <table class="table table-bordered mb-0">
@@ -682,16 +665,24 @@
                                     @endif
                                     <th class="align-middle" style="min-width:230px;background:#ffd740;color:#333">
                                         <i class="fas fa-map-marker-alt mr-1"></i> SEND TO
+                                        @if(!auth()->user()->isOperator())
                                         <small class="d-block font-weight-normal" style="font-size:10px">
                                             Lokasi penempatan (GA suggest · bisa diubah)
                                         </small>
+                                        @else
+                                        <small class="d-block font-weight-normal" style="font-size:10px">
+                                            Lokasi penempatan
+                                        </small>
+                                        @endif
                                     </th>
+                                    @if(!auth()->user()->isOperator())
                                     <th width="80" class="text-center align-middle">
                                         Fitness
                                         <small class="d-block font-weight-normal" style="font-size:9px">
                                             GA Score
                                         </small>
                                     </th>
+                                    @endif
                                     <th width="110" class="text-center align-middle">Status</th>
                                     <th width="130" class="text-center align-middle">Aksi</th>
                                 </tr>
@@ -808,10 +799,10 @@
                                                                 {{ $gd->cell?->physical_code ?? '-' }}
                                                             </span>
                                                             @if ($isRowDone)
-                                                                <span class="badge badge-success">Done</span>
+                                                                {{-- status sudah ditampilkan di kolom Status --}}
                                                             @elseif($isOver)
                                                                 <span class="badge badge-warning text-dark">Capacity Risk</span>
-                                                            @else
+                                                            @elseif(!auth()->user()->isOperator())
                                                                 <span class="badge badge-primary">GA Suggest</span>
                                                             @endif
                                                         </div>
@@ -820,7 +811,7 @@
                                                         </small>
                                                         <div class="mt-1" style="font-size:11px">
                                                             Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
-                                                            Sisa cell: <strong>{{ $capRemain }}</strong>/{{ $capMax }}
+                                                            Sisa slot: <strong>{{ $capRemain }}</strong>/{{ $capMax }}
                                                         </div>
                                                         <div class="cap-bar-wrap mt-1">
                                                             <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>
@@ -845,6 +836,7 @@
                                                 @endif
                                             </td>
 
+                                            @if(!auth()->user()->isOperator())
                                             <td class="text-center align-middle">
                                                 <strong
                                                     class="{{ ($gd->gene_fitness ?? 0) >= 70 ? 'text-success' : (($gd->gene_fitness ?? 0) >= 50 ? 'text-warning' : 'text-danger') }}">
@@ -853,10 +845,11 @@
                                                 <br>
                                                 <small class="text-muted">/100</small>
                                             </td>
+                                            @endif
 
                                             <td class="text-center align-middle">
                                                 @if ($isRowDone)
-                                                    <span class="badge badge-success">Put Away</span>
+                                                    <span class="badge badge-success">Selesai</span>
                                                 @elseif($detail->status === 'partial_put_away')
                                                     <span class="badge badge-warning text-dark">Partial</span>
                                                 @else
@@ -866,9 +859,7 @@
 
                                             <td class="text-center align-middle">
                                                 @if ($isRowDone)
-                                                    <button class="btn btn-sm btn-success" disabled>
-                                                        <i class="fas fa-check"></i> Done
-                                                    </button>
+                                                    <span class="text-muted">—</span>
                                                 @else
                                                     <button type="button" class="btn btn-sm btn-success btnConfirm"
                                                         data-detail-id="{{ $detail->id }}"
@@ -903,20 +894,6 @@
                                 @endforeach
                             </tbody>
                         </table>
-                    </div>
-                    <div class="card-footer text-muted" style="font-size:12px">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Kolom <strong>SEND TO</strong> = lokasi rekomendasi GA. Jika cell penuh, klik
-                        <strong>"Ganti Cell"</strong> agar sistem carikan alternatif otomatis.
-                        Setelah lokasi dipastikan → klik <strong>Konfirmasi</strong> → isi qty aktual →
-                        <strong>Save/Update</strong>.
-                        @if (auth()->user()->isAdmin() || auth()->user()->isSupervisor())
-                            &ensp;|&ensp;
-                            <span class="text-warning">
-                                <i class="fas fa-shield-alt mr-1"></i>
-                                <strong>Override Lokasi</strong> = paksa cell berbeda dari GA (Admin/Supervisor).
-                            </span>
-                        @endif
                     </div>
                 </div>
             </div>
@@ -1237,10 +1214,13 @@
     {{-- html5-qrcode: support QR Code, Code128, Code39, EAN, DataMatrix, dll --}}
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>
-        const orderId = {{ $order->id }};
-        const scanQrUrl = "{{ route('putaway.scan-qr') }}";
-        const altCellUrl = "{{ route('putaway.alternative-cells', $order->id) }}";
-        const fastSlowUrl = "{{ route('putaway.fast-slow-suggestions', $order->id) }}";
+        const orderId        = {{ $order->id }};
+        const orderDoNumber  = "{{ $order->do_number }}";
+        const scanQrUrl      = "{{ route('putaway.scan-qr') }}";
+        const altCellUrl     = "{{ route('putaway.alternative-cells', $order->id) }}";
+        const fastSlowUrl    = "{{ route('putaway.fast-slow-suggestions', $order->id) }}";
+        const confirmUrlTpl  = "{{ route('putaway.confirm', ['order' => $order->id, 'detail' => 'DETAIL_ID']) }}";
+        const overrideUrlTpl = "{{ route('putaway.override', ['order' => $order->id, 'detail' => 'DETAIL_ID']) }}";
         const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
         // ── State ─────────────────────────────────────────────────────────────────────
@@ -1251,11 +1231,45 @@
         let modalCell = null; // cell aktif di phase 2
         let modalGaCell = null; // referensi GA (untuk match indicator)
         let modalQty = 0; // qty inbound item saat ini
+        let modalUnitLabel = 'unit';
         let qtyEditing = false;
+        let modalItemName = '';
+        let modalDoNumber = '';
 
         // ── Fast/Slow Moving State ────────────────────────────────────────────────────
         let currentMode = 'ga'; // 'ga' | 'fast_slow'
         let fastSlowData = null; // loaded once on first switch
+
+        function fmtNumber(value) {
+            return Number(value || 0).toLocaleString('id-ID');
+        }
+
+        function slotDemand(cell) {
+            return cell?.item_stock?.will_merge ? 0 : 1;
+        }
+
+        function itemStockInfoHtml(cell) {
+            const stock = cell?.item_stock;
+            if (!stock || !stock.will_merge) return '';
+
+            const current = Number(stock.current_qty || 0);
+            const after = current + Number(modalQty || 0);
+            const unit = stock.unit || modalUnitLabel || 'unit';
+            const maxStock = Number(stock.max_stock || 0);
+            const maxText = maxStock > 0 ? ' / ' + fmtNumber(maxStock) : '';
+
+            return '<p class="mb-0 text-muted" style="font-size:13px">' +
+                'SKU sudah ada di cell ini. Stok: <strong>' + fmtNumber(current) + '</strong> ' + unit +
+                ' &rarr; <strong>' + fmtNumber(after) + maxText + '</strong> ' + unit +
+                '. Tidak memakai slot baru.</p>';
+        }
+
+        function slotCapacityInfoHtml(cell) {
+            return '<p class="mb-1 text-muted" style="font-size:13px">Slot kosong: ' +
+                '<strong>' + (cell.capacity_remaining || 0) + '</strong> / ' +
+                '<strong>' + (cell.capacity_max || 0) + '</strong> cell</p>' +
+                itemStockInfoHtml(cell);
+        }
 
         const badgeColor = { fast: 'success', medium: 'warning', slow: 'secondary' };
         const badgeIcon  = { fast: '🟢', medium: '🟡', slow: '⚪' };
@@ -1303,7 +1317,7 @@
                     $wrap.find('.fs-cell-info').text('Rak ' + rackCode + ' · ' + s.count + 'x outbound/30hr');
                     $wrap.find('.fs-cell-cap').html(
                         s.cell
-                            ? 'Sisa cell: <strong>' + capRem + '</strong>/' + capMax
+                            ? 'Sisa slot: <strong>' + capRem + '</strong>/' + capMax
                             : '<span class="text-danger">Tidak ada cell tersedia</span>'
                     );
                 });
@@ -1511,24 +1525,17 @@
             // Kapasitas
             const rem = cell.capacity_remaining || 0;
             const max = cell.capacity_max || 0;
+            const demand = slotDemand(cell);
             let capOk = true;
 
             if (max > 0) {
                 const usedPct = Math.min(100, Math.round((max - rem) / max * 100));
-                $('#resultCapInfo').text('Sisa kapasitas: ' + rem + ' / ' + max + ' unit');
+                $('#resultCapInfo').html(slotCapacityInfoHtml(cell));
                 $('#resultCapBarUsed').css('width', usedPct + '%');
                 $('#resultCapBar').show();
 
-                if (rem <= 0) {
+                if (rem < demand) {
                     $('#resultCapWarningText').text('Cell ini penuh — scan cell lain yang cukup kapasitasnya.');
-                    $('#resultCapWarning').show();
-                    capOk = false;
-                } else if (modalQty > rem) {
-                    $('#resultCapWarningText').html(
-                        'Kapasitas tidak cukup: butuh <strong>' + modalQty + '</strong> unit, tersedia <strong>' + rem +
-                        '</strong> unit. ' +
-                        'Scan atau pilih cell lain yang muat.'
-                    );
                     $('#resultCapWarning').show();
                     capOk = false;
                 } else {
@@ -1584,9 +1591,9 @@
         const MIN_LOADER_MS = 800; // minimum durasi overlay terlihat
 
         function doSaveConfirm(cellId, qty, notes, cellCode) {
-            const url = isOverride ?
-                `/putaway/${orderId}/items/${currentDetailId}/override` :
-                `/putaway/${orderId}/items/${currentDetailId}/confirm`;
+            const url = isOverride
+                ? overrideUrlTpl.replace('DETAIL_ID', currentDetailId)
+                : confirmUrlTpl.replace('DETAIL_ID', currentDetailId);
 
             // Catat waktu mulai — untuk hitung sisa minimum durasi
             const overlayStart = Date.now();
@@ -1668,6 +1675,87 @@
         //  Cocok GA + kapasitas cukup  →  AUTO-CONFIRM (langsung DB, no button)
         //  Cocok GA + kapasitas kurang →  Phase 2 + warning (operator atur qty)
         //  Beda dari GA                →  Phase 2 + badge "Beda dari GA"
+        function showScanResultSwal(cell, matchesGa, capOk) {
+            modalCell = cell;
+            $('#modalConfirm').data('cell-id', cell.id);
+            qtyEditing = false;
+
+            let borderColor, bgColor, textColor, badgeHtml;
+            if (isOverride) {
+                borderColor = '#fd7e14'; bgColor = '#fff8f0'; textColor = '#fd7e14';
+                badgeHtml = '<span class="badge badge-warning text-dark" style="font-size:11px">'
+                          + '<i class="fas fa-exclamation-triangle mr-1"></i>Override Lokasi</span>';
+            } else if (matchesGa) {
+                borderColor = '#0d8564'; bgColor = '#f0fff4'; textColor = '#0d8564';
+                badgeHtml = '<span class="badge badge-success" style="font-size:11px">'
+                          + '<i class="fas fa-check-circle mr-1"></i>Sesuai GA</span>';
+            } else {
+                borderColor = '#6c757d'; bgColor = '#f8f9fa'; textColor = '#6c757d';
+                badgeHtml = '<span class="badge badge-secondary" style="font-size:11px">Sel Manual</span>';
+            }
+
+            const rackMeta   = cell.rack_code ? 'Rak ' + cell.rack_code : '';
+            const gaCellCode = modalGaCell ? modalGaCell.code : '—';
+            const notesVal   = isOverride ? '[OVERRIDE] ' : '';
+
+            const warnRow = !capOk
+                ? '<tr><td colspan="6" class="p-0"><div class="alert alert-danger py-1 px-2 mb-0 rounded-0" style="font-size:12px">'
+                  + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan cell lain yang memiliki slot kosong.</div></td></tr>'
+                : '';
+
+            const html =
+                '<div class="px-3 pt-3 pb-2">'
+                + '<div class="d-flex align-items-center justify-content-between p-3 rounded"'
+                + ' style="border:2px solid ' + borderColor + ';background:' + bgColor + '">'
+                + '<div>'
+                + '<div style="font-size:26px;font-weight:800;letter-spacing:1px;color:' + textColor + ';line-height:1">' + cell.code + '</div>'
+                + '<div class="text-muted mt-1" style="font-size:12px">' + rackMeta + '</div>'
+                + '</div>'
+                + '<div class="text-right">' + badgeHtml + '</div>'
+                + '</div></div>'
+                + '<div class="px-3 pb-1">'
+                + '<div class="table-responsive" style="max-height:200px;overflow-y:auto">'
+                + '<table class="table table-sm table-bordered mb-0">'
+                + '<thead class="thead-light" style="position:sticky;top:0"><tr>'
+                + '<th width="30" class="text-center">#</th><th>Item</th><th width="110">No. SJ</th>'
+                + '<th width="60" class="text-center">Qty</th><th width="55" class="text-center">Satuan</th>'
+                + '<th width="80" class="text-center">Sel GA</th>'
+                + '</tr></thead><tbody>'
+                + warnRow
+                + '<tr>'
+                + '<td class="text-center align-middle text-muted small">1</td>'
+                + '<td class="align-middle" style="font-size:12px;line-height:1.3"><strong>' + (modalItemName || '—') + '</strong></td>'
+                + '<td class="align-middle" style="font-size:12px">' + (modalDoNumber || '—') + '</td>'
+                + '<td class="text-center font-weight-bold align-middle">' + modalQty + '</td>'
+                + '<td class="text-center align-middle"><small class="text-muted">' + modalUnitLabel + '</small></td>'
+                + '<td class="text-center align-middle"><span class="badge badge-primary px-2" style="font-size:11px">' + gaCellCode + '</span></td>'
+                + '</tr></tbody></table></div></div>'
+                + '<div class="px-3 pb-2 pt-1">'
+                + '<input type="text" id="confirmNotes" class="form-control form-control-sm"'
+                + ' placeholder="Catatan opsional…" value="' + notesVal.replace(/"/g, '&quot;') + '">'
+                + '</div>'
+                + '<div class="px-3 pb-3">'
+                + '<button type="button" id="btnRescan" class="btn btn-sm btn-outline-secondary">'
+                + '<i class="fas fa-redo mr-1"></i>Scan cell lain</button>'
+                + '</div>';
+
+            $('#phaseConfirm').html(html);
+            $('#phaseScan').hide();
+            $('#phaseConfirm').show();
+
+            if (capOk) {
+                $('#btnDoConfirm')
+                    .prop('disabled', false)
+                    .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi 1 Item (' + modalQty + ' ' + modalUnitLabel + ')')
+                    .show();
+            } else {
+                $('#btnDoConfirm')
+                    .prop('disabled', true)
+                    .html('<i class="fas fa-times-circle mr-1"></i>Kapasitas tidak cukup — scan cell lain')
+                    .show();
+            }
+        }
+
         //  Override mode               →  Phase 2 selalu (override = keputusan sadar)
         //
         function doModalScanQr(code) {
@@ -1680,9 +1768,11 @@
                 url: scanQrUrl,
                 method: 'POST',
                 data: {
-                    _token: csrfToken,
-                    qr_code: code,
-                    ga_cell_id: (!isOverride && modalGaCell) ? modalGaCell.id : null
+                    _token:      csrfToken,
+                    qr_code:     code,
+                    ga_cell_id:  modalGaCell ? modalGaCell.id : null,
+                    is_override: isOverride ? 1 : 0,
+                    detail_id:   currentDetailId
                 },
                 success: function(res) {
                     const c = res.cell;
@@ -1692,12 +1782,13 @@
                         rack_code: c.rack_code,
                         capacity_remaining: c.capacity_remaining,
                         capacity_max: c.capacity_max,
+                        item_stock: c.item_stock || null,
                         source: 'scan',
                     };
 
                     const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
                     const diffFromGa = !isOverride && modalGaCell && (cell.id != modalGaCell.id);
-                    const capOk = cell.capacity_remaining >= modalQty && modalQty > 0;
+                    const capOk = cell.capacity_remaining >= slotDemand(cell) && modalQty > 0;
 
                     if (diffFromGa) {
                         // ════ BLOCKED — sel berbeda dari rekomendasi GA, bukan override ════
@@ -1716,40 +1807,8 @@
                             confirmButtonColor: '#dc3545',
                         }).then(() => { $('#modalQrInput').val('').focus(); });
 
-                    } else if (matchesGa && capOk) {
-                        // ════ KONFIRMASI SWAL — cocok GA, kapasitas OK ════════════════
-                        $('#scanLoading').hide();
-                        $('#modalQrInput').prop('disabled', false);
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Konfirmasi Penempatan',
-                            html:
-                                '<p>Cell <strong>' + cell.code + '</strong> ' +
-                                '<span class="badge badge-success" style="font-size:12px">' +
-                                '<i class="fas fa-check-circle mr-1"></i>Sesuai rekomendasi GA</span></p>' +
-                                '<p>Qty: <strong>' + modalQty + ' unit</strong></p>' +
-                                '<p class="mb-0 text-muted" style="font-size:13px">Sisa kapasitas: ' +
-                                cell.capacity_remaining + ' / ' + cell.capacity_max + ' unit</p>',
-                            showCancelButton: true,
-                            confirmButtonText: '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan',
-                            cancelButtonText: 'Batal',
-                            confirmButtonColor: '#28a745',
-                            cancelButtonColor: '#6c757d',
-                        }).then(function(result) {
-                            if (result.isConfirmed) {
-                                modalCell = cell;
-                                $('#modalConfirm').data('cell-id', cell.id);
-                                doSaveConfirm(cell.id, modalQty, '', cell.code);
-                            } else {
-                                $('#modalQrInput').val('').focus();
-                            }
-                        });
-
                     } else {
-                        // ════ PHASE 2 MANUAL ══════════════════════════════════════════
-                        // Kapasitas kurang / override / no GA detail → operator konfirmasi manual
-                        modalCell = cell;
-                        showConfirmPhase(cell);
+                        showScanResultSwal(cell, matchesGa, capOk);
                     }
                 },
                 error: function(xhr) {
@@ -1778,7 +1837,7 @@
         });
 
         // ── Scan ulang (balik ke phase 1) ────────────────────────────────────────────
-        $('#btnRescan').on('click', showScanPhase);
+        $(document).on('click', '#btnRescan', showScanPhase);
 
         // ── Auto-fokus saat modal terbuka ─────────────────────────────────────────────
         $('#modalConfirm').on('shown.bs.modal', function() {
@@ -1792,6 +1851,8 @@
             currentGaDetailId = gaDetailId;
             isOverride = !!overrideMode;
             modalQty = qty;
+            modalItemName = itemName || '';
+            modalDoNumber = orderDoNumber;
             modalCell = null;
 
             modalGaCell = gaCellId ? {
@@ -1857,39 +1918,22 @@
                 parseInt(b.data('cap-remaining')) || 0, parseInt(b.data('cap-max')) || 0, true, null);
         });
 
-        // ── Tombol "Konfirmasi Sekarang" (Phase 2 — manual confirm) ─────────────────
+        // ── Tombol "Konfirmasi 1 Item" (Phase 2) ─────────────────────────────────────
         $('#btnDoConfirm').on('click', function() {
             const cellId = $('#modalConfirm').data('cell-id');
-            const qty = qtyEditing ?
-                (parseInt($('#confirmQty').val()) || 0) :
-                (parseInt($('#qtyDisplay').text()) || 0);
-            const notes = $('#confirmNotes').val();
+            const notes  = $('#confirmNotes').val() || '';
 
             if (!cellId) {
                 Swal.fire('Cell Belum Dipilih', 'Scan QR cell terlebih dahulu.', 'warning');
                 return;
             }
-            if (!qty || qty < 1) {
+            if (!modalQty || modalQty < 1) {
                 Swal.fire('Error', 'Jumlah harus minimal 1.', 'error');
                 return;
             }
 
-            const cellCode = modalCell?.code || cellId;
-            Swal.fire({
-                title: 'Konfirmasi Penempatan?',
-                html: 'Simpan item ke cell <strong>' + cellCode + '</strong><br>Jumlah: <strong>' + qty + ' unit</strong>',
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#28a745',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: '<i class="fas fa-check-circle mr-1"></i> Ya, Simpan',
-                cancelButtonText: 'Batal',
-                reverseButtons: true
-            }).then(function(result) {
-                if (result.isConfirmed) {
-                    doSaveConfirm(cellId, qty, notes, cellCode);
-                }
-            });
+            const cellCode = modalCell?.code || String(cellId);
+            doSaveConfirm(cellId, modalQty, notes, cellCode);
         });
 
         // ══════════════════════════════════════════════════════════════════════

@@ -80,24 +80,25 @@ def build_item_cell_map(cells_dict: Dict[int, CellInput]) -> Dict[int, set[int]]
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FC_CAP — Fitness Kapasitas (maks 40)
+# FC_CAP — Fitness Kapasitas (maks 35)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fc_capacity(
     gene_idx:   int,
     chromosome: List[int],
+    items:      List[ItemInput],
     cells_dict: Dict[int, CellInput],
 ) -> float:
     """
     FC_CAP (maks 35 poin):
 
-    Mengukur apakah total barang yang dialokasikan ke satu cell tidak melebihi
-    sisa kapasitasnya.
+    Mengukur apakah total slot stock-record baru yang dialokasikan ke satu cell
+    tidak melebihi sisa kapasitasnya.
 
     Rumus:
-        total_qty = Σ qty item yang dialokasikan ke cell yang sama
-        Jika total_qty ≤ capacity_remaining  → fc_cap = 35 (feasible)
-        Jika total_qty > capacity_remaining  → fc_cap = 35 × (capacity_remaining / total_qty)
+        gene_count = jumlah stock-record baru di cell yang sama
+        Jika gene_count ≤ capacity_remaining  → fc_cap = 35 (feasible)
+        Jika gene_count > capacity_remaining  → fc_cap = 35 × (capacity_remaining / gene_count)
                                                         [penalti proporsional, Goldberg 1989]
 
     Semakin penuh cell namun masih dalam batas = nilai tetap 35.
@@ -110,13 +111,14 @@ def fc_capacity(
     if cell is None:
         return 0.0
 
-    # Hitung jumlah gene (stock record) yang dialokasikan ke cell ini.
-    # Satu gene = satu stock record = satu slot kapasitas.
-    # quantity adalah jumlah unit fisik, bukan jumlah slot — jangan dijumlah di sini.
+    # Hitung slot baru yang dibutuhkan di cell ini.
+    # Satu inbound detail menjadi satu stock record baru, kecuali SKU yang sama
+    # sudah ada di cell tersebut; kasus itu akan update record existing dan tidak
+    # memakai slot baru.
     gene_count = sum(
         1
         for j in range(len(chromosome))
-        if chromosome[j] == cell_id
+        if chromosome[j] == cell_id and items[j].item_id not in cell.existing_item_ids
     )
 
     if gene_count <= cell.capacity_remaining:
@@ -127,7 +129,7 @@ def fc_capacity(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FC_CAT — Fitness Kategori (maks 30)
+# FC_CAT — Fitness Kategori (maks 25)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fc_category(item: ItemInput, cell: CellInput) -> float:
@@ -433,12 +435,12 @@ def evaluate_chromosome(
             )
             continue
 
-        cap   = fc_capacity(i, chromosome, cells_dict)
+        cap   = fc_capacity(i, chromosome, items, cells_dict)
         cat   = fc_category(items[i], cell)
         aff = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks, item_cells)
         split = fc_split(i, chromosome, items, item_cells, cells_dict)
 
-        gene_fit = cap + cat + aff + split   # maks 40+30+20+10 = 100
+        gene_fit = cap + cat + aff + split   # maks 35+25+20+20 = 100
         gene_details.append({
             "fc_cap":       round(cap,   4),
             "fc_cat":       round(cat,   4),

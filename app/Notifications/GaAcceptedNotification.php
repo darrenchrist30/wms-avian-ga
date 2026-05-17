@@ -32,7 +32,7 @@ class GaAcceptedNotification extends Notification
                              . "<strong>{$this->acceptedBy}</strong>. "
                              . "Fitness GA: <strong>" . number_format($this->fitnessScore, 1) . "</strong>/100. "
                              . "Operator dapat mulai put-away sekarang.",
-            'url'           => route('putaway.show', $this->order->id),
+            'url'           => route('putaway.show', $this->order->id, false),
             'order_id'      => $this->order->id,
             'do_number'     => $this->order->do_number,
             'fitness_score' => $this->fitnessScore,

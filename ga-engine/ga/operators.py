@@ -39,31 +39,30 @@ def category_compatible(item: ItemInput, cell: CellInput) -> bool:
 
 
 def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
-    """
-    Candidate cells for one item.
-
-    Thesis-test rule:
-    - Use category-valid, capacity-feasible cells when available.
-    - Fall back to category-invalid cells only when no valid category cell exists.
-
-    Capacity unit = stock record slot.
-    One gene = one stock record = one slot, regardless of item.quantity (physical units).
-    """
-    feasible = [c for c in cells if c.capacity_remaining >= 1]
+    # Capacity is modeled as stock-record slots, not physical unit quantity.
+    # Same-SKU continuity reuses the existing stock record in that cell and does
+    # not require a new free slot.
+    feasible = [
+        c for c in cells
+        if c.capacity_remaining >= 1 or item.item_id in c.existing_item_ids
+    ]
     if not feasible:
-        feasible = cells
+        return [c.cell_id for c in cells]
 
-    # Tier 1: category-valid cells (same SKU atau kategori dominan cocok)
-    category_valid = [c.cell_id for c in feasible if category_compatible(item, c)]
+    same_sku_cells = [
+        c.cell_id for c in feasible
+        if item.item_id in c.existing_item_ids
+    ]
+    if same_sku_cells:
+        return same_sku_cells
+
+    category_valid = [
+        c.cell_id for c in feasible
+        if category_compatible(item, c)
+    ]
     if category_valid:
         return category_valid
 
-    # Tier 2: cell tanpa kategori dominan (kosong/baru) — lebih baik dari mismatch
-    neutral = [c.cell_id for c in feasible if c.dominant_category_id is None]
-    if neutral:
-        return neutral
-
-    # Tier 3: semua cell feasible (last resort)
     return [c.cell_id for c in feasible]
 
 
@@ -290,7 +289,8 @@ def random_reset_mutation(
         Untuk setiap gen i:
             Dengan probabilitas `mutation_rate`:
                 Jika items + cells_dict tersedia:
-                    pool = cell yang capacity_remaining ≥ item.quantity
+                    pool = cell yang punya minimal 1 slot kosong, atau cell
+                           yang sudah menyimpan SKU yang sama
                     Fallback ke semua cell jika pool kosong
                 Else:
                     pool = semua cell_ids
@@ -364,7 +364,10 @@ def repair_category_invalid_genes(
         current_cell = cells_dict.get(repaired[idx])
         if (
             current_cell is not None
-            and current_cell.capacity_remaining >= 1
+            and (
+                current_cell.capacity_remaining >= 1
+                or item.item_id in current_cell.existing_item_ids
+            )
             and category_compatible(item, current_cell)
         ):
             continue
@@ -372,7 +375,10 @@ def repair_category_invalid_genes(
         compatible_pool = [
             cell.cell_id
             for cell in cells
-            if cell.capacity_remaining >= 1
+            if (
+                cell.capacity_remaining >= 1
+                or item.item_id in cell.existing_item_ids
+            )
             and category_compatible(item, cell)
         ]
 

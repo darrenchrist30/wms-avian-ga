@@ -28,7 +28,7 @@
                     <button class="btn btn-sm btn-outline-secondary btnRefresh">
                         <i class="fas fa-redo mr-1"></i>Refresh
                     </button>
-                    <a href="{{ route('outbound.create') }}" class="btn btn-sm btn-danger">
+                    <a href="{{ route('outbound.create') }}" class="btn btn-primary btn-sm">
                         <i class="fas fa-plus mr-1"></i>Outbound Baru
                     </a>
                 </div>

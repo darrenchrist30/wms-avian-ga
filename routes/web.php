@@ -110,8 +110,10 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
     Route::prefix('putaway')->name('putaway.')->group(function () {
         Route::get('/', [\App\Http\Controllers\PutAway\PutAwayController::class, 'index'])->name('index');
         Route::get('queue', [\App\Http\Controllers\PutAway\PutAwayController::class, 'queue'])->name('queue');
-        Route::get('{order}', [\App\Http\Controllers\PutAway\PutAwayController::class, 'show'])->name('show');
         Route::post('scan-qr', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanQr'])->name('scan-qr');
+        Route::get('batch-scan', [\App\Http\Controllers\PutAway\PutAwayController::class, 'batchScan'])->name('batch-scan');
+        Route::post('batch-confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'batchConfirm'])->name('batch-confirm');
+        Route::get('{order}', [\App\Http\Controllers\PutAway\PutAwayController::class, 'show'])->name('show');
         Route::get('{order}/alternative-cells', [\App\Http\Controllers\PutAway\PutAwayController::class, 'alternativeCells'])
             ->name('alternative-cells');
         Route::get('{order}/fast-slow-suggestions', [\App\Http\Controllers\PutAway\PutAwayController::class, 'fastSlowSuggestions'])

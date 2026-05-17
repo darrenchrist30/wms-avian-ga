@@ -588,6 +588,89 @@
                 font-size: 24px;
             }
         }
+
+        /* ─── Dashboard Tabs ──────────────────────────────── */
+        .dash-tabs-wrapper {
+            background: #fff;
+            border-radius: 12px 12px 0 0;
+            border-bottom: 2px solid #e9ecef;
+            padding: 12px 16px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,.07);
+        }
+        .dash-tabs {
+            flex-wrap: wrap;
+            gap: 2px;
+            padding-bottom: 0;
+            border: none !important;
+            background: transparent;
+        }
+        .dash-tabs .nav-item {
+            margin-bottom: -2px;
+        }
+        .dash-tabs .nav-link {
+            color: #6b7280;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 18px 10px;
+            border-radius: 0;
+            border: none;
+            border-bottom: 2px solid transparent;
+            background: transparent;
+            transition: all .18s;
+            white-space: nowrap;
+        }
+        .dash-tabs .nav-link:hover {
+            color: #0d8564;
+            background: transparent;
+            border-bottom-color: #b2dfdb;
+        }
+        .dash-tabs .nav-link.active {
+            color: #0d8564;
+            background: transparent;
+            font-weight: 700;
+            border-bottom: 2px solid #0d8564;
+        }
+        .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            margin-left: 5px;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        .dash-tabs .nav-link.active .tab-badge {
+            background: #ef4444;
+        }
+        .dash-tab-content {
+            background: #fff;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,.07);
+            padding: 20px 20px 4px;
+            margin-bottom: 8px;
+        }
+        .tab-pane-header {
+            padding: 2px 0 16px;
+            border-bottom: 1px solid #f3f4f6;
+            margin-bottom: 20px;
+        }
+        .tab-pane-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 3px;
+        }
+        .tab-pane-sub {
+            font-size: 12px;
+            color: #6b7280;
+        }
     </style>
 @endpush
 @section('content')
@@ -854,7 +937,7 @@
                     <i class="fas fa-boxes kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($totalItems) }}</div>
                     <div class="kpi-label">Total SKU / Item</div>
-                    <div class="kpi-trend"><span class="up">{{ number_format($mappedSku) }} tersimpan di denah gudang</span></div>
+                    <div class="kpi-trend"><span class="up">{{ number_format($mappedSku) }} SKU memiliki stok di denah</span></div>
                 </div>
             </a>
         </div>
@@ -890,36 +973,26 @@
         </div>
         <div class="col-6 col-md-3">
             <a href="{{ route('stock.low-stock') }}" class="kpi-link">
+                <div class="kpi-card kpi-red">
+                    <i class="fas fa-times-circle kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($stockHabisItems) }}</div>
+                    <div class="kpi-label">Item Stok Habis</div>
+                    <div class="kpi-trend"><span class="down">▼ Stok available = 0, butuh restock</span></div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{{ route('stock.low-stock') }}" class="kpi-link">
                 <div class="kpi-card kpi-amber">
                     <i class="fas fa-exclamation-triangle kpi-icon"></i>
-                    <div class="kpi-value">{{ number_format($lowStockItems) }}</div>
+                    <div class="kpi-value">{{ number_format($stockMenipisItems) }}</div>
                     <div class="kpi-label">Item Stok Menipis</div>
-                    <div class="kpi-trend"><span class="down">▼ Perlu reorder segera</span></div>
+                    <div class="kpi-trend"><span class="down">▼ Stok di bawah min_stock, belum habis</span></div>
                 </div>
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('inbound.orders.index', ['status' => 'inbound']) }}" class="kpi-link">
-                <div class="kpi-card kpi-purple">
-                    <i class="fas fa-clipboard-list kpi-icon"></i>
-                    <div class="kpi-value">{{ number_format($activeOrders) }}</div>
-                    <div class="kpi-label">Order Inbound Aktif</div>
-                    <div class="kpi-trend"><span class="up">Belum diproses GA / put-away</span></div>
-                </div>
-            </a>
-        </div>
-        <div class="col-6 col-md-3">
-            <a href="{{ route('stock.index') }}" class="kpi-link">
-                <div class="kpi-card kpi-slate">
-                    <i class="fas fa-cubes kpi-icon"></i>
-                    <div class="kpi-value">{{ number_format($totalStockQty) }}</div>
-                    <div class="kpi-label">Total Stok Tersedia (unit)</div>
-                    <div class="kpi-trend"><span class="up">Semua SKU aktif · status available</span></div>
-                </div>
-            </a>
-        </div>
-        <div class="col-6 col-md-3">
-            <a href="#deadstock-section" class="kpi-link">
+            <a href="#" class="kpi-link kpi-tab-link" data-tab="#tab-topworst">
                 <div class="kpi-card" style="background:linear-gradient(135deg,#374151,#1f2937);">
                     <i class="fas fa-hourglass-half kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($deadstockCount) }}</div>
@@ -928,12 +1001,97 @@
                 </div>
             </a>
         </div>
+        <div class="col-6 col-md-3">
+            <a href="{{ route('inbound.orders.index', ['status' => 'inbound']) }}" class="kpi-link">
+                <div class="kpi-card kpi-purple">
+                    <i class="fas fa-tasks kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($pendingGaRun + $pendingPutAway) }}</div>
+                    <div class="kpi-label">Pipeline DO Aktif</div>
+                    <div class="kpi-trend">
+                        <span class="up">{{ $pendingGaRun }} GA</span> ·
+                        <span class="up">{{ $pendingPutAway }} put-away</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{{ route('stock.index') }}" class="kpi-link">
+                <div class="kpi-card kpi-slate">
+                    <i class="fas fa-cubes kpi-icon"></i>
+                    <div class="kpi-value">{{ number_format($totalStockQty) }}</div>
+                    <div class="kpi-label">Total Stok Tersedia</div>
+                    <div class="kpi-trend"><span class="up">Akumulasi qty · {{ number_format($mappedSku) }} SKU · unit/satuan</span></div>
+                </div>
+            </a>
+        </div>
+        <div class="col-6 col-md-3">
+            <a href="{{ route('location.cells.index') }}" class="kpi-link">
+                <div class="kpi-card" style="background:linear-gradient(135deg,#be185d,#f43f5e);">
+                    <i class="fas fa-map-marked-alt kpi-icon"></i>
+                    <div class="kpi-value">{{ $totalItems > 0 ? round($denahSku / $totalItems * 100, 1) : 0 }}%</div>
+                    <div class="kpi-label">Coverage Denah</div>
+                    <div class="kpi-trend"><span class="up">{{ number_format($denahSku) }} dari {{ number_format($totalItems) }} SKU master</span></div>
+                </div>
+            </a>
+        </div>
     </div>
 
     {{-- ══════════════════════════════════════════════════════
-    ROW 2 — KAPASITAS GUDANG + GRAFIK INBOUND/OUTBOUND
+     TAB NAVIGATION
 ══════════════════════════════════════════════════════ --}}
-    <p class="section-title"><i class="fas fa-chart-line mr-1"></i> Trend Penerimaan Barang Harian</p>
+    @php
+        $locationIssues = ($stockNoLocation > 0 ? 1 : 0) + ($stockLegacyCell > 0 ? 1 : 0) + ($itemsNoCategory > 0 ? 1 : 0);
+        $totalAlerts = $lowStockAlerts->count() + $fullRacks->count() + ($nearExpiryItems > 0 ? 1 : 0) + ($deadstockCount > 0 ? 1 : 0) + $locationIssues;
+        $isOpUser = auth()->user()->hasRole('operator');
+    @endphp
+    <div class="dash-tabs-wrapper mt-4">
+    <ul class="nav dash-tabs" id="dashboardTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" data-toggle="tab" href="#tab-trend" role="tab">
+                Trend Penerimaan
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-antrian" role="tab">
+                Antrian Inbound
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-kapasitas" role="tab">
+                Kapasitas & Status
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-topworst" role="tab">
+                Top &amp; Worst Barang
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-aktivitas" role="tab">
+                Aktivitas Tim
+            </a>
+        </li>
+        @if(!$isOpUser)
+        <li class="nav-item">
+            <a class="nav-link" data-toggle="tab" href="#tab-ga" role="tab">
+                Analitik GA
+            </a>
+        </li>
+        @endif
+    </ul>
+    </div>{{-- /dash-tabs-wrapper --}}
+
+    <div class="dash-tab-content">
+    <div class="tab-content" id="dashboardTabContent">
+
+    {{-- ── TAB 1: TREND PENERIMAAN ────────────────────────── --}}
+    <div class="tab-pane fade show active" id="tab-trend" role="tabpanel">
+    <div class="tab-pane-header">
+        <div>
+            <div class="tab-pane-title"><i class="fas fa-chart-line mr-2 text-primary"></i>Trend Penerimaan</div>
+            <div class="tab-pane-sub">Arus barang masuk & keluar harian</div>
+        </div>
+    </div>
     <div class="row dashboard-section">
         <div class="col-md-12">
             <div class="panel-card">
@@ -977,8 +1135,16 @@
         </div>
     </div>
 
-    {{-- Process Queue --}}
-    <p class="section-title"><i class="fas fa-route mr-1"></i> Antrian Proses Inbound</p>
+    </div>{{-- /tab-trend --}}
+
+    {{-- ── TAB 2: ANTRIAN INBOUND ─────────────────────────── --}}
+    <div class="tab-pane fade" id="tab-antrian" role="tabpanel">
+    <div class="tab-pane-header">
+        <div>
+            <div class="tab-pane-title"><i class="fas fa-route mr-2" style="color:#f59e0b;"></i>Antrian Inbound</div>
+            <div class="tab-pane-sub">Status DO per tahap proses & DO terlama</div>
+        </div>
+    </div>
     <div class="row process-row">
         <div class="col-md-7">
             <div class="panel-card process-card">
@@ -998,9 +1164,9 @@
                             <div class="funnel-count">{{ number_format($step['count']) }}</div>
                         </div>
                     @endforeach
-                    <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:11px;color:#6b7280;">
+                    {{-- <div class="mt-2 pt-2" style="border-top:1px solid #f0f0f0;font-size:11px;color:#6b7280;">
                         Dipakai untuk melihat tahap proses yang sedang menumpuk.
-                    </div>
+                    </div> --}}
                 </div>
             </div>
         </div>
@@ -1036,7 +1202,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="text-center text-muted py-4">Tidak ada DO terbuka.</td>
+                                    <td colspan="3" class="text-center text-muted py-4">Tidak ada DO</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -1046,7 +1212,16 @@
         </div>
     </div>
 
-    <p class="section-title"><i class="fas fa-chart-bar mr-1"></i> Kapasitas & Arus Barang</p>
+    </div>{{-- /tab-antrian --}}
+
+    {{-- ── TAB 3: KAPASITAS & STATUS ──────────────────────── --}}
+    <div class="tab-pane fade" id="tab-kapasitas" role="tabpanel">
+    <div class="tab-pane-header">
+        <div>
+            <div class="tab-pane-title"><i class="fas fa-chart-bar mr-2" style="color:#3b82f6;"></i>Kapasitas & Status</div>
+            <div class="tab-pane-sub">Utilisasi gudang · status order · cell hampir penuh</div>
+        </div>
+    </div>
     <div class="row capacity-row dashboard-section">
         <div class="col-md-7">
             <div class="panel-card capacity-card">
@@ -1060,15 +1235,15 @@
                     <div class="capacity-stats">
                         <div class="capacity-stat">
                             <strong>{{ number_format($capacityUsedTotal) }}</strong>
-                            <span>Terpakai</span>
+                            <span>Slot Terpakai</span>
                         </div>
                         <div class="capacity-stat">
                             <strong>{{ number_format($capacityFreeTotal) }}</strong>
-                            <span>Kosong</span>
+                            <span>Slot Kosong</span>
                         </div>
                         <div class="capacity-stat">
                             <strong>{{ number_format($capacityMaxTotal) }}</strong>
-                            <span>Total</span>
+                            <span>Total Slot</span>
                         </div>
                     </div>
                     <div class="donut-wrap chart-box mb-3">
@@ -1132,249 +1307,251 @@
         </div>
     </div>
 
-    {{-- ══════════════════════════════════════════════════════
-     ROW 4 — ALERT STOK + PENERIMAAN TERJADWAL + QUICK ACCESS
-══════════════════════════════════════════════════════ --}}
-    <p class="section-title"><i class="fas fa-bell mr-1"></i> Peringatan & Jadwal</p>
+    {{-- Top Cells Almost Full --}}
+    @if($criticalCells->isNotEmpty())
+    <p class="section-title mt-0" style="margin-top:8px !important;"><i class="fas fa-exclamation-circle mr-1" style="color:#f59e0b;"></i> Top Cell / Rak Hampir Penuh</p>
     <div class="row">
-
-        {{-- Alert & Notifikasi (dinamis) --}}
-        <div class="col-md-12">
+        <div class="col-md-6">
             <div class="panel-card">
                 <div class="panel-header">
-                    <h6><i class="fas fa-bell mr-1 text-danger"></i> Alert &amp; Notifikasi</h6>
-                    @php
-                        $totalAlerts =
-                            $lowStockAlerts->count() +
-                            $fullRacks->count() +
-                            ($nearExpiryItems > 0 ? 1 : 0) +
-                            ($deadstockCount > 0 ? 1 : 0);
-                    @endphp
-                    <div class="d-flex align-items-center" style="gap:8px;">
-                        <span class="badge badge-danger" style="font-size:11px;">
-                            {{ $totalAlerts }} Aktif
-                        </span>
-                        <form method="POST" action="{{ route('dashboard.send-wa-alert') }}" class="d-inline">
-                            @csrf
-                            <button type="submit" class="btn btn-sm"
-                                style="background:#25d366;color:#fff;font-size:12px;padding:3px 10px;border-radius:6px;"
-                                onclick="return confirm('Kirim ringkasan alert ke WhatsApp supervisor sekarang?')"
-                                title="Jadwal otomatis: setiap {{ ucfirst(config('services.fonnte.schedule_day','Senin')) }} {{ config('services.fonnte.schedule_time','08:00') }}">
-                                <i class="fab fa-whatsapp mr-1"></i>Kirim WA Sekarang
-                            </button>
-                        </form>
-                    </div>
+                    <h6><i class="fas fa-map-marker-alt mr-1 text-warning"></i> Top 5 Cell Terpadat</h6>
+                    <span style="font-size:12px;color:#6b7280;">{{ $criticalCells->count() }} cell dimonitor</span>
                 </div>
-                <div class="panel-body" style="padding-top:8px;">
-
-                    {{-- Rak hampir penuh (≥ 85%) --}}
-                    @foreach ($fullRacks as $fz)
-                        <div class="alert-item">
-                            <div class="alert-dot critical"></div>
-                            <div>
-                                <div class="alert-item-text">
-                                    <strong>Kapasitas Kritis:</strong> {{ $fz['name'] }} ({{ $fz['percent'] }}%)
-                                </div>
-                                <div class="alert-item-time">
-                                    {{ $fz['used'] }}/{{ $fz['max'] }} unit · Perlu realokasi
-                                </div>
+                <div class="panel-body">
+                    @foreach($criticalCells->take(5) as $cell)
+                        @php $pct = $cell['percent']; @endphp
+                        <div class="zone-row">
+                            <div class="zone-label">
+                                <span style="font-size:12px;">
+                                    <code style="font-size:11px;">{{ $cell['code'] }}</code>
+                                    <span class="text-muted ml-1" style="font-size:11px;">Rak: {{ $cell['rack'] }}</span>
+                                </span>
+                                <span style="font-size:12px;font-weight:600;color:{{ $pct >= 100 ? '#ef4444' : ($pct >= 85 ? '#f59e0b' : '#14b8a6') }};">
+                                    {{ $cell['used'] }}/{{ $cell['max'] }} · {{ $pct }}%
+                                </span>
+                            </div>
+                            <div class="zone-bar">
+                                <div class="zone-fill" style="width:{{ min(100,$pct) }}%;background:{{ $pct >= 100 ? '#ef4444' : ($pct >= 85 ? '#f59e0b' : '#14b8a6') }};"></div>
                             </div>
                         </div>
                     @endforeach
-
-                    {{-- Stok menipis --}}
-                    @foreach ($lowStockAlerts as $ls)
-                        <div class="alert-item">
-                            <div class="alert-dot warning"></div>
-                            <div>
-                                <div class="alert-item-text">
-                                    <strong>Stok Menipis:</strong> {{ $ls['name'] }}
-                                </div>
-                                <div class="alert-item-time">
-                                    Tersisa {{ $ls['current'] }} unit · Min: {{ $ls['min'] }} unit
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-
-                    {{-- Hampir kadaluarsa --}}
-                    @if ($nearExpiryItems > 0)
-                        <div class="alert-item">
-                            <div class="alert-dot warning"></div>
-                            <div>
-                                <div class="alert-item-text">
-                                    <strong>Mendekati Kadaluarsa:</strong>
-                                    {{ number_format($nearExpiryItems) }} record stok (≤ 30 hari)
-                                </div>
-                                <div class="alert-item-time">Lihat tabel di bawah untuk detail</div>
-                            </div>
-                        </div>
-                    @endif
-
-                    {{-- Deadstock --}}
-                    @if ($deadstockCount > 0)
-                        <div class="alert-item">
-                            <div class="alert-dot info"></div>
-                            <div>
-                                <div class="alert-item-text">
-                                    <strong>Deadstock:</strong>
-                                    {{ number_format($deadstockCount) }} SKU tidak bergerak ≥ {{ $deadstockDays }} hari
-                                </div>
-                                <div class="alert-item-time">Cek tabel Deadstock di bawah</div>
-                            </div>
-                        </div>
-                    @endif
-
-                    @if ($totalAlerts === 0)
-                        <div class="text-center text-muted py-3">
-                            <i class="fas fa-check-circle fa-2x text-success mb-2 d-block"></i>
-                            Tidak ada peringatan aktif saat ini.
+                    @if($criticalCells->count() > 5)
+                        <div class="text-center" style="font-size:11px;color:#9ca3af;margin-top:6px;">
+                            +{{ $criticalCells->count() - 5 }} cell lainnya
                         </div>
                     @endif
                 </div>
             </div>
         </div>
-
-    </div>
-
-    {{-- ══════════════════════════════════════════════════════
-    ROW 6 — DEADSTOCK MONITORING
-══════════════════════════════════════════════════════ --}}
-    <p class="section-title" id="deadstock-section">
-        <i class="fas fa-hourglass-half mr-1" style="color:#374151;"></i> Monitoring Deadstock
-        <span class="badge badge-secondary ml-1" style="font-size:11px;font-weight:600;">
-            Tidak Bergerak ≥ {{ $deadstockDays }} Hari
-        </span>
-    </p>
-    <div class="row">
-        <div class="col-12">
+        <div class="col-md-6">
             <div class="panel-card">
                 <div class="panel-header">
-                    <h6>
-                        <i class="fas fa-boxes mr-1" style="color:#374151;"></i>
-                        Daftar Item Deadstock
-                        <span class="badge ml-1" style="background:#374151;color:#fff;font-size:11px;">
-                            {{ $deadstockCount }} SKU
-                        </span>
-                    </h6>
-                    <form method="GET" action="{{ route('dashboard') }}" class="d-flex align-items-center" style="gap:6px;">
-                        <span style="font-size:12px;color:#6b7280;white-space:nowrap;">Tidak bergerak ≥</span>
-                        <input type="number" name="deadstock_days" value="{{ $deadstockDays }}"
-                               min="1" max="3650"
-                               style="width:64px;font-size:12px;padding:3px 6px;border:1px solid #d1d5db;border-radius:6px;text-align:center;"
-                               class="form-control form-control-sm">
-                        <span style="font-size:12px;color:#6b7280;">hari</span>
-                        <button type="submit" class="btn btn-sm btn-dark" style="font-size:12px;padding:3px 10px;">
-                            <i class="fas fa-filter mr-1"></i>Filter
-                        </button>
-                    </form>
+                    <h6><i class="fas fa-layer-group mr-1 text-danger"></i> Lokasi dengan Slot Paling Sedikit</h6>
+                    <span style="font-size:12px;color:#6b7280;">Sisa slot terkecil</span>
                 </div>
-                <div class="panel-body" style="padding-top:4px;">
-                    @if ($deadstockStocks->isEmpty())
-                        <div class="text-center py-4 text-muted">
-                            <i class="fas fa-check-circle fa-2x text-success mb-2 d-block"></i>
-                            <strong>Tidak ada item deadstock.</strong><br>
-                            <small>Semua stok tersedia masih dalam batas waktu pergerakan normal.</small>
+                <div class="panel-body">
+                    @foreach($criticalCells->sortBy('remaining')->take(5) as $cell)
+                        @php $pct = $cell['percent']; @endphp
+                        <div class="zone-row">
+                            <div class="zone-label">
+                                <span style="font-size:12px;">
+                                    <code style="font-size:11px;">{{ $cell['code'] }}</code>
+                                </span>
+                                <span style="font-size:12px;color:#6b7280;">
+                                    sisa <strong style="color:{{ $cell['remaining'] == 0 ? '#ef4444' : '#374151' }};">{{ $cell['remaining'] }}</strong> slot
+                                </span>
+                            </div>
+                            <div class="zone-bar">
+                                <div class="zone-fill" style="width:{{ min(100,$pct) }}%;background:{{ $pct >= 100 ? '#ef4444' : ($pct >= 85 ? '#f59e0b' : '#14b8a6') }};"></div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    </div>{{-- /tab-kapasitas --}}
+
+    {{-- ── TAB 4: TOP & WORST BARANG ─────────────────────── --}}
+    <div class="tab-pane fade" id="tab-topworst" role="tabpanel">
+    <style>
+        #topworstNav { display:flex; }
+        #topworstNav .nav-item { flex:1; }
+        #topworstNav .nav-link { display:block;width:100%;text-align:center;color:#6b7280;font-weight:600;font-size:14px;padding:13px 0;border-radius:0;border:none;border-bottom:3px solid transparent;background:transparent; }
+        #topworstNav .nav-link.active { color:#0d8564;border-bottom-color:#0d8564; }
+        #topworstNav .nav-link:hover:not(.active) { color:#374151;background:#f9fafb;border-bottom-color:#d1d5db; }
+    </style>
+    <div class="tab-pane-header">
+        <div>
+            <div class="tab-pane-title"><i class="fas fa-chart-bar mr-2" style="color:#f59e0b;"></i>Top &amp; Worst Barang</div>
+            <div class="tab-pane-sub">Peringkat item berdasarkan total pergerakan stok sepanjang waktu</div>
+        </div>
+    </div>
+
+    {{-- Sub-tab nav --}}
+    <ul class="nav mb-0" id="topworstNav" role="tablist"
+        style="border-bottom:2px solid #e5e7eb;margin-bottom:20px;">
+        <li class="nav-item">
+            <a class="nav-link active" id="tw-top-tab" data-toggle="tab" href="#tw-top" role="tab">
+                Top 10 Barang
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="tw-worst-tab" data-toggle="tab" href="#tw-worst" role="tab">
+                Worst 10 Barang
+            </a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        {{-- ── Top 10 ── --}}
+        <div class="tab-pane fade show active" id="tw-top" role="tabpanel">
+            <div class="panel-card">
+                <div class="panel-body p-0">
+                    @if ($topMovedItems->isEmpty())
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-box-open fa-3x mb-3 d-block"></i>
+                            Belum ada data pergerakan item.
                         </div>
                     @else
-                        <div class="table-responsive">
-                            <table class="table mb-0 wms-table">
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>SKU</th>
-                                        <th>Nama Item</th>
-                                        <th>Kategori</th>
-                                        <th>Lokasi</th>
-                                        <th>Qty</th>
-                                        <th>Tgl Masuk</th>
-                                        <th>Terakhir Bergerak</th>
-                                        <th>Hari Statis</th>
-                                        <th>Threshold</th>
-                                        <th>Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($deadstockStocks as $idx => $ds)
-                                        @php
-                                            $daysStatic = $ds->days_since_last_movement;
-                                            $threshold = $ds->item?->deadstock_threshold_days ?? 90;
-                                            $overDays = $daysStatic - $threshold;
-                                            $zoneName = $ds->cell?->rack?->warehouse?->name ?? '–';
-                                            $cellCode = $ds->cell?->code ?? '–';
-                                        @endphp
-                                        <tr>
-                                            <td>{{ $idx + 1 }}</td>
-                                            <td><code style="font-size:12px;">{{ $ds->item?->sku ?? '–' }}</code></td>
-                                            <td><strong>{{ $ds->item?->name ?? '–' }}</strong></td>
-                                            <td>
-                                                <span class="badge"
-                                                    style="
-                                                background:{{ $ds->item?->category?->color_code ?? '#9ca3af' }}22;
-                                                color:{{ $ds->item?->category?->color_code ?? '#374151' }};
-                                                border:1px solid {{ $ds->item?->category?->color_code ?? '#9ca3af' }}55;
-                                                font-size:11px;padding:3px 7px;border-radius:4px;">
-                                                    {{ $ds->item?->category?->name ?? '–' }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span style="font-size:12px;">
-                                                    <i class="fas fa-map-marker-alt text-muted mr-1"></i>
-                                                    {{ $zoneName }} · <strong>{{ $cellCode }}</strong>
-                                                </span>
-                                            </td>
-                                            <td>{{ number_format($ds->quantity) }}</td>
-                                            <td>{{ $ds->inbound_date?->format('d M Y') ?? '–' }}</td>
-                                            <td>
-                                                @if ($ds->last_moved_at)
-                                                    {{ $ds->last_moved_at->format('d M Y') }}
-                                                @else
-                                                    <span class="text-muted" style="font-size:11px;">
-                                                        <i class="fas fa-minus"></i> Belum pernah
-                                                    </span>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <strong style="color:#374151;">{{ $daysStatic }}</strong>
-                                                <span class="text-muted" style="font-size:11px;"> hari</span>
-                                            </td>
-                                            <td>
-                                                <span class="text-muted" style="font-size:12px;">
-                                                    {{ $threshold }} hari
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <span class="badge-status badge-critical"
-                                                    style="font-size:11px;white-space:nowrap;">
-                                                    +{{ $overDays }} hari lewat
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        @if ($deadstockCount > 8)
-                            <div class="text-center pt-2" style="font-size:12px;color:#6b7280;">
-                                Menampilkan 8 dari {{ number_format($deadstockCount) }} item.
-                                <a href="{{ route('stock.index') }}" style="color:#0d8564;">Lihat semua →</a>
-                            </div>
-                        @endif
+                        <table class="table table-sm mb-0" style="font-size:13px;">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th width="50" class="text-center">#</th>
+                                    <th>SKU / Nama Item</th>
+                                    <th width="130">Kategori</th>
+                                    <th width="110" class="text-center">Total Qty</th>
+                                    <th width="90" class="text-center">Transaksi</th>
+                                    <th>Aktivitas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $maxTopQty = $topMovedItems->max('total_qty') ?: 1; @endphp
+                                @foreach ($topMovedItems as $i => $tm)
+                                <tr>
+                                    <td class="text-center" style="vertical-align:middle;">
+                                        @if ($i === 0) <span style="font-size:18px;">🥇</span>
+                                        @elseif ($i === 1) <span style="font-size:18px;">🥈</span>
+                                        @elseif ($i === 2) <span style="font-size:18px;">🥉</span>
+                                        @else <span style="color:#9ca3af;font-weight:600;">{{ $i + 1 }}</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600;color:#1f2937;">{{ $tm->item->name ?? '-' }}</div>
+                                        <code style="font-size:11px;color:#9ca3af;">{{ $tm->item->sku ?? '' }}</code>
+                                    </td>
+                                    <td>
+                                        @if ($tm->item?->category)
+                                            <span class="badge" style="font-size:11px;padding:3px 8px;background:{{ $tm->item->category->color_code ?? '#6366f1' }}22;color:{{ $tm->item->category->color_code ?? '#374151' }};border:1px solid {{ $tm->item->category->color_code ?? '#6366f1' }}55;">
+                                                {{ $tm->item->category->name }}
+                                            </span>
+                                        @else <span class="text-muted" style="font-size:11px;">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center" style="font-weight:700;color:#0d8564;font-size:14px;">
+                                        {{ number_format($tm->total_qty) }}
+                                        <span style="font-size:10px;font-weight:400;color:#9ca3af;"> {{ $tm->item->unit->code ?? '' }}</span>
+                                    </td>
+                                    <td class="text-center" style="color:#6b7280;">{{ number_format($tm->movement_count) }}x</td>
+                                    <td style="vertical-align:middle;padding-right:20px;min-width:140px;">
+                                        <div style="background:#f3f4f6;border-radius:6px;height:8px;overflow:hidden;">
+                                            <div style="background:linear-gradient(90deg,#0d8564,#14b8a6);width:{{ round($tm->total_qty / $maxTopQty * 100) }}%;height:100%;border-radius:6px;"></div>
+                                        </div>
+                                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">{{ round($tm->total_qty / $maxTopQty * 100) }}% dari tertinggi</div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     @endif
                 </div>
             </div>
         </div>
+
+        {{-- ── Worst 10 ── --}}
+        <div class="tab-pane fade" id="tw-worst" role="tabpanel">
+            <div class="panel-card">
+                <div class="panel-body p-0">
+                    @if ($worstMovedItems->isEmpty())
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-box-open fa-3x mb-3 d-block"></i>
+                            Tidak ada item dengan stok aktif.
+                        </div>
+                    @else
+                        <table class="table table-sm mb-0" style="font-size:13px;">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th width="50" class="text-center">#</th>
+                                    <th>SKU / Nama Item</th>
+                                    <th width="130">Kategori</th>
+                                    <th width="110" class="text-center">Total Qty</th>
+                                    <th width="90" class="text-center">Transaksi</th>
+                                    <th>Aktivitas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @php $maxWorstQty = $worstMovedItems->max('total_qty') ?: 1; @endphp
+                                @foreach ($worstMovedItems as $i => $wm)
+                                <tr>
+                                    <td class="text-center" style="vertical-align:middle;">
+                                        <span style="color:#9ca3af;font-weight:600;">{{ $i + 1 }}</span>
+                                    </td>
+                                    <td>
+                                        <div style="font-weight:600;color:#1f2937;">{{ $wm->name ?? '-' }}</div>
+                                        <code style="font-size:11px;color:#9ca3af;">{{ $wm->sku ?? '' }}</code>
+                                    </td>
+                                    <td>
+                                        @if ($wm->category)
+                                            <span class="badge" style="font-size:11px;padding:3px 8px;background:{{ $wm->category->color_code ?? '#6366f1' }}22;color:{{ $wm->category->color_code ?? '#374151' }};border:1px solid {{ $wm->category->color_code ?? '#6366f1' }}55;">
+                                                {{ $wm->category->name }}
+                                            </span>
+                                        @else <span class="text-muted" style="font-size:11px;">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-center" style="font-weight:700;color:#ef4444;font-size:14px;">
+                                        {{ number_format($wm->total_qty) }}
+                                        <span style="font-size:10px;font-weight:400;color:#9ca3af;"> {{ $wm->unit->code ?? '' }}</span>
+                                    </td>
+                                    <td class="text-center" style="color:#6b7280;">{{ number_format($wm->movement_count) }}x</td>
+                                    <td style="vertical-align:middle;padding-right:20px;min-width:140px;">
+                                        @php $worstPct = $maxWorstQty > 0 ? round($wm->total_qty / $maxWorstQty * 100) : 0; @endphp
+                                        <div style="background:#f3f4f6;border-radius:6px;height:8px;overflow:hidden;">
+                                            <div style="background:linear-gradient(90deg,#ef4444,#f59e0b);width:{{ $worstPct }}%;height:100%;border-radius:6px;{{ $wm->total_qty == 0 ? '' : 'min-width:4px;' }}"></div>
+                                        </div>
+                                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
+                                            {{ $wm->total_qty == 0 ? 'Tidak pernah bergerak' : $worstPct.'% dari teraktif' }}
+                                        </div>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    @endif
+                </div>
+            </div>
+        </div>
+
     </div>
 
-    {{-- ══════════════════════════════════════════════════════
-     ROW 7 — AKTIVITAS PUT-AWAY HARI INI + STATISTIK GA + KPI PROSES WMS
-══════════════════════════════════════════════════════ --}}
-    <p class="section-title"><i class="fas fa-users mr-1"></i> Aktivitas Tim & Kinerja Sistem</p>
+    </div>{{-- /tab-topworst --}}
+
+    {{-- ── TAB 6: AKTIVITAS TIM ───────────────────────────── --}}
+    <div class="tab-pane fade" id="tab-aktivitas" role="tabpanel">
+    <div class="tab-pane-header">
+        <div>
+            <div class="tab-pane-title"><i class="fas fa-users mr-2" style="color:#8b5cf6;"></i>Aktivitas Tim & Kinerja</div>
+            <div class="tab-pane-sub">Put-away hari ini · statistik GA · KPI proses WMS</div>
+        </div>
+    </div>
+    @php $isOp = auth()->user()->hasRole('operator'); @endphp
     <div class="row">
 
         {{-- Aktivitas Put-Away Hari Ini (real) --}}
-        <div class="col-md-5">
-            <div class="panel-card">
+        <div class="{{ $isOp ? 'col-md-7' : 'col-md-5' }} d-flex">
+            <div class="panel-card w-100">
                 <div class="panel-header">
                     <h6><i class="fas fa-dolly mr-1" style="color:#0d8564;"></i> Aktivitas Put-Away Hari Ini</h6>
                     <span style="font-size:12px;color:#6b7280;">
@@ -1498,8 +1675,8 @@
         @endif
 
         {{-- KPI Proses WMS (real) --}}
-        <div class="col-md-3">
-            <div class="panel-card">
+        <div class="{{ $isOp ? 'col-md-5' : 'col-md-3' }} d-flex">
+            <div class="panel-card w-100">
                 <div class="panel-header">
                     <h6><i class="fas fa-bullseye mr-1 text-danger"></i> KPI Proses WMS</h6>
                 </div>
@@ -1570,9 +1747,18 @@
         </div>
     </div>
 
+
+    </div>{{-- /tab-aktivitas --}}
+
+    {{-- ── TAB 7: ANALITIK GA (admin/supervisor only) ─────── --}}
     @if(!auth()->user()->hasRole('operator'))
-    {{-- GA Analytics --}}
-    <p class="section-title"><i class="fas fa-dna mr-1"></i> Analitik Genetic Algorithm</p>
+    <div class="tab-pane fade" id="tab-ga" role="tabpanel">
+    <div class="tab-pane-header">
+        <div>
+            <div class="tab-pane-title"><i class="fas fa-dna mr-2" style="color:#8b5cf6;"></i>Analitik Genetic Algorithm</div>
+            <div class="tab-pane-sub">Fitness score · trend run · distribusi kualitas rekomendasi</div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-md-3 col-6 mb-3">
             <div class="mini-stat">
@@ -1626,12 +1812,16 @@
             </div>
         </div>
     </div>
+    </div>{{-- /tab-ga --}}
     @endif
+
+    </div>{{-- /tab-content --}}
+    </div>{{-- /dash-tab-content --}}
 
 @endsection
 
 @push('scripts')
-    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highcharts/11.4.8/highcharts.js"></script>
     <script>
         // ── Live Clock & Date ───────────────────────────────────────────────────
         function updateClock() {
@@ -1685,28 +1875,7 @@
             lang: { thousandsSep: '.' }
         });
 
-        // ── 1. Donut Utilisasi Gudang ───────────────────────────────────────────
-        Highcharts.chart('chartZoneDonut', {
-            chart: { type: 'pie', spacing: [0, 0, 0, 0] },
-            tooltip: { pointFormat: '<b>{point.y:,.0f}</b> unit' },
-            plotOptions: {
-                pie: {
-                    innerSize: '72%',
-                    borderWidth: 2,
-                    dataLabels: { enabled: false },
-                    showInLegend: false
-                }
-            },
-            series: [{
-                name: 'Kapasitas',
-                data: [
-                    { name: 'Terpakai', y: {{ (int) $capacityUsedTotal }}, color: '#0d8564' },
-                    { name: 'Kosong', y: {{ (int) $capacityFreeTotal }}, color: '#e5e7eb' }
-                ]
-            }]
-        });
-
-        // ── 2. Trend Chart Arus Barang (filterable by date) ──────────────────────
+        // ── 2. Trend Chart Arus Barang (default active tab) ───────────────────
         @php
             $chartLabelsJson = json_encode($chartLabels);
             $chartInboundJson = json_encode($chartInbound);
@@ -1726,9 +1895,7 @@
                 $('#trendInboundStat').text(res.total_inbound.toLocaleString());
                 $('#trendOutboundStat').text(res.total_outbound.toLocaleString());
                 $('#trendNetFlowStat').text(net.toLocaleString()).css('color', net >= 0 ? '#0d8564' : '#ef4444');
-
                 if (trendChart) { trendChart.destroy(); trendChart = null; }
-
                 if (res.total_inbound + res.total_outbound === 0) {
                     $('#chartDailyInOutTrend').html('<div class="chart-empty"><div><i class="fas fa-chart-line"></i>Belum ada transaksi pada periode ini.</div></div>');
                     return;
@@ -1770,8 +1937,41 @@
             });
         })();
 
+        // ── Lazy render for other tabs ─────────────────────────────────────────
+        if ($('#tab-kapasitas').hasClass('active')) renderKapasitasCharts();
+        @if(!auth()->user()->hasRole('operator'))
+        if ($('#tab-ga').hasClass('active')) renderGaCharts();
+        @endif
+        } // end renderDashboardCharts
 
-        // ── 3. Pie Chart Status Order (real) ────────────────────────────────────
+        // ── Kapasitas Charts ──────────────────────────────────────────────────
+        var kapasitasChartsDone = false;
+        function renderKapasitasCharts() {
+            if (!window.Highcharts || kapasitasChartsDone) return;
+            kapasitasChartsDone = true;
+
+        // ── 1. Donut Utilisasi Gudang ───────────────────────────────────────────
+        Highcharts.chart('chartZoneDonut', {
+            chart: { type: 'pie', spacing: [0, 0, 0, 0] },
+            tooltip: { pointFormat: '<b>{point.y:,.0f}</b> unit' },
+            plotOptions: {
+                pie: {
+                    innerSize: '72%',
+                    borderWidth: 2,
+                    dataLabels: { enabled: false },
+                    showInLegend: false
+                }
+            },
+            series: [{
+                name: 'Kapasitas',
+                data: [
+                    { name: 'Terpakai', y: {{ (int) $capacityUsedTotal }}, color: '#0d8564' },
+                    { name: 'Kosong', y: {{ (int) $capacityFreeTotal }}, color: '#e5e7eb' }
+                ]
+            }]
+        });
+
+        // ── 3. Pie Chart Status Order (real) ─────────────────────────────────
         @php
             $osLabels = ['Completed', 'Put-Away', 'Menunggu Review', 'Qty Confirmed', 'Draft', 'Cancelled'];
             $osKeys = ['completed', 'put_away', 'recommended', 'processing', 'draft', 'cancelled'];
@@ -1794,8 +1994,15 @@
                 data: {!! json_encode(array_map(fn($label, $value, $color) => ['name' => $label, 'y' => $value, 'color' => $color], $osLabels, $osData, $osColors)) !!}
             }]
         });
+        } // end renderKapasitasCharts
 
-        // ── 6. GA Trend ───────────────────────────────────────────────────
+        // ── GA Charts (lazy) ─────────────────────────────────────────────────
+        @if(!auth()->user()->hasRole('operator'))
+        var gaChartsDone = false;
+        function renderGaCharts() {
+            if (!window.Highcharts || gaChartsDone) return;
+            gaChartsDone = true;
+
         Highcharts.chart('chartGaTrend', {
             chart: { zoomType: 'xy' },
             xAxis: { categories: {!! json_encode($gaTrendLabels) !!}, crosshair: true },
@@ -1827,7 +2034,6 @@
             }]
         });
 
-        // ── 7. GA Fitness Distribution ────────────────────────────────────
         Highcharts.chart('chartGaFitnessDistribution', {
             chart: { type: 'bar' },
             xAxis: { categories: {!! json_encode(array_keys($gaFitnessDistribution)) !!}, title: { text: null } },
@@ -1840,8 +2046,34 @@
                 data: {!! json_encode(array_values($gaFitnessDistribution)) !!}
             }]
         });
-        }
+        } // end renderGaCharts
+        @endif
 
-        window.addEventListener('load', renderDashboardCharts);
+        // ── Tab events: lazy render + localStorage ────────────────────────────
+        $('#dashboardTabs a').on('shown.bs.tab', function (e) {
+            var tabId = $(e.target).attr('href');
+            localStorage.setItem('dashboardActiveTab', tabId);
+            if (tabId === '#tab-kapasitas') renderKapasitasCharts();
+            @if(!auth()->user()->hasRole('operator'))
+            if (tabId === '#tab-ga') renderGaCharts();
+            @endif
+        });
+
+        // ── KPI deadstock card → open deadstock tab ────────────────────────
+        $(document).on('click', '.kpi-tab-link', function (e) {
+            e.preventDefault();
+            var tab = $(this).data('tab');
+            $('#dashboardTabs a[href="' + tab + '"]').tab('show');
+            $('html, body').animate({ scrollTop: $('#dashboardTabs').offset().top - 60 }, 300);
+        });
+
+        window.addEventListener('load', function () {
+            renderDashboardCharts();
+            // Restore saved tab
+            var savedTab = localStorage.getItem('dashboardActiveTab');
+            if (savedTab && $(savedTab).length) {
+                $('#dashboardTabs a[href="' + savedTab + '"]').tab('show');
+            }
+        });
     </script>
 @endpush

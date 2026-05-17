@@ -14,16 +14,16 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header">
+                    <div class="card-header" style="background:#0d8564 !important;border-color:#0d8564 !important;color:#fff">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="font-weight-bold">
+                            <div class="font-weight-bold text-white">
                                 @if ($typeForm == 'create')
                                     <i class="fas fa-plus-circle mr-1"></i> Form Inbound Order Baru
                                 @else
                                     <i class="fas fa-edit mr-1"></i> Edit Inbound Order
                                 @endif
                             </div>
-                            <a href="{{ route('inbound.orders.index') }}" class="btn btn-sm btn-outline-secondary">
+                            <a href="{{ route('inbound.orders.index') }}" class="btn btn-sm btn-outline-light">
                                 <i class="fas fa-arrow-left mr-2"></i>Back
                             </a>
                         </div>
@@ -58,7 +58,7 @@
                             @endif
 
                             {{-- Header --}}
-                            <div class="card {{ $typeForm == 'create' ? 'card-primary' : 'card-warning' }} card-outline mb-3">
+                            <div class="card card-outline mb-3">
                                 <div class="card-header">
                                     <div class="font-weight-bold"><i class="fas fa-file-alt mr-1"></i> Header Surat Jalan</div>
                                 </div>
@@ -146,7 +146,7 @@
                             <div class="card card-secondary card-outline">
                                 <div class="card-header d-flex justify-content-between align-items-center">
                                     <div class="font-weight-bold"><i class="fas fa-boxes mr-1"></i> Detail Item</div>
-                                    <button type="button" class="btn btn-sm btn-success" id="btnAddRow">
+                                    <button type="button" class="btn btn-primary btn-sm ml-auto" id="btnAddRow">
                                         <i class="fas fa-plus mr-1"></i> Tambah Item
                                     </button>
                                 </div>
@@ -160,7 +160,7 @@
                                                 <tr>
                                                     <th width="35" class="text-center">#</th>
                                                     <th>Item / Sparepart</th>
-                                                    <th width="130">LPN</th>
+
                                                     <th width="110" class="text-center">Qty Order <span class="text-danger">*</span></th>
                                                     <th width="110" class="text-center">Qty Terima</th>
                                                     <th>Catatan Item</th>
@@ -184,11 +184,6 @@
                                                                         </option>
                                                                     @endforeach
                                                                 </select>
-                                                            </td>
-                                                            <td>
-                                                                <input type="text" name="items[{{ $idx }}][lpn]"
-                                                                    class="form-control form-control-sm"
-                                                                    value="{{ $oi->lpn }}" placeholder="LPN">
                                                             </td>
                                                             <td>
                                                                 <input type="number" name="items[{{ $idx }}][quantity_ordered]"
@@ -228,7 +223,7 @@
                                                                 @endforeach
                                                             </select>
                                                         </td>
-                                                        <td><input type="text" name="items[0][lpn]" class="form-control form-control-sm" placeholder="LPN"></td>
+
                                                         <td><input type="number" name="items[0][quantity_ordered]" class="form-control form-control-sm text-center" value="1" min="1"></td>
                                                         <td><input type="number" name="items[0][quantity_received]" class="form-control form-control-sm text-center" value="0" min="0"></td>
                                                         <td><input type="text" name="items[0][notes]" class="form-control form-control-sm"></td>
@@ -284,7 +279,7 @@
                     @endforeach
                 </select>
             </td>
-            <td><input type="text" name="items[__IDX__][lpn]" class="form-control form-control-sm" placeholder="LPN"></td>
+
             <td><input type="number" name="items[__IDX__][quantity_ordered]" class="form-control form-control-sm text-center" value="1" min="1"></td>
             <td><input type="number" name="items[__IDX__][quantity_received]" class="form-control form-control-sm text-center" value="0" min="0"></td>
             <td><input type="text" name="items[__IDX__][notes]" class="form-control form-control-sm"></td>

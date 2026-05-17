@@ -68,6 +68,25 @@ class PutAwayService
         return max(0, $capacityMax - $capacityUsed);
     }
 
+    private function capacityDemandForPlacement(InboundOrderItem $detail, Cell $cell, int $quantityStored): int
+    {
+        if (!$this->isMspartCell($cell)) {
+            return $quantityStored;
+        }
+
+        $existing = Stock::where('item_id', $detail->item_id)
+            ->where('cell_id', $cell->id)
+            ->where('status', 'available')
+            ->when(
+                $detail->lpn === null,
+                fn($q) => $q->whereNull('lpn'),
+                fn($q) => $q->where('lpn', $detail->lpn)
+            )
+            ->exists();
+
+        return $existing ? 0 : 1;
+    }
+
     /**
      * Hitung ulang dominant_category_id untuk cell berdasarkan kategori SKU
      * yang ada di stocks aktif. Kategori terbanyak menang.
@@ -200,16 +219,22 @@ class PutAwayService
             throw new \Exception("Item '{$detail->item->name}' sudah di-put-away sebelumnya.");
         }
 
-        // Validasi: sel masih bisa menerima barang
-        if (!in_array($cell->status, ['available', 'partial'])) {
+        $remainingCapacity = $this->remainingCapacityForPlacement($cell);
+        $capacityDemand = $this->capacityDemandForPlacement($detail, $cell, $quantityStored);
+
+        // Validasi: sel masih bisa menerima barang. Pada MSpart, cell full tetap
+        // boleh menerima SKU yang sama karena upsert ke stock record existing
+        // tidak memakai slot baru.
+        if (!in_array($cell->status, ['available', 'partial'])
+            && !($this->isMspartCell($cell) && $capacityDemand === 0)
+        ) {
             throw new \Exception("Sel {$cell->code} tidak tersedia (status: {$cell->status}).");
         }
 
-        $remainingCapacity = $this->remainingCapacityForPlacement($cell);
-        if ($quantityStored > $remainingCapacity) {
+        if ($capacityDemand > $remainingCapacity) {
             $cellLabel = $this->physicalLocationLabel($cell);
             throw new \Exception(
-                "Kuantitas {$quantityStored} melebihi sisa kapasitas lokasi {$cellLabel} ({$remainingCapacity})."
+                "Lokasi {$cellLabel} tidak memiliki slot kosong yang cukup ({$remainingCapacity} slot tersisa)."
             );
         }
 
@@ -326,7 +351,7 @@ class PutAwayService
             ]);
 
             // f) Cek apakah seluruh order sudah selesai
-            $this->checkAndCompleteOrder($detail->inboundOrder);
+            $this->checkAndCompleteOrder($detail->inboundOrder, $userId);
 
             return $confirmation;
         });
@@ -347,7 +372,7 @@ class PutAwayService
      *
      * @throws \Exception Jika QR tidak ditemukan atau sel tidak aktif
      */
-    public function resolveCellByQr(string $qrCode, ?int $gaCellId = null): Cell
+    public function resolveCellByQr(string $qrCode, ?int $gaCellId = null, bool $isOverride = false): Cell
     {
         // QR labels now encode a URL (e.g. https://domain/c/A-01-01).
         // Extract just the code segment so old and new label formats both work.
@@ -366,31 +391,47 @@ class PutAwayService
 
         // Fallback: QR label hanya encode "blok-grup" (e.g. "2-A") karena label fisik
         // di MSpart hanya menunjuk ke rak, bukan baris spesifik.
-        // Jika GA cell ID disediakan dan blok-grup-nya cocok, pakai GA cell.
-        // Jika format cocok tapi rak berbeda, lempar pesan yang spesifik (bukan "tidak ditemukan").
-        if (!$cell && $gaCellId) {
+        if (!$cell) {
             $parts = explode('-', $qrCode);
             if (count($parts) === 2) {
-                $gaCellCandidate = Cell::where('id', $gaCellId)
-                    ->where('is_active', true)
-                    ->with('rack')
-                    ->first();
+                $qrBlok = $parts[0];
+                $qrGrup = strtoupper($parts[1]);
 
-                if ($gaCellCandidate && $this->isMspartCell($gaCellCandidate)) {
-                    $qrBlok = $parts[0];
-                    $qrGrup = strtoupper($parts[1]);
-                    $gaBlok = (string) $gaCellCandidate->blok;
-                    $gaGrup = strtoupper((string) $gaCellCandidate->grup);
+                // Cek GA cell dulu — baik mode normal maupun override, jika rak sama pakai GA cell.
+                if ($gaCellId) {
+                    $gaCellCandidate = Cell::where('id', $gaCellId)
+                        ->where('is_active', true)
+                        ->with('rack')
+                        ->first();
 
-                    if ($qrBlok === $gaBlok && $qrGrup === $gaGrup) {
-                        $cell = $gaCellCandidate;
-                    } else {
-                        // Rak yang di-scan valid formatnya, tapi bukan rak yang direkomendasikan GA.
-                        throw new \Exception(
-                            "Rak '{$qrCode}' tidak sesuai rekomendasi GA. " .
-                            "Menuju rak {$gaBlok}-{$gaGrup} (sel {$gaCellCandidate->code})."
-                        );
+                    if ($gaCellCandidate && $this->isMspartCell($gaCellCandidate)) {
+                        $gaBlok = (string) $gaCellCandidate->blok;
+                        $gaGrup = strtoupper((string) $gaCellCandidate->grup);
+
+                        if ($qrBlok === $gaBlok && $qrGrup === $gaGrup) {
+                            // Rak yang di-scan sama dengan rekomendasi GA → pakai GA cell.
+                            $cell = $gaCellCandidate;
+                        } elseif (!$isOverride) {
+                            // Non-override + rak berbeda → error informatif.
+                            throw new \Exception(
+                                "Rak '{$qrCode}' tidak sesuai rekomendasi GA. " .
+                                "Menuju rak {$gaBlok}-{$gaGrup} (sel {$gaCellCandidate->code})."
+                            );
+                        }
+                        // Override + rak berbeda → fall-through ke pencarian override di bawah.
                     }
+                }
+
+                // Override mode: cari sel terbaik di rak yang di-scan (available/partial dulu).
+                if (!$cell && $isOverride) {
+                    $cell = Cell::where('blok', $qrBlok)
+                        ->whereRaw('UPPER(grup) = ?', [$qrGrup])
+                        ->where('is_active', true)
+                        ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'partial' THEN 2 ELSE 3 END")
+                        ->orderBy('kolom')
+                        ->orderBy('baris')
+                        ->with('rack')
+                        ->first();
                 }
             }
         }
@@ -415,8 +456,12 @@ class PutAwayService
     {
         $existing = Stock::where('item_id', $detail->item_id)
             ->where('cell_id', $cell->id)
-            ->where('lpn', $detail->lpn)
             ->where('status', 'available')
+            ->when(
+                $detail->lpn === null,
+                fn($q) => $q->whereNull('lpn'),
+                fn($q) => $q->where('lpn', $detail->lpn)
+            )
             ->first();
 
         if ($existing) {
@@ -443,10 +488,10 @@ class PutAwayService
      * Cek apakah semua item dalam order sudah put_away.
      * Jika ya, ubah status order → 'completed' dan dispatch affinity job.
      */
-    private function checkAndCompleteOrder(InboundOrder $order): void
+    private function checkAndCompleteOrder(InboundOrder $order, int $operatorId): void
     {
-        $order->loadMissing('items');
-        $pendingCount = $order->items->where('status', '!=', 'put_away')->count();
+        // Fresh DB count — avoids stale in-memory collection after item update
+        $pendingCount = $order->items()->where('status', '!=', 'put_away')->count();
 
         if ($pendingCount === 0) {
             $order->update(['status' => 'completed']);
@@ -455,11 +500,12 @@ class PutAwayService
                 'inbound_order_id' => $order->id,
             ]);
 
-            // Notifikasi put-away selesai ke seluruh role yang terlibat (admin, supervisor, operator).
-            $totalItems = $order->items->count();
-            $totalQty   = $order->items->sum('quantity_received');
-            $notifUsers = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))->get();
-            Notification::send($notifUsers, new PutAwayCompletedNotification($order, $totalItems, $totalQty));
+            $totalItems   = $order->items()->count();
+            $totalQty     = $order->items()->sum('quantity_received');
+            $operator     = User::find($operatorId);
+            $notifUsers   = User::whereHas('role', fn($q) => $q->whereIn('slug', ['admin', 'supervisor', 'operator']))
+                ->get();
+            Notification::send($notifUsers, new PutAwayCompletedNotification($order, $totalItems, $totalQty, $operator));
 
             // Dispatch async job untuk update item_affinities
             dispatch(new RecalculateAffinityJob($order->id));

@@ -32,7 +32,7 @@ class GaPendingReviewNotification extends Notification
             'message'       => "DO <strong>{$this->order->do_number}</strong> memerlukan review Supervisor. "
                              . "Fitness: <strong>" . number_format($this->fitnessScore, 1) . "</strong>/100. "
                              . "Alasan: {$this->reviewReason}",
-            'url'           => route('inbound.orders.show', $this->order->id),
+            'url'           => route('inbound.orders.show', $this->order->id, false),
             'order_id'      => $this->order->id,
             'do_number'     => $this->order->do_number,
             'fitness_score' => $this->fitnessScore,

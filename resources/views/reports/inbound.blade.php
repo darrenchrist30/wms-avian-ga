@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-truck-loading text-success mr-2"></i>Laporan Penerimaan Barang
         </h5>
-        <small class="text-muted">Analisis penerimaan inbound â€” tren, supplier, dan status DO</small>
+        <small class=”text-muted”>Analisis penerimaan inbound &mdash; tren dan status DO</small>
     </div>
     <div class="d-flex align-items-center" style="gap:6px;">
         {{-- Filter Tahun --}}
@@ -48,8 +48,8 @@
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-info mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_suppliers']) }}</h4><p>Supplier Aktif</p></div>
-            <div class="icon"><i class="fas fa-handshake"></i></div>
+            <div class="inner"><h4>{{ number_format($summary['total_warehouses']) }}</h4><p>Gudang Aktif</p></div>
+            <div class="icon"><i class="fas fa-warehouse"></i></div>
         </div>
     </div>
 </div>
@@ -84,19 +84,6 @@
     </div>
 </div>
 
-{{-- Top Supplier --}}
-<div class="card">
-    <div class="card-header py-2">
-        <strong><i class="fas fa-chart-bar mr-1"></i>Top Supplier â€” Jumlah DO {{ $year }}</strong>
-    </div>
-    <div class="card-body">
-        @if($bySupplier->isEmpty())
-            <div class="text-center text-muted py-4">Belum ada data penerimaan tahun ini.</div>
-        @else
-            <div id="chartSupplier" style="height:260px;"></div>
-        @endif
-    </div>
-</div>
 
 </div>
 @endsection
@@ -161,34 +148,6 @@ $(function () {
     });
     @endif
 
-    @if(!$bySupplier->isEmpty())
-    // Supplier bar
-    Highcharts.chart('chartSupplier', {
-        chart: { type: 'bar', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
-        title: { text: null },
-        xAxis: {
-            categories: [
-                @foreach($bySupplier as $s)
-                '{{ addslashes(Str::limit($s->supplier, 30)) }}',
-                @endforeach
-            ],
-            title: { text: null }
-        },
-        yAxis: { title: { text: 'Jumlah DO' }, min: 0, allowDecimals: false },
-        plotOptions: { bar: { dataLabels: { enabled: true } } },
-        series: [{
-            name: 'Jumlah DO',
-            color: '#17a2b8',
-            data: [
-                @foreach($bySupplier as $s)
-                {{ $s->order_count }},
-                @endforeach
-            ]
-        }],
-        credits: { enabled: false },
-        legend: { enabled: false }
-    });
-    @endif
 });
 </script>
 @endpush
