@@ -103,9 +103,7 @@ class FifoPickingService
 
                 $cell = Cell::find($stock->cell_id);
                 if ($cell) {
-                    $cell->capacity_used = max(0, $cell->capacity_used - $take);
-                    $cell->save();
-                    $cell->updateStatus();
+                    app(CellCapacityService::class)->refresh($cell);
                 }
 
                 StockMovement::create([

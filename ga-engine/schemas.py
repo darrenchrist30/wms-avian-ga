@@ -17,6 +17,7 @@ class ItemInput(BaseModel):
     sku:               str
     category_id:       Optional[int]   = None
     quantity:          int             = Field(..., gt=0)
+    capacity_demand:   int             = Field(1, ge=1)
     item_size:         str             = "medium"
     movement_type:     Optional[str]   = None
 

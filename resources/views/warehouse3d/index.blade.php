@@ -374,22 +374,22 @@ function cellHex(cell) {
     if (cell.status === 'blocked')  return 0x37474f;
     if (cell.status === 'reserved') return 0x7b1fa2;
     if (cell.status === 'full')     return 0xd32f2f;
-    if (cell.utilization > 0)       return 0xfdd835;   // kuning terang — jelas beda dari oranye full
-    return 0x00897b;   // teal-green: empty slot
+    if (cell.utilization > 0)       return 0xfdd835;
+    return 0x00897b;
 }
 function cellEmissive(cell) {
     if (cell.status === 'blocked')  return 0x050a0c;
     if (cell.status === 'reserved') return 0x2a0040;
     if (cell.status === 'full')     return 0x4a0000;
-    if (cell.utilization > 0)       return 0x3d3000;   // emissive kekuningan
-    return 0x000000;   // empty — no emissive glow, sepenuhnya pasif
+    if (cell.utilization > 0)       return 0x3d3000;
+    return 0x000000;
 }
 function cellOpacity(cell) {
     if (cell.status === 'blocked')  return 0.55;
     if (cell.status === 'reserved') return 0.72;
     if (cell.status === 'full')     return 0.88;
     if (cell.utilization > 0)       return 0.78;
-    return 0.07;   // empty — hampir transparan, struktur rak lebih dominan
+    return 0.07;
 }
 
 // Deterministic hash from cell code string → integer 0–65535
@@ -1484,6 +1484,7 @@ function showMspartRowDetail(blok, grup) {
             const itemHtml = !c.stocks.length
                 ? '<small class="text-muted">- kosong -</small>'
                 : c.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span></div>`).join('');
+            const itemHtml2 = itemHtml || '<small class="text-muted">- kosong -</small>';
 
             // Header pemisah antar kolom (baris pertama tiap kolom)
             const isFirstOfKolom = c.baris === 1;
@@ -1496,7 +1497,7 @@ function showMspartRowDetail(blok, grup) {
                 <td class="text-center font-weight-bold" width="55" style="color:#6f42c1">${c.baris}</td>
                 <td width="110"><span class="badge badge-light border">${c.code}</span></td>
                 <td class="text-center" width="85"><span class="badge badge-${sc} px-2">${c.status}</span></td>
-                <td>${itemHtml}</td>
+                <td>${itemHtml2}</td>
             </tr>`;
         }).join('');
 

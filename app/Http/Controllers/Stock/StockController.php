@@ -9,6 +9,7 @@ use App\Models\Stock;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Models\ItemCategory;
+use App\Services\CellCapacityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
@@ -403,6 +404,187 @@ class StockController extends Controller
     //    Pindahkan qty dari satu cell ke cell lain (admin/supervisor)
     // =========================================================================
 
+    public function transferScan()
+    {
+        return view('stock.transfer-scan');
+    }
+
+    public function transferScanCell(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $code = $this->normalizeScanCode((string) $request->input('code', ''));
+        $purpose = $request->input('purpose', 'source') === 'target' ? 'target' : 'source';
+        if ($code === '') {
+            return response()->json(['found' => false, 'message' => 'Kode cell tidak boleh kosong.'], 422);
+        }
+
+        $cell = Cell::with(['rack.warehouse'])
+            ->where(function ($q) use ($code) {
+                $q->where('code', $code)
+                    ->orWhere('qr_code', $code)
+                    ->orWhere('label', $code);
+            })
+            ->where('is_active', true)
+            ->first();
+
+        if ($cell) {
+            return $this->transferScanCellPayload($cell);
+        }
+
+        $rackParts = $this->parseMspartRackCode($code);
+        if (!$rackParts) {
+            return response()->json(['found' => false, 'message' => "Cell atau rak {$code} tidak ditemukan atau tidak aktif."], 404);
+        }
+
+        if ($purpose === 'target') {
+            return $this->transferScanTargetRackPayload($rackParts['blok'], $rackParts['grup'], $request);
+        }
+
+        return $this->transferScanSourceRackPayload($rackParts['blok'], $rackParts['grup']);
+    }
+
+    private function transferScanCellPayload(Cell $cell, ?string $resolvedFromRack = null): \Illuminate\Http\JsonResponse
+    {
+        $stocks = Stock::with(['item.unit', 'item.category', 'cell'])
+            ->where('cell_id', $cell->id)
+            ->where('status', 'available')
+            ->where('quantity', '>', 0)
+            ->orderBy('inbound_date')
+            ->orderBy('created_at')
+            ->get();
+
+        $remaining = $this->remainingTransferCapacity($cell);
+        $used = max(0, (int) $cell->capacity_max - $remaining);
+
+        return response()->json([
+            'found' => true,
+            'cell' => [
+                'id' => $cell->id,
+                'code' => $cell->code,
+                'label' => $cell->label ?? $cell->code,
+                'status' => $cell->status,
+                'rack' => $cell->rack?->code ?? '-',
+                'warehouse' => $cell->rack?->warehouse?->name ?? '-',
+                'capacity_max' => (int) $cell->capacity_max,
+                'capacity_used' => $used,
+                'capacity_remaining' => $remaining,
+                'capacity_unit' => 'poin',
+                'stock_count' => $stocks->count(),
+                'resolved_from_rack' => $resolvedFromRack,
+            ],
+            'stocks' => $stocks->map(fn (Stock $stock) => $this->transferScanStockPayload($stock))->values(),
+        ]);
+    }
+
+    private function transferScanSourceRackPayload(int $blok, string $grup): \Illuminate\Http\JsonResponse
+    {
+        $cells = Cell::where('blok', $blok)
+            ->whereRaw('UPPER(grup) = ?', [strtoupper($grup)])
+            ->where('is_active', true)
+            ->get();
+
+        if ($cells->isEmpty()) {
+            return response()->json(['found' => false, 'message' => "Rak {$blok}-{$grup} tidak ditemukan atau tidak aktif."], 404);
+        }
+
+        $cellIds = $cells->pluck('id');
+        $stocks = Stock::with(['item.unit', 'item.category', 'cell'])
+            ->whereIn('cell_id', $cellIds)
+            ->where('status', 'available')
+            ->where('quantity', '>', 0)
+            ->orderBy('cell_id')
+            ->orderBy('inbound_date')
+            ->orderBy('created_at')
+            ->get();
+
+        $capacityMax = (int) $cells->sum('capacity_max');
+        $usedPoints = (int) $cells->sum(fn(Cell $cell) => app(CellCapacityService::class)->usedPoints($cell));
+
+        return response()->json([
+            'found' => true,
+            'cell' => [
+                'id' => null,
+                'code' => strtoupper("{$blok}-{$grup}"),
+                'label' => strtoupper("{$blok}-{$grup}") . ' (Rak)',
+                'status' => 'rack',
+                'rack' => strtoupper("{$blok}-{$grup}"),
+                'warehouse' => '-',
+                'capacity_max' => $capacityMax,
+                'capacity_used' => $usedPoints,
+                'capacity_remaining' => max(0, $capacityMax - $usedPoints),
+                'capacity_unit' => 'poin',
+                'stock_count' => $stocks->count(),
+                'is_rack_scan' => true,
+            ],
+            'stocks' => $stocks->map(fn (Stock $stock) => $this->transferScanStockPayload($stock))->values(),
+        ]);
+    }
+
+    private function transferScanTargetRackPayload(int $blok, string $grup, Request $request): \Illuminate\Http\JsonResponse
+    {
+        $stock = Stock::with(['cell', 'item'])->find($request->input('stock_id'));
+        if (!$stock) {
+            return response()->json(['found' => false, 'message' => 'Scan item dan qty dulu sebelum scan rak tujuan.'], 422);
+        }
+
+        $rackCode = strtoupper("{$blok}-{$grup}");
+        $cells = Cell::with('rack.warehouse')
+            ->where('blok', $blok)
+            ->whereRaw('UPPER(grup) = ?', [strtoupper($grup)])
+            ->where('is_active', true)
+            ->get()
+            ->filter(function (Cell $cell) use ($stock) {
+                if ($cell->id === $stock->cell_id) {
+                    return false;
+                }
+
+                $capacityDemand = $this->transferCapacityDemand($stock, $cell, 1);
+                if (in_array($cell->status, ['blocked', 'reserved'], true)) {
+                    return false;
+                }
+                if ($cell->status === 'full' && $capacityDemand > 0) {
+                    return false;
+                }
+
+                return $capacityDemand <= $this->remainingTransferCapacity($cell);
+            })
+            ->sortByDesc(function (Cell $cell) use ($stock) {
+                $sameSku = Stock::where('item_id', $stock->item_id)
+                    ->where('cell_id', $cell->id)
+                    ->where('quantity', '>', 0)
+                    ->where('status', 'available')
+                    ->exists();
+
+                return sprintf('%d%05d', $sameSku ? 1 : 0, $this->remainingTransferCapacity($cell));
+            });
+
+        $cell = $cells->first();
+        if (!$cell) {
+            return response()->json(['found' => false, 'message' => "Rak {$rackCode} tidak punya cell tujuan yang cukup kapasitas."], 422);
+        }
+
+        return $this->transferScanCellPayload($cell, $rackCode);
+    }
+
+    private function transferScanStockPayload(Stock $stock): array
+    {
+        return [
+                'stock_id' => $stock->id,
+                'item_id' => $stock->item_id,
+                'cell_id' => $stock->cell_id,
+                'cell_code' => $stock->cell?->code ?? '-',
+                'sku' => $stock->item?->sku ?? '-',
+                'erp_item_code' => $stock->item?->erp_item_code,
+                'barcode' => $stock->item?->barcode,
+                'name' => $stock->item?->name ?? '-',
+                'category' => $stock->item?->category?->name ?? '-',
+                'unit' => $stock->item?->unit?->code ?? 'unit',
+                'quantity' => (int) $stock->quantity,
+                'lpn' => $stock->lpn,
+                'batch_no' => $stock->batch_no,
+                'inbound_date' => $stock->inbound_date?->format('Y-m-d'),
+        ];
+    }
+
     public function transfer(Request $request): \Illuminate\Http\JsonResponse
     {
         $validated = $request->validate([
@@ -412,7 +594,7 @@ class StockController extends Controller
             'notes'      => 'nullable|string|max:255',
         ]);
 
-        $stock  = Stock::with(['cell', 'item', 'warehouse'])->findOrFail($validated['stock_id']);
+        $stock  = Stock::with(['cell', 'item.unit', 'warehouse'])->findOrFail($validated['stock_id']);
         $toCell = Cell::with('rack')->findOrFail($validated['to_cell_id']);
         $qty    = (int) $validated['quantity'];
 
@@ -425,12 +607,17 @@ class StockController extends Controller
         if ($stock->cell_id === $toCell->id) {
             return response()->json(['status' => 'error', 'message' => 'Sel tujuan sama dengan sel asal.'], 422);
         }
-        if (!$toCell->is_active || in_array($toCell->status, ['blocked', 'full'])) {
+        $capacityDemand = $this->transferCapacityDemand($stock, $toCell, $qty);
+        if (!$toCell->is_active
+            || in_array($toCell->status, ['blocked', 'reserved'])
+            || ($toCell->status === 'full' && $capacityDemand > 0)
+        ) {
             return response()->json(['status' => 'error', 'message' => "Sel {$toCell->code} tidak dapat menerima stok (status: {$toCell->status})."], 422);
         }
-        $remCap = $toCell->capacity_max - $toCell->capacity_used;
-        if ($qty > $remCap) {
-            return response()->json(['status' => 'error', 'message' => "Kapasitas sel {$toCell->code} tidak cukup (tersisa: {$remCap})."], 422);
+        $remCap = $this->remainingTransferCapacity($toCell);
+        if ($capacityDemand > $remCap) {
+            $unit = 'poin';
+            return response()->json(['status' => 'error', 'message' => "Kapasitas sel {$toCell->code} tidak cukup (tersisa: {$remCap} {$unit})."], 422);
         }
 
         try {
@@ -446,11 +633,7 @@ class StockController extends Controller
                     $stock->update(['quantity' => $stock->quantity - $qty, 'last_moved_at' => now()]);
                 }
 
-                // b) Update kapasitas sel asal
-                $fromCell->update(['capacity_used' => max(0, $fromCell->capacity_used - $qty)]);
-                $fromCell->updateStatus();
-
-                // c) Tambah ke sel tujuan (merge jika sudah ada)
+                // b) Tambah ke sel tujuan (merge jika sudah ada)
                 $destStock = Stock::where('item_id', $itemId)
                     ->where('cell_id', $toCell->id)
                     ->where('status', 'available')
@@ -474,11 +657,11 @@ class StockController extends Controller
                     ]);
                 }
 
-                // d) Update kapasitas sel tujuan
-                $toCell->update(['capacity_used' => $toCell->capacity_used + $qty]);
-                $toCell->updateStatus();
+                // c) Update normalized capacity points from item max_stock.
+                $this->refreshTransferCapacity($fromCell, -$qty);
+                $this->refreshTransferCapacity($toCell, $qty);
 
-                // e) Catat stock_movement
+                // d) Catat stock_movement
                 StockMovement::create([
                     'item_id'        => $itemId,
                     'warehouse_id'   => $warehouseId,
@@ -493,7 +676,8 @@ class StockController extends Controller
                 ]);
             });
 
-            return response()->json(['status' => 'success', 'message' => "Transfer {$qty} unit ke sel {$toCell->code} berhasil."]);
+            $unitCode = $stock->item?->unit?->code ?? 'unit';
+            return response()->json(['status' => 'success', 'message' => "Transfer {$qty} {$unitCode} ke sel {$toCell->code} berhasil."]);
         } catch (\Exception $e) {
             report($e);
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
@@ -531,6 +715,56 @@ class StockController extends Controller
     // =========================================================================
     // HELPER PRIVATE
     // =========================================================================
+
+    private function isMspartCell(Cell $cell): bool
+    {
+        return $cell->blok !== null
+            && $cell->grup !== null
+            && $cell->kolom !== null
+            && $cell->baris !== null;
+    }
+
+    private function normalizeScanCode(string $code): string
+    {
+        $code = trim($code);
+        if ($code === '') {
+            return '';
+        }
+
+        if (str_contains($code, '/c/')) {
+            $code = trim(last(explode('/c/', $code)), "/ \t\n\r\0\x0B");
+        }
+
+        return $code;
+    }
+
+    private function parseMspartRackCode(string $code): ?array
+    {
+        $code = strtoupper(trim($code));
+        if (!preg_match('/^(\d+)-([A-Z])$/', $code, $matches)) {
+            return null;
+        }
+
+        return [
+            'blok' => (int) $matches[1],
+            'grup' => $matches[2],
+        ];
+    }
+
+    private function remainingTransferCapacity(Cell $cell): int
+    {
+        return app(CellCapacityService::class)->remainingPoints($cell);
+    }
+
+    private function transferCapacityDemand(Stock $stock, Cell $toCell, int $qty): int
+    {
+        return app(CellCapacityService::class)->demandForPlacement($stock->item, $toCell, $qty);
+    }
+
+    private function refreshTransferCapacity(Cell $cell, int $legacyQtyDelta): void
+    {
+        app(CellCapacityService::class)->refresh($cell);
+    }
 
     private function countBelowMin(): int
     {

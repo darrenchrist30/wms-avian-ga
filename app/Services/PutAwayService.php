@@ -55,36 +55,12 @@ class PutAwayService
 
     private function remainingCapacityForPlacement(Cell $cell): int
     {
-        if (!$this->isMspartCell($cell)) {
-            return max(0, (int) $cell->capacity_max - (int) $cell->capacity_used);
-        }
-
-        $capacityMax = max(1, (int) ($cell->capacity_max ?: 20));
-        $capacityUsed = Stock::where('cell_id', $cell->id)
-            ->where('quantity', '>', 0)
-            ->whereIn('status', ['available', 'reserved'])
-            ->count();
-
-        return max(0, $capacityMax - $capacityUsed);
+        return app(CellCapacityService::class)->remainingPoints($cell);
     }
 
     private function capacityDemandForPlacement(InboundOrderItem $detail, Cell $cell, int $quantityStored): int
     {
-        if (!$this->isMspartCell($cell)) {
-            return $quantityStored;
-        }
-
-        $existing = Stock::where('item_id', $detail->item_id)
-            ->where('cell_id', $cell->id)
-            ->where('status', 'available')
-            ->when(
-                $detail->lpn === null,
-                fn($q) => $q->whereNull('lpn'),
-                fn($q) => $q->where('lpn', $detail->lpn)
-            )
-            ->exists();
-
-        return $existing ? 0 : 1;
+        return app(CellCapacityService::class)->demandForPlacement($detail->item, $cell, $quantityStored);
     }
 
     /**
@@ -122,13 +98,7 @@ class PutAwayService
         $cells = collect([$cell]);
 
         foreach ($cells as $locationCell) {
-            $used = Stock::where('cell_id', $locationCell->id)
-                ->where('quantity', '>', 0)
-                ->whereIn('status', ['available', 'reserved'])
-                ->count();
-
-            $locationCell->update(['capacity_used' => $used]);
-            $locationCell->updateStatus();
+            app(CellCapacityService::class)->refresh($locationCell);
         }
     }
 
@@ -234,7 +204,7 @@ class PutAwayService
         if ($capacityDemand > $remainingCapacity) {
             $cellLabel = $this->physicalLocationLabel($cell);
             throw new \Exception(
-                "Lokasi {$cellLabel} tidak memiliki slot kosong yang cukup ({$remainingCapacity} slot tersisa)."
+                "Lokasi {$cellLabel} tidak memiliki kapasitas cukup ({$remainingCapacity} poin tersisa, butuh {$capacityDemand} poin)."
             );
         }
 
@@ -330,13 +300,7 @@ class PutAwayService
             ]);
 
             // d) Update kapasitas sel/lokasi fisik
-            if ($this->isMspartCell($cell)) {
-                $this->refreshMspartPhysicalLocationCapacity($cell);
-            } else {
-                $newUsed = $cell->capacity_used + $quantityStored;
-                $cell->update(['capacity_used' => $newUsed]);
-                $cell->updateStatus(); // auto-update status (available/partial/full)
-            }
+            $this->refreshMspartPhysicalLocationCapacity($cell);
 
             // d.1) Re-compute dominant_category_id per cell agar FC_CAT punya signal nyata
             $this->recomputeDominantCategory($cell);

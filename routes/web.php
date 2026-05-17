@@ -135,8 +135,12 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::get('movements', [\App\Http\Controllers\Stock\StockController::class, 'movements'])->name('movements');
         Route::get('low-stock', [\App\Http\Controllers\Stock\StockController::class, 'lowStock'])->name('low-stock');
         Route::get('near-expiry', [\App\Http\Controllers\Stock\StockController::class, 'nearExpiry'])->name('near-expiry');
+        Route::get('transfer-scan', [\App\Http\Controllers\Stock\StockController::class, 'transferScan'])
+            ->name('transfer-scan')->middleware('role:admin,supervisor,operator');
+        Route::get('transfer-scan/cell', [\App\Http\Controllers\Stock\StockController::class, 'transferScanCell'])
+            ->name('transfer-scan.cell')->middleware('role:admin,supervisor,operator');
         Route::post('transfer', [\App\Http\Controllers\Stock\StockController::class, 'transfer'])
-            ->name('transfer')->middleware('role:admin,supervisor');
+            ->name('transfer')->middleware('role:admin,supervisor,operator');
 
         Route::get('{item}', [\App\Http\Controllers\Stock\StockController::class, 'show'])->name('show');
     });

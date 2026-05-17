@@ -139,6 +139,7 @@ class ItemController extends Controller
         }
     }
 
+
     public function destroy($id)
     {
         $item = Item::withCount('stocks')->findOrFail($id);

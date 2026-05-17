@@ -1244,8 +1244,8 @@
             return Number(value || 0).toLocaleString('id-ID');
         }
 
-        function slotDemand(cell) {
-            return cell?.item_stock?.will_merge ? 0 : 1;
+        function capacityDemand(cell) {
+            return Number(cell?.item_stock?.capacity_demand || 1);
         }
 
         function itemStockInfoHtml(cell) {
@@ -1261,13 +1261,13 @@
             return '<p class="mb-0 text-muted" style="font-size:13px">' +
                 'SKU sudah ada di cell ini. Stok: <strong>' + fmtNumber(current) + '</strong> ' + unit +
                 ' &rarr; <strong>' + fmtNumber(after) + maxText + '</strong> ' + unit +
-                '. Tidak memakai slot baru.</p>';
+                '. Kapasitas dihitung dari rasio max stock SKU.</p>';
         }
 
         function slotCapacityInfoHtml(cell) {
-            return '<p class="mb-1 text-muted" style="font-size:13px">Slot kosong: ' +
+            return '<p class="mb-1 text-muted" style="font-size:13px">Kapasitas kosong: ' +
                 '<strong>' + (cell.capacity_remaining || 0) + '</strong> / ' +
-                '<strong>' + (cell.capacity_max || 0) + '</strong> cell</p>' +
+                '<strong>' + (cell.capacity_max || 0) + '</strong> poin</p>' +
                 itemStockInfoHtml(cell);
         }
 
@@ -1351,13 +1351,15 @@
                 method: 'GET',
                 data: {
                     for_cell_id: btn.data('ga-cell-id'),
-                    qty: parseInt(btn.data('qty'))
+                    qty: parseInt(btn.data('qty')),
+                    detail_id: btn.data('detail-id')
                 },
                 success: function(res) {
                     $('#altSrcCell').text(res.source_cell.code);
                     $('#altQtyNeeded').text(res.qty_needed);
                     $('#altSrcRemain').text(res.source_cell.capacity_remaining);
-                    if (res.source_cell.capacity_remaining < res.qty_needed) {
+                    const capacityNeeded = Number(res.capacity_needed || res.qty_needed || 0);
+                    if (res.source_cell.capacity_remaining < capacityNeeded) {
                         $('#altSrcOverMsg').show();
                     }
                     $('#altLoading').hide();
@@ -1375,7 +1377,7 @@
                         const badge = cell.fits_all ?
                             '<span class="badge badge-success"><i class="fas fa-check mr-1"></i>Muat semua</span>' :
                             '<span class="badge badge-warning text-dark"><i class="fas fa-exclamation mr-1"></i>Partial (' +
-                            cell.capacity_remaining + ' unit)</span>';
+                            cell.capacity_remaining + ' poin)</span>';
 
                         $('#altCards').append(`
                 <div class="card border mb-2">
@@ -1389,7 +1391,7 @@
                                 <small class="text-muted">Rack ${cell.rack_code}</small>
                                 <div class="mt-1">
                                     <div class="d-flex justify-content-between" style="font-size:11px">
-                                        <span class="text-muted">Sisa: <strong>${cell.capacity_remaining}</strong> dari ${cell.capacity_max} unit</span>
+                                        <span class="text-muted">Sisa: <strong>${cell.capacity_remaining}</strong> dari ${cell.capacity_max} poin</span>
                                         <span class="text-muted">Terpakai ${usedPct}%</span>
                                     </div>
                                     <div class="cap-bar-wrap mt-1">
@@ -1525,7 +1527,7 @@
             // Kapasitas
             const rem = cell.capacity_remaining || 0;
             const max = cell.capacity_max || 0;
-            const demand = slotDemand(cell);
+            const demand = capacityDemand(cell);
             let capOk = true;
 
             if (max > 0) {
@@ -1772,7 +1774,8 @@
                     qr_code:     code,
                     ga_cell_id:  modalGaCell ? modalGaCell.id : null,
                     is_override: isOverride ? 1 : 0,
-                    detail_id:   currentDetailId
+                    detail_id:   currentDetailId,
+                    quantity:    modalQty
                 },
                 success: function(res) {
                     const c = res.cell;
@@ -1788,7 +1791,7 @@
 
                     const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
                     const diffFromGa = !isOverride && modalGaCell && (cell.id != modalGaCell.id);
-                    const capOk = cell.capacity_remaining >= slotDemand(cell) && modalQty > 0;
+                    const capOk = cell.capacity_remaining >= capacityDemand(cell) && modalQty > 0;
 
                     if (diffFromGa) {
                         // ════ BLOCKED — sel berbeda dari rekomendasi GA, bukan override ════

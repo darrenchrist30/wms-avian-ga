@@ -38,6 +38,8 @@
             --sidebar-bg: #1a2332;
             --body-bg: #f8fafc;
             --navbar-height: 3.5rem;
+            --sidebar-width: 250px;
+            --sidebar-collapsed-width: 4.6rem;
             --shadow-sm: 0 1px 4px rgba(0, 0, 0, .08);
             --shadow-md: 0 4px 16px rgba(0, 0, 0, .12);
             --radius: 8px;
@@ -186,7 +188,7 @@
             box-shadow: 0 2px 10px rgba(0, 0, 0, .18);
             position: fixed !important;
             top: 0 !important;
-            left: 250px !important;
+            left: var(--sidebar-width) !important;
             right: 0 !important;
             z-index: 1034;
             min-height: 3.5rem;
@@ -196,7 +198,8 @@
         }
 
         .sidebar-collapse .main-header.navbar {
-            left: 57px !important;
+            left: var(--sidebar-collapsed-width) !important;
+            margin-left: 0 !important;
         }
 
         .main-header .navbar-nav .nav-link {
@@ -410,6 +413,11 @@
         .main-sidebar {
             background: var(--sidebar-bg) !important;
             border-right: none !important;
+            width: var(--sidebar-width) !important;
+        }
+
+        .main-sidebar::before {
+            width: var(--sidebar-width) !important;
         }
 
         /* sidebar-dark-avian */
@@ -525,12 +533,12 @@
             background: #f0f2f5;
             overflow-x: hidden;
             margin-top: 56px !important;
-            margin-left: 250px !important;
+            margin-left: var(--sidebar-width) !important;
         }
 
         .sidebar-collapse .content-wrapper,
         .sidebar-collapse .main-footer {
-            margin-left: 57px !important;
+            margin-left: var(--sidebar-collapsed-width) !important;
         }
 
         /* Welcome Card */
@@ -593,9 +601,21 @@
         }
 
         /* ─── SIDEBAR COLLAPSED STATE ─── */
+        .sidebar-mini.sidebar-collapse .main-sidebar,
+        .sidebar-mini.sidebar-collapse .main-sidebar::before {
+            width: var(--sidebar-collapsed-width) !important;
+            margin-left: 0 !important;
+        }
+
+        .sidebar-mini.sidebar-collapse .main-sidebar:hover,
+        .sidebar-mini.sidebar-collapse .main-sidebar.sidebar-focused {
+            width: var(--sidebar-collapsed-width) !important;
+        }
+
         .sidebar-collapse .brand-link {
             justify-content: center;
             padding: 0 !important;
+            width: var(--sidebar-collapsed-width) !important;
         }
 
         .sidebar-collapse .brand-link .brand-text-wrapper {
@@ -1056,7 +1076,7 @@
         </nav>
 
         <!-- Sidebar -->
-        <aside class="main-sidebar elevation-4 sidebar-dark-avian">
+        <aside class="main-sidebar elevation-4 sidebar-dark-avian sidebar-no-expand">
             <a href="{{ route('dashboard') }}" class="brand-link navbar-avian">
                 <img src="{{ asset('images/avian-logo-icon.png') }}" alt="Avian Brands Logo"
                     class="brand-image img-white">
@@ -1244,6 +1264,13 @@
                                         class="nav-link {{ request()->routeIs('stock.index') ? 'active' : '' }}">
                                         <i class="fas fa-cubes nav-icon" style="font-size:12px;"></i>
                                         <p>Stok Saat Ini</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('stock.transfer-scan') }}"
+                                        class="nav-link {{ request()->routeIs('stock.transfer-scan') ? 'active' : '' }}">
+                                        <i class="fas fa-qrcode nav-icon" style="font-size:12px;color:#22c55e;"></i>
+                                        <p>Scan Transfer</p>
                                     </a>
                                 </li>
                                 <li class="nav-item">
@@ -1600,10 +1627,11 @@
         };
 
         const toastMeta = {
-            new_inbound:   { icon: 'fas fa-truck',        color: '#0d8564', label: 'Inbound Baru Masuk' },
-            qty_confirmed: { icon: 'fas fa-check-circle', color: '#17a2b8', label: 'Qty Dikonfirmasi'    },
-            ga_accepted:   { icon: 'fas fa-robot',        color: '#8b5cf6', label: 'GA Diterima'         },
-            putaway_done:  { icon: 'fas fa-boxes',        color: '#f59e0b', label: 'Put-Away Selesai'    },
+            new_inbound:       { icon: 'fas fa-truck-loading', color: '#0d8564', label: 'Inbound Baru Masuk' },
+            new_inbound_batch: { icon: 'fas fa-truck-loading', color: '#0d8564', label: 'Inbound Baru Masuk' },
+            qty_confirmed:     { icon: 'fas fa-check-circle',  color: '#17a2b8', label: 'Qty Dikonfirmasi'   },
+            ga_accepted:       { icon: 'fas fa-robot',         color: '#8b5cf6', label: 'GA Diterima'        },
+            putaway_done:      { icon: 'fas fa-boxes',         color: '#f59e0b', label: 'Put-Away Selesai'   },
         };
 
         // ── Render item di dropdown bell ────────────────────────────────
@@ -1685,24 +1713,37 @@
             wrap.appendChild(iconBox);
             wrap.appendChild(textBox);
 
+            const isInbound = n.type === 'new_inbound' || n.type === 'new_inbound_batch';
+
             Swal.fire({
                 toast:             true,
                 position:          'top-end',
                 html:              wrap.outerHTML,
-                showConfirmButton: false,
-                showCloseButton:   false,
-                timer:             3500,
+                showConfirmButton: isInbound,
+                confirmButtonText: isInbound ? 'Buka <i class="fas fa-chevron-right ml-1"></i>' : '',
+                confirmButtonColor: '#0d8564',
+                customClass: {
+                    popup:         'wms-notif-popup',
+                    confirmButton: 'wms-notif-btn',
+                },
+                showCloseButton:   isInbound,
+                timer:             isInbound ? 8000 : 3500,
                 timerProgressBar:  true,
-                width:             '360px',
+                width:             isInbound ? '380px' : '360px',
                 padding:           '0.9em 1em',
-                customClass:       { popup: 'wms-notif-popup' },
                 didOpen: function (popup) {
                     popup.style.cursor = 'pointer';
-                    popup.addEventListener('click', function () {
+                    popup.addEventListener('click', function (e) {
+                        // Biarkan tombol konfirmasi handle navigasinya sendiri
+                        if (e.target.closest('.swal2-confirm') || e.target.closest('.swal2-close')) return;
                         Swal.close();
                         $.post(markReadUrl + '/' + n.id + '/read', { _token: csrfToken });
                         if (n.url && n.url !== '#') window.location.href = n.url;
                     });
+                },
+                preConfirm: function () {
+                    $.post(markReadUrl + '/' + n.id + '/read', { _token: csrfToken });
+                    if (n.url && n.url !== '#') window.location.href = n.url;
                 },
                 didClose: function () {
                     toastRunning = false;
@@ -1802,7 +1843,8 @@
         box-shadow: 0 8px 32px rgba(0,0,0,.18) !important;
     }
     .wms-notif-popup .swal2-html-container { margin: 0 !important; padding: 0 !important; }
-    .wms-notif-popup .swal2-actions { margin-top: 14px !important; }
+    .wms-notif-popup .swal2-actions { margin-top: 10px !important; justify-content: flex-end !important; }
+    .wms-notif-btn.swal2-confirm { font-size: 12.5px !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight: 600 !important; }
     </style>
 
     @stack('scripts')

@@ -230,7 +230,7 @@ class Warehouse3DController extends Controller
 
             return [
                 'cell_id'      => $cell->id,
-                'code'         => $cell->code,                      // ← code asli DB: "1-A-1-2"
+                'code'         => $cell->code,
                 'baris'        => $cell->baris,
                 'status'       => $status,
                 'capacity_used'=> $capUsed,

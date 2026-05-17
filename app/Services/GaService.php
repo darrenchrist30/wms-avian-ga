@@ -168,7 +168,7 @@ class GaService
         // Ambil detail item mentah dulu.
         // Quantity akan dipecah setelah sistem mengetahui existing cell dan kapasitasnya.
         $rawDetails = $order->items()
-            ->with('item.category')
+            ->with('item.category', 'item.homeCell')
             ->whereIn('status', ['pending', 'partial_put_away'])
             ->where('quantity_received', '>', 0)
             ->get();
@@ -202,22 +202,17 @@ class GaService
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
 
-        // Hitung jumlah slot stock record baru yang sudah di-reserve order lain,
-        // bukan sum quantity fisik. Rekomendasi ke SKU yang sudah available di
-        // cell yang sama tidak memakai slot baru karena put-away akan upsert.
+        // Hitung capacity points yang sudah di-reserve order lain.
+        // Capacity points = ceil(qty * 100 / item.max_stock), sehingga SKU kecil
+        // dan besar tidak dianggap memakai kapasitas yang sama.
         $reservedQtyByCell = DB::table('ga_recommendation_details as grd')
             ->join('ga_recommendations as gr', 'gr.id', '=', 'grd.ga_recommendation_id')
             ->join('inbound_transactions as it', 'it.id', '=', 'gr.inbound_order_id')
             ->join('inbound_details as idt', 'idt.id', '=', 'grd.inbound_order_item_id')
-            ->leftJoin('stock_records as existing_stock', function ($join) {
-                $join->on('existing_stock.cell_id', '=', 'grd.cell_id')
-                    ->on('existing_stock.item_id', '=', 'idt.item_id')
-                    ->where('existing_stock.quantity', '>', 0)
-                    ->where('existing_stock.status', 'available');
-            })
+            ->join('items as reserved_items', 'reserved_items.id', '=', 'idt.item_id')
             ->select(
                 'grd.cell_id',
-                DB::raw('COUNT(DISTINCT CASE WHEN existing_stock.id IS NULL THEN grd.id END) as reserved_qty')
+                DB::raw('SUM(GREATEST(1, CEIL(grd.quantity * 100 / GREATEST(COALESCE(NULLIF(reserved_items.max_stock, 0), 100), 1)))) as reserved_qty')
             )
             ->whereIn('grd.cell_id', $cellsCollection->pluck('id'))
             ->where('gr.status', 'accepted')
@@ -247,10 +242,16 @@ class GaService
         $items = [];
 
         foreach ($rawDetails as $detail) {
-            // Cari cell existing untuk item ini (untuk preferred_cell_id lock)
+            $capacityDemand = app(CellCapacityService::class)->pointsForQuantity(
+                $detail->item,
+                (int) $detail->quantity_received
+            );
+
+            // Priority 1: item already has stock in a cell → consolidate there
             $existingCell = $cellCandidates
                 ->filter(fn(array $cell) =>
                     in_array((int) $detail->item_id, $cell['existing_item_ids'], true)
+                    && (int) $cell['capacity_remaining'] >= $capacityDemand
                 )
                 ->sortBy(fn(array $cell) => sprintf(
                     '%05d-%05d',
@@ -259,15 +260,32 @@ class GaService
                 ))
                 ->first();
 
+            // Priority 2: no existing stock → use MSpart home location (blok/grup/kolom/baris)
+            //   so GA respects the physical warehouse layout from day one.
+            $preferredCellId = null;
+            if ($existingCell) {
+                $preferredCellId = $existingCell['cell_id'];
+            } elseif ($detail->item->home_cell_id) {
+                $homeCell = $cellCandidates
+                    ->first(fn(array $cell) =>
+                        $cell['cell_id'] === $detail->item->home_cell_id
+                        && (int) $cell['capacity_remaining'] >= $capacityDemand
+                    );
+                if ($homeCell) {
+                    $preferredCellId = $homeCell['cell_id'];
+                }
+            }
+
             $items[] = [
                 'inbound_detail_id' => $detail->id,
                 'item_id'           => $detail->item_id,
                 'sku'               => $detail->item->sku,
                 'category_id'       => $detail->item->category_id,
                 'quantity'          => (int) $detail->quantity_received,
+                'capacity_demand'   => $capacityDemand,
                 'item_size'         => $detail->item->item_size ?? 'medium',
                 'movement_type'     => $detail->item->movement_type,
-                'preferred_cell_id' => $existingCell ? $existingCell['cell_id'] : null,
+                'preferred_cell_id' => $preferredCellId,
             ];
         }
 
@@ -290,14 +308,14 @@ class GaService
 
         foreach ($items as $item) {
             $hasFeasibleCell = collect($cells)->contains(fn(array $cell) =>
-                (int) $cell['capacity_remaining'] >= 1
-                || in_array((int) $item['item_id'], $cell['existing_item_ids'] ?? [], true)
+                (int) $cell['capacity_remaining'] >= (int) $item['capacity_demand']
             );
 
             if (!$hasFeasibleCell) {
                 throw new \Exception(
-                    "Tidak ada slot tersedia untuk SKU {$item['sku']}. "
-                        . 'Tambahkan cell kosong atau konsolidasikan stok existing terlebih dahulu.'
+                    "Tidak ada kapasitas tersedia untuk SKU {$item['sku']} "
+                        . "(butuh {$item['capacity_demand']} poin). "
+                        . 'Tambah kapasitas cell atau konsolidasikan stok existing terlebih dahulu.'
                 );
             }
         }
@@ -413,12 +431,11 @@ class GaService
                 $reservedQty = collect($cellIds)
                     ->sum(fn($cellId) => (int) ($reservedQtyByCell->get($cellId) ?? 0));
 
-                if (!$this->isMspartCell($representative)) {
-                    $capacityRemaining = max(
-                        0,
-                        (int) $representative->capacity_max - (int) $representative->capacity_used - $reservedQty
-                    );
+                $capacityMax = max(1, (int) ($representative->capacity_max ?: CellCapacityService::DEFAULT_CAPACITY_MAX));
+                $capacityUsed = app(CellCapacityService::class)->usedPoints($representative);
+                $capacityRemaining = max(0, $capacityMax - $capacityUsed - $reservedQty);
 
+                if (!$this->isMspartCell($representative)) {
                     return [
                         'cell_id'              => $representative->id,
                         'rack_code'            => (string) ($representative->rack?->code ?? ''),
@@ -427,20 +444,13 @@ class GaService
                         'cell_index'           => $this->cellCodeToIndex($representative->code),
                         'dominant_category_id' => $representative->dominant_category_id,
                         'capacity_remaining'   => $capacityRemaining,
-                        'capacity_max'         => (int) $representative->capacity_max,
-                        'status'               => $representative->status,
+                        'capacity_max'         => $capacityMax,
+                        'status'               => $capacityUsed <= 0 ? 'available' : ($capacityRemaining <= 0 ? 'full' : 'partial'),
                         'existing_item_ids'    => $existingItemIds,
                         'reserved_qty'         => $reservedQty,
                     ];
                 }
 
-                $capacityMax = max(1, (int) ($representative->capacity_max ?: 20));
-                $capacityUsed = DB::table('stock_records')
-                    ->whereIn('cell_id', $cellIds)
-                    ->where('quantity', '>', 0)
-                    ->whereIn('status', ['available', 'reserved'])
-                    ->count();
-                $capacityRemaining = max(0, $capacityMax - $capacityUsed - $reservedQty);
                 $blok = (int) $representative->blok;
                 $grup = strtoupper((string) $representative->grup);
                 $kolom = (int) $representative->kolom;
@@ -744,8 +754,7 @@ class GaService
             }
 
             $cell ??= $cells->first(fn($c) =>
-                (int) $c['capacity_remaining'] >= 1
-                || in_array((int) $item['item_id'], $c['existing_item_ids'] ?? [], true)
+                (int) $c['capacity_remaining'] >= (int) $item['capacity_demand']
             );
 
             if (!$cell) {

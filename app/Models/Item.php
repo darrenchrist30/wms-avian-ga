@@ -19,6 +19,7 @@ class Item extends Model
         'category_id', 'unit_id', 'sku', 'erp_item_code', 'name', 'merk', 'item_size', 'barcode',
         'description', 'min_stock', 'max_stock', 'reorder_point', 'movement_type',
         'weight_kg', 'volume_m3', 'image', 'is_active', 'deadstock_threshold_days',
+        'home_cell_id',
     ];
 
     protected $casts = [
@@ -31,6 +32,11 @@ class Item extends Model
     public function category()
     {
         return $this->belongsTo(ItemCategory::class, 'category_id');
+    }
+
+    public function homeCell()
+    {
+        return $this->belongsTo(Cell::class, 'home_cell_id');
     }
 
     public function unit()

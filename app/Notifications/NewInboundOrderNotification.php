@@ -26,7 +26,7 @@ class NewInboundOrderNotification extends Notification
             'icon'    => 'fas fa-truck-loading',
             'color'   => 'primary',
             'title'   => 'Inbound Baru Masuk',
-            'message' => '1 DO baru masuk dari ERP — menunggu proses GA.',
+            'message' => '1 DO baru masuk dari BC — menunggu proses GA.',
             'url'     => route('inbound.orders.index', ['status' => 'inbound'], false),
         ];
     }

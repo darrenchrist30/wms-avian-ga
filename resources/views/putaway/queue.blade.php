@@ -74,7 +74,7 @@
                 Put-Away Queue
             </h4>
             <p class="text-muted mb-0 mt-1">
-                Semua item dari {{ $totalOrders }} DO yang siap ditempatkan, terbaru di atas.
+                Semua item dari {{ $totalOrders }} DO — <strong>diurutkan berdasarkan rute lokasi</strong> (Blok → Grup → Kolom → Baris).
             </p>
         </div>
         <div class="col-auto d-flex" style="gap:8px;">
@@ -177,7 +177,12 @@
                                     ? $cell->blok . '-' . strtoupper((string) $cell->grup)
                                     : ($rack?->code ?? null);
                                 $rowId = 'row-ga-' . $detail->id;
-                                $orderSort = optional($order->updated_at)->timestamp ?? optional($order->created_at)->timestamp ?? 0;
+                                $locationSort = sprintf('%05d-%s-%03d-%03d',
+                                    (int)($cell?->blok ?? 99999),
+                                    strtoupper((string)($cell?->grup ?? 'Z')),
+                                    (int)($cell?->kolom ?? 999),
+                                    (int)($cell?->baris ?? 999)
+                                );
                                 $statusMap = [
                                     'available' => ['success', 'Tersedia'],
                                     'partial'   => ['warning', 'Sebagian'],
@@ -185,8 +190,12 @@
                                     'blocked'   => ['secondary','Blokir'],
                                 ];
                                 [$statusColor, $statusLabel] = $statusMap[$cell?->status ?? ''] ?? ['secondary', $cell?->status ?? '—'];
+                                // Remaining qty for partial put-away support
+                                $storedQty    = $detail->inboundOrderItem->putAwayConfirmations->sum('quantity_stored');
+                                $remainingQty = max(1, (int)$detail->inboundOrderItem->quantity_received - $storedQty);
+                                $isPartial    = $detail->inboundOrderItem->status === 'partial_put_away';
                             @endphp
-                            <tr id="{{ $rowId }}">
+                            <tr id="{{ $rowId }}" data-blok="{{ $cell?->blok ?? '' }}">
                                 <td class="text-center text-muted small align-middle">{{ $i + 1 }}</td>
                                 <td class="align-middle">
                                     <a href="{{ route('putaway.show', $order->id) }}"
@@ -206,7 +215,10 @@
                                     @endif
                                 </td>
                                 <td class="text-center font-weight-bold align-middle" style="font-size:14px;">
-                                    {{ $detail->quantity }}
+                                    {{ $remainingQty }}
+                                    @if($isPartial)
+                                        <br><small class="text-warning font-weight-bold" style="font-size:10px;">Sisa</small>
+                                    @endif
                                 </td>
                                 <td class="text-center align-middle">
                                     <small class="text-muted">{{ $unitLabel }}</small>
@@ -245,7 +257,7 @@
                                             data-ga-detail-id="{{ $detail->id }}"
                                             data-row-id="{{ $rowId }}"
                                             data-item-name="{{ $item->name }}"
-                                            data-qty="{{ $detail->quantity }}"
+                                            data-qty="{{ $remainingQty }}"
                                             data-unit="{{ $unitLabel }}"
                                             data-ga-cell="{{ $selGa ?? '' }}"
                                             data-ga-cell-id="{{ $cell?->id ?? '' }}"
@@ -261,7 +273,7 @@
                                             data-ga-detail-id="{{ $detail->id }}"
                                             data-row-id="{{ $rowId }}"
                                             data-item-name="{{ $item->name }}"
-                                            data-qty="{{ $detail->quantity }}"
+                                            data-qty="{{ $remainingQty }}"
                                             data-unit="{{ $unitLabel }}"
                                             data-ga-cell="{{ $selGa ?? '' }}"
                                             data-ga-cell-id="{{ $cell?->id ?? '' }}"
@@ -271,7 +283,7 @@
                                         <i class="fas fa-map-marker-alt mr-1"></i>Override
                                     </button>
                                 </td>
-                                <td class="d-none">{{ $orderSort }}</td>
+                                <td class="d-none">{{ $locationSort }}</td>
                             </tr>
                             @endforeach
                         </tbody>
@@ -471,17 +483,14 @@
 
                         {{-- Qty --}}
                         <div class="px-3 pt-3 pb-1">
-                            <div class="mb-1">
+                            <div class="mb-1 d-flex justify-content-between align-items-center">
                                 <label class="text-muted mb-0" style="font-size:12px">
                                     <i class="fas fa-boxes mr-1"></i>Qty yang Ditempatkan
-                                    <small class="text-info ml-1">(harus = qty diterima di dock)</small>
                                 </label>
+                                <small class="text-info" id="qtyMaxLabel" style="font-size:11px"></small>
                             </div>
-                            <div id="qtyDisplay"
-                                style="font-size:32px;font-weight:800;text-align:center;
-                                        color:#0d8564;line-height:1.1;padding:6px 0">-</div>
                             <input type="number" id="confirmQty" class="form-control" min="1"
-                                style="display:none;font-size:22px;font-weight:700;
+                                style="font-size:22px;font-weight:700;
                                    text-align:center;border:2px solid #0d8564">
                             <div class="text-muted text-center" style="font-size:11px" id="qtyUnitLabel"></div>
                         </div>
@@ -708,6 +717,7 @@ const batchScanUrl     = "{{ route('putaway.batch-scan') }}";
 const batchConfirmUrl  = "{{ route('putaway.batch-confirm') }}";
 const confirmUrlTpl    = "{{ route('putaway.confirm', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
 const overrideUrlTpl   = "{{ route('putaway.override', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
+const altCellUrlTpl    = "{{ route('putaway.alternative-cells', ['order' => 'ORDER_ID']) }}";
 const csrfToken        = $('meta[name="csrf-token"]').attr('content');
 let   doSelesai  = {{ $completedDOs }};
 let   doAktif    = {{ $activeDOs }};
@@ -722,6 +732,8 @@ let isOverride       = false;
 let modalCell        = null;
 let modalGaCell      = null;
 let modalQty         = 0;
+let splitMode        = false;  // true = partial ke cell1 + sisa ke altCell sekaligus
+let altCellData      = null;   // cell alternatif untuk sisa qty
 let modalUnitLabel   = 'unit';
 let qtyEditing       = false;
 let modalItemName    = '';
@@ -734,11 +746,28 @@ $(function() {
         queueTable = $('#datatable').DataTable({
             responsive: true,
             pageLength: 25,
-            order: [[9, 'desc']],
+            order: [[9, 'asc']],
             columnDefs: [
                 { targets: [0, 8], orderable: false, searchable: false },
                 { targets: [9], visible: false, searchable: false },
             ],
+            drawCallback: function() {
+                $('#datatable tbody tr.blok-group-divider').remove();
+                let lastBlok = null;
+                $('#datatable tbody tr:not(.blok-group-divider)').each(function() {
+                    const blok = $(this).data('blok');
+                    if (blok !== undefined && blok !== '' && blok != lastBlok) {
+                        $(this).before(
+                            '<tr class="blok-group-divider" style="background:#1a2332;pointer-events:none">' +
+                            '<td colspan="10" style="padding:5px 12px;font-size:11px;font-weight:700;' +
+                            'color:#a0aec0;letter-spacing:1px;text-transform:uppercase;border:none">' +
+                            '<i class="fas fa-map-marker-alt mr-1" style="color:#0d8564"></i>BLOK ' + blok +
+                            '</td></tr>'
+                        );
+                        lastBlok = blok;
+                    }
+                });
+            },
         });
     }
 });
@@ -755,8 +784,8 @@ function fmtNumber(value) {
     return Number(value || 0).toLocaleString('id-ID');
 }
 
-function slotDemand(cell) {
-    return cell?.item_stock?.will_merge ? 0 : 1;
+function capacityDemand(cell) {
+    return Number(cell?.item_stock?.capacity_demand || 1);
 }
 
 function itemStockInfoHtml(cell) {
@@ -772,13 +801,13 @@ function itemStockInfoHtml(cell) {
     return '<p class="mb-0 text-muted" style="font-size:13px">' +
         'SKU sudah ada di cell ini. Stok: <strong>' + fmtNumber(current) + '</strong> ' + unit +
         ' &rarr; <strong>' + fmtNumber(after) + maxText + '</strong> ' + unit +
-        '. Tidak memakai slot baru.</p>';
+        '. Kapasitas dihitung dari rasio max stock SKU.</p>';
 }
 
 function slotCapacityInfoHtml(cell) {
-    return '<p class="mb-1 text-muted" style="font-size:13px">Slot kosong: ' +
+    return '<p class="mb-1 text-muted" style="font-size:13px">Kapasitas kosong: ' +
         '<strong>' + (cell.capacity_remaining || 0) + '</strong> / ' +
-        '<strong>' + (cell.capacity_max || 0) + '</strong> cell</p>' +
+        '<strong>' + (cell.capacity_max || 0) + '</strong> poin</p>' +
         itemStockInfoHtml(cell);
 }
 
@@ -825,7 +854,7 @@ function showConfirmPhase(cell) {
 
     const rem = cell.capacity_remaining || 0;
     const max = cell.capacity_max || 0;
-    const demand = slotDemand(cell);
+    const demand = capacityDemand(cell);
     let capOk = true;
 
     if (max > 0) {
@@ -865,8 +894,8 @@ function showConfirmPhase(cell) {
     }
 
     qtyEditing = false;
-    $('#confirmQty').val(modalQty).hide();
-    $('#qtyDisplay').text(modalQty);
+    $('#confirmQty').val(modalQty).attr('max', modalQty).show();
+    $('#qtyMaxLabel').text('maks. ' + modalQty + ' ' + modalUnitLabel);
     $('#qtyUnitLabel').text(modalUnitLabel + ' yang akan ditempatkan');
     $('#confirmNotes').val(isOverride ? '[OVERRIDE] ' : '');
 
@@ -984,6 +1013,15 @@ function showScanResultSwal(cell, matchesGa, capOk) {
     $('#modalConfirm').data('cell-id', cell.id);
     qtyEditing = false;
 
+    // Hitung berapa unit yang masih muat di cell ini
+    const maxStock   = cell.item_stock?.max_stock || 0;
+    const remaining  = cell.capacity_remaining || 0;
+    const SCALE      = 100;
+    const maxFit     = maxStock > 0 ? Math.floor(remaining * maxStock / SCALE) : (capOk ? modalQty : 0);
+    const canPartial = !capOk && maxFit > 0;   // cell tidak cukup tapi masih bisa terima sebagian
+    const confirmQty = capOk ? modalQty : (canPartial ? maxFit : 0);
+    const sisa       = modalQty - confirmQty;
+
     let borderColor, bgColor, textColor, badgeHtml;
     if (isOverride) {
         borderColor = '#fd7e14'; bgColor = '#fff8f0'; textColor = '#fd7e14';
@@ -1002,9 +1040,38 @@ function showScanResultSwal(cell, matchesGa, capOk) {
     const gaCellCode = modalGaCell ? modalGaCell.code : '—';
     const notesVal   = isOverride ? '[OVERRIDE] ' : '';
 
-    const warnRow = !capOk
-        ? '<tr><td colspan="6" class="p-0"><div class="alert alert-danger py-1 px-2 mb-0 rounded-0" style="font-size:12px">'
-          + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan cell lain yang memiliki slot kosong.</div></td></tr>'
+    // Reset split state
+    splitMode   = false;
+    altCellData = null;
+
+    let warnRow = '';
+    if (!capOk && !canPartial) {
+        warnRow = '<tr><td colspan="6" class="p-0">'
+            + '<div class="alert alert-danger py-1 px-2 mb-0 rounded-0" style="font-size:12px">'
+            + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan cell lain yang memiliki slot kosong.</div></td></tr>';
+    }
+
+    // Row 1: item dengan qty editable
+    const qtyCell = (capOk || canPartial)
+        ? '<td class="text-center align-middle">'
+          + '<input type="number" id="confirmQty" class="form-control form-control-sm text-center font-weight-bold" '
+          + 'value="' + confirmQty + '" min="1" max="' + (capOk ? modalQty : maxFit) + '" '
+          + 'style="width:72px;margin:0 auto;font-size:13px">'
+          + '</td>'
+        : '<td class="text-center font-weight-bold align-middle">' + modalQty + '</td>';
+
+    // Row 2 (sisa): hanya muncul saat canPartial, diisi setelah fetch alt cell
+    const altRow = canPartial
+        ? '<tr id="altCellRow" style="background:#f8fff8">'
+          + '<td class="text-center align-middle text-muted" style="font-size:11px">↳</td>'
+          + '<td class="align-middle text-muted" style="font-size:11px">Sisa <strong id="altQtyDisplay">' + sisa + '</strong> ' + modalUnitLabel + '</td>'
+          + '<td class="align-middle text-muted" style="font-size:11px">' + (modalDoNumber || '—') + '</td>'
+          + '<td class="text-center align-middle font-weight-bold" id="altQtyCell"><span id="altQtyVal">' + sisa + '</span></td>'
+          + '<td class="text-center align-middle"><small class="text-muted">' + modalUnitLabel + '</small></td>'
+          + '<td class="text-center align-middle" id="altCellBadgeWrap">'
+          + '<i class="fas fa-spinner fa-spin text-muted" style="font-size:12px"></i>'
+          + '</td>'
+          + '</tr>'
         : '';
 
     const html =
@@ -1018,22 +1085,24 @@ function showScanResultSwal(cell, matchesGa, capOk) {
         + '<div class="text-right">' + badgeHtml + '</div>'
         + '</div></div>'
         + '<div class="px-3 pb-1">'
-        + '<div class="table-responsive" style="max-height:200px;overflow-y:auto">'
+        + '<div class="table-responsive" style="max-height:240px;overflow-y:auto">'
         + '<table class="table table-sm table-bordered mb-0">'
         + '<thead class="thead-light" style="position:sticky;top:0"><tr>'
         + '<th width="30" class="text-center">#</th><th>Item</th><th width="110">No. SJ</th>'
-        + '<th width="60" class="text-center">Qty</th><th width="55" class="text-center">Satuan</th>'
-        + '<th width="80" class="text-center">Sel GA</th>'
+        + '<th width="70" class="text-center">Qty</th><th width="55" class="text-center">Satuan</th>'
+        + '<th width="90" class="text-center">Sel</th>'
         + '</tr></thead><tbody>'
         + warnRow
         + '<tr>'
         + '<td class="text-center align-middle text-muted small">1</td>'
         + '<td class="align-middle" style="font-size:12px;line-height:1.3"><strong>' + (modalItemName || '—') + '</strong></td>'
         + '<td class="align-middle" style="font-size:12px">' + (modalDoNumber || '—') + '</td>'
-        + '<td class="text-center font-weight-bold align-middle">' + modalQty + '</td>'
+        + qtyCell
         + '<td class="text-center align-middle"><small class="text-muted">' + modalUnitLabel + '</small></td>'
         + '<td class="text-center align-middle"><span class="badge badge-primary px-2" style="font-size:11px">' + gaCellCode + '</span></td>'
-        + '</tr></tbody></table></div></div>'
+        + '</tr>'
+        + altRow
+        + '</tbody></table></div></div>'
         + '<div class="px-3 pb-2 pt-1">'
         + '<input type="text" id="confirmNotes" class="form-control form-control-sm"'
         + ' placeholder="Catatan opsional…" value="' + notesVal.replace(/"/g, '&quot;') + '">'
@@ -1050,8 +1119,16 @@ function showScanResultSwal(cell, matchesGa, capOk) {
     if (capOk) {
         $('#btnDoConfirm')
             .prop('disabled', false)
-            .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi 1 Item (' + modalQty + ' ' + modalUnitLabel + ')')
+            .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi (' + modalQty + ' ' + modalUnitLabel + ')')
             .show();
+    } else if (canPartial) {
+        $('#btnDoConfirm')
+            .prop('disabled', true)   // enable setelah alt cell ditemukan
+            .html('<i class="fas fa-circle-notch fa-spin mr-2"></i>Mencari cell untuk sisa ' + sisa + ' ' + modalUnitLabel + '…')
+            .show();
+
+        // Fetch alternative cell untuk sisa qty
+        fetchAltCell(cell.id, sisa, confirmQty);
     } else {
         $('#btnDoConfirm')
             .prop('disabled', true)
@@ -1059,6 +1136,54 @@ function showScanResultSwal(cell, matchesGa, capOk) {
             .show();
     }
 }
+
+// ── Fetch cell alternatif untuk sisa qty (split mode) ─────────────────────────
+function fetchAltCell(cell1Id, sisaQty, maxFitQty) {
+    const url = altCellUrlTpl.replace('ORDER_ID', currentOrderId);
+    $.ajax({
+        url,
+        method: 'GET',
+        data: { for_cell_id: cell1Id, qty: sisaQty, detail_id: currentDetailId },
+        success: function(res) {
+            const best = (res.alternatives || []).find(a => a.fits_all) || res.alternatives?.[0];
+            if (best) {
+                altCellData = best;
+                splitMode   = true;
+                $('#altCellBadgeWrap').html(
+                    '<span class="badge badge-success px-1" style="font-size:10px">' + best.code + '</span>'
+                    + '<br><small class="text-muted" style="font-size:9px">' + best.capacity_remaining + ' pts sisa</small>'
+                );
+                $('#btnDoConfirm')
+                    .prop('disabled', false)
+                    .html('<i class="fas fa-check-double mr-2"></i>Konfirmasi ' + maxFitQty + ' + <span id="altSisaInBtn">' + sisaQty + '</span> ' + modalUnitLabel + ' (2 sel)');
+            } else {
+                // Tidak ada alt cell — fallback ke partial saja
+                splitMode   = false;
+                altCellData = null;
+                $('#altCellBadgeWrap').html('<small class="text-danger" style="font-size:10px">Tidak ada cell kosong</small>');
+                $('#btnDoConfirm')
+                    .prop('disabled', false)
+                    .html('<i class="fas fa-layer-group mr-2"></i>Konfirmasi ' + maxFitQty + ' ' + modalUnitLabel + ' (sisa scan manual)');
+            }
+        },
+        error: function() {
+            splitMode = false;
+            $('#altCellBadgeWrap').html('<small class="text-danger" style="font-size:10px">Error</small>');
+            $('#btnDoConfirm')
+                .prop('disabled', false)
+                .html('<i class="fas fa-layer-group mr-2"></i>Konfirmasi ' + maxFitQty + ' ' + modalUnitLabel + ' (sisa scan manual)');
+        }
+    });
+}
+
+// ── Dynamic update sisa saat user ubah qty di Row 1 ───────────────────────────
+$(document).on('input', '#confirmQty', function() {
+    if (!splitMode) return;
+    const v1   = Math.max(1, parseInt($(this).val()) || 1);
+    const sisa = Math.max(0, modalQty - v1);
+    $('#altQtyDisplay, #altQtyVal').text(sisa);
+    if ($('#altSisaInBtn').length) $('#altSisaInBtn').text(sisa);
+});
 
 // ── Scan QR di dalam modal — Smart routing ───────────────────────────────────
 function doModalScanQr(code) {
@@ -1075,7 +1200,8 @@ function doModalScanQr(code) {
             qr_code:     code,
             ga_cell_id:  modalGaCell ? modalGaCell.id : null,
             is_override: isOverride ? 1 : 0,
-            detail_id:   currentDetailId
+            detail_id:   currentDetailId,
+            quantity:    modalQty
         },
         success: function(res) {
             const c    = res.cell;
@@ -1091,7 +1217,7 @@ function doModalScanQr(code) {
 
             const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
             const diffFromGa = !isOverride && modalGaCell && (cell.id != modalGaCell.id);
-            const capOk      = cell.capacity_remaining >= slotDemand(cell) && modalQty > 0;
+            const capOk      = cell.capacity_remaining >= capacityDemand(cell) && modalQty > 0;
 
             if (diffFromGa) {
                 $('#scanLoading').hide();
@@ -1216,20 +1342,25 @@ $(document).on('click', '.btnOverride', function() {
 
 // ── Tombol "Konfirmasi 1 Item" (Phase 2) ─────────────────────────────────────
 $('#btnDoConfirm').on('click', function() {
-    const cellId = $('#modalConfirm').data('cell-id');
-    const notes  = $('#confirmNotes').val() || '';
+    const cellId  = $('#modalConfirm').data('cell-id');
+    const notes   = $('#confirmNotes').val() || '';
+    const qtyVal  = parseInt($('#confirmQty').val()) || 0;
 
     if (!cellId) {
         Swal.fire('Cell Belum Dipilih', 'Scan QR cell terlebih dahulu.', 'warning');
         return;
     }
-    if (!modalQty || modalQty < 1) {
+    if (qtyVal < 1) {
         Swal.fire('Error', 'Jumlah harus minimal 1.', 'error');
+        return;
+    }
+    if (qtyVal > modalQty) {
+        Swal.fire('Error', 'Jumlah tidak boleh melebihi sisa qty (' + modalQty + ').', 'error');
         return;
     }
 
     const cellCode = modalCell?.code || String(cellId);
-    doSaveConfirm(cellId, modalQty, notes, cellCode);
+    doSaveConfirm(cellId, qtyVal, notes, cellCode);
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1405,7 +1536,12 @@ function batchShowResult(res) {
             '<td><div class="font-weight-bold" style="font-size:13px">' + $('<span>').text(item.item_name).html() + '</div>' +
             '<small class="text-muted">' + $('<span>').text(item.item_sku).html() + '</small></td>' +
             '<td style="font-size:12px;font-weight:600;color:#0056b3">' + $('<span>').text(item.do_number).html() + '</td>' +
-            '<td class="text-center font-weight-bold">' + item.quantity + '</td>' +
+            '<td class="text-center">' +
+            '<input type="number" class="form-control form-control-sm text-center font-weight-bold batch-qty-input" ' +
+            'data-ga-detail="' + item.ga_detail_id + '" data-max="' + item.quantity + '" ' +
+            'value="' + item.quantity + '" min="1" max="' + item.quantity + '" ' +
+            'style="width:72px;margin:0 auto;font-size:13px">' +
+            '</td>' +
             '<td class="text-center text-muted">' + $('<span>').text(item.unit).html() + '</td>' +
             '<td class="text-center"><span class="badge badge-primary px-1" style="font-size:10px">' + $('<span>').text(item.cell_code).html() + '</span></td>' +
             '</tr>'
@@ -1487,6 +1623,13 @@ $('#btnDoBatchConfirm').on('click', function() {
     }).then(function(result) {
         if (!result.isConfirmed) return;
 
+        // Read qty from editable inputs
+        const batchItemsWithQty = batchItems.map(function(item) {
+            const $inp = $('.batch-qty-input[data-ga-detail="' + item.ga_detail_id + '"]');
+            const qty  = $inp.length ? Math.max(1, Math.min(parseInt($inp.val()) || item.quantity, item.quantity)) : item.quantity;
+            return Object.assign({}, item, { quantity: qty });
+        });
+
         $('#batchSavingOverlay').css('display', 'flex');
         $('#btnDoBatchConfirm').prop('disabled', true)
             .html('<i class="fas fa-circle-notch fa-spin mr-2"></i>Menyimpan…');
@@ -1497,7 +1640,7 @@ $('#btnDoBatchConfirm').on('click', function() {
             contentType: 'application/json',
             headers:     { 'X-CSRF-TOKEN': csrfToken },
             data: JSON.stringify({
-                items: batchItems,
+                items: batchItemsWithQty,
                 notes: $('#batchNotes').val() || '',
             }),
             success: function(res) {

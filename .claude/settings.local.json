@@ -19,7 +19,11 @@
       "Bash(grep -E \"\\\\.\\(php|sql\\)$\")",
       "Bash(grep -oE \"Controller::\\\\\\\\\\\\w+\\\\\\\\\\\\\\\\[A-Za-z]+Controller\")",
       "Bash(awk '{print $NF}')",
-      "Bash(php -l app/Http/Controllers/DashboardController.php)"
+      "Bash(php -l app/Http/Controllers/DashboardController.php)",
+      "Bash(php test_parser.php)",
+      "Read(//c/laragon/www//**)",
+      "Read(//c/Users/TUF-GAMING//**)",
+      "Bash(php -r \"echo 'PHP OK';\")"
     ]
   }
 }

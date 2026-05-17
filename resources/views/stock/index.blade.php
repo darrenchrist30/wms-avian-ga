@@ -13,6 +13,9 @@
         <small class="text-muted">Posisi barang real-time hasil put-away — per item, seluruh gudang</small>
     </div>
     <div class="d-flex" style="gap:6px;">
+        <a href="{{ route('stock.transfer-scan') }}" class="btn btn-sm btn-success">
+            <i class="fas fa-qrcode mr-1"></i>Scan Transfer
+        </a>
         <a href="{{ route('stock.movements') }}" class="btn btn-sm btn-outline-info">
             <i class="fas fa-exchange-alt mr-1"></i>Lihat Mutasi
         </a>

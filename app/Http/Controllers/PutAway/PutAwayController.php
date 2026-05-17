@@ -90,12 +90,23 @@ class PutAwayController extends Controller
             'gaRecommendation.inboundOrder',
             'inboundOrderItem.item.unit',
             'inboundOrderItem.item.category',
+            'inboundOrderItem.putAwayConfirmations',
             'cell.rack',
         ])
         ->whereHas('gaRecommendation', $activeOrderScope)
-        ->whereHas('inboundOrderItem', fn($q) => $q->where('status', 'pending'))
+        ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
         ->get()
-        ->sortByDesc(fn($d) => optional($d->gaRecommendation->inboundOrder?->updated_at)->timestamp ?? 0)
+        ->sortBy(function ($d) {
+            $cell = $d->cell;
+            if (!$cell) return '99999-Z-999-999';
+            return sprintf(
+                '%05d-%s-%03d-%03d',
+                (int) ($cell->blok  ?? 99999),
+                strtoupper((string) ($cell->grup  ?? 'Z')),
+                (int) ($cell->kolom ?? 999),
+                (int) ($cell->baris ?? 999)
+            );
+        })
         ->values();
 
         $activeDOs    = InboundOrder::where('status', 'put_away')
@@ -173,6 +184,7 @@ class PutAwayController extends Controller
             'ga_cell_id'  => 'nullable|integer|exists:cells,id',
             'is_override' => 'nullable|boolean',
             'detail_id'   => 'nullable|integer|exists:inbound_details,id',
+            'quantity'    => 'nullable|integer|min:1',
         ]);
 
         try {
@@ -197,6 +209,10 @@ class PutAwayController extends Controller
                         'will_merge'  => $currentQty > 0,
                         'current_qty' => $currentQty,
                         'max_stock'   => (int) ($detail->item?->max_stock ?? 0),
+                        'capacity_demand' => app(\App\Services\CellCapacityService::class)->pointsForQuantity(
+                            $detail->item,
+                            (int) ($request->input('quantity') ?: $detail->quantity_received)
+                        ),
                         'unit'        => $detail->item?->unit?->code ?? $detail->item?->unit?->name ?? 'unit',
                     ];
                 }
@@ -307,11 +323,18 @@ class PutAwayController extends Controller
         $request->validate([
             'for_cell_id' => 'required|integer|exists:cells,id',
             'qty'         => 'required|integer|min:1',
+            'detail_id'   => 'nullable|integer|exists:inbound_details,id',
         ]);
 
         $order      = InboundOrder::findOrFail($orderId);
         $sourceCell = Cell::with('rack')->findOrFail($request->for_cell_id);
         $qty        = (int) $request->qty;
+        $detail     = $request->filled('detail_id')
+            ? InboundOrderItem::with('item')->find((int) $request->detail_id)
+            : null;
+        $capacityDemand = $detail
+            ? app(\App\Services\CellCapacityService::class)->pointsForQuantity($detail->item, $qty)
+            : $qty;
 
         // Cari cell alternatif di warehouse yang sama, masih ada kapasitas
         $alternatives = Cell::with('rack')
@@ -320,10 +343,10 @@ class PutAwayController extends Controller
             ->whereRaw('(capacity_max - capacity_used) > 0')
             ->whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
             ->get()
-            ->sortByDesc(function (Cell $cell) use ($qty) {
+            ->sortByDesc(function (Cell $cell) use ($capacityDemand) {
                 $score = 0;
                 // Prioritas 1: muat seluruh qty
-                if ($cell->physical_capacity_remaining >= $qty) $score += 5000;
+                if ($cell->physical_capacity_remaining >= $capacityDemand) $score += 5000;
                 // Prioritas 2: kapasitas tersisa terbesar
                 $score += $cell->physical_capacity_remaining;
                 return $score;
@@ -339,6 +362,7 @@ class PutAwayController extends Controller
                 'capacity_max'       => $sourceCell->physical_capacity_max,
             ],
             'qty_needed'   => $qty,
+            'capacity_needed' => $capacityDemand,
             'alternatives' => $alternatives->map(fn(Cell $c) => [
                 'id'                 => $c->id,
                 'code'               => $c->physical_code,
@@ -347,7 +371,7 @@ class PutAwayController extends Controller
                 'capacity_max'       => $c->physical_capacity_max,
                 'capacity_used'      => $c->physical_capacity_used,
                 'status'             => $c->status,
-                'fits_all'           => $c->physical_capacity_remaining >= $qty,
+                'fits_all'           => $c->physical_capacity_remaining >= $capacityDemand,
             ])->values(),
         ]);
     }

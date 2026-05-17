@@ -11,7 +11,7 @@
         </div>
         <div class="row">
             <div class="col-md-12">
-                <div class="card">
+                <div class="card {{ $typeForm == 'create' ? 'card-primary' : 'card-success' }}">
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="font-weight-bold">
@@ -38,8 +38,8 @@
                             <div class="row">
 
                                 {{-- Kolom Kiri: Informasi Dasar --}}
-                                <div class="col-md-7">
-                                    <div class="card {{ $typeForm == 'create' ? 'card-primary' : 'card-success' }} card-outline">
+                                <div class="col-md-7 d-flex flex-column">
+                                    <div class="card card-secondary card-outline flex-grow-1 mb-0">
                                         <div class="card-header">
                                             <h6 class="card-title mb-0"><i class="fas fa-info-circle mr-1"></i> Informasi Dasar</h6>
                                         </div>
@@ -123,20 +123,6 @@
 
 
                                             <div class="form-group row">
-                                                <label class="col-sm-4 col-form-label">ERP Item Code</label>
-                                                <div class="col-sm-8">
-                                                    <input type="text" name="erp_item_code"
-                                                        class="form-control @error('erp_item_code') is-invalid @enderror"
-                                                        value="{{ old('erp_item_code', $data->erp_item_code ?? '') }}"
-                                                        placeholder="Kode item di sistem ERP" maxlength="50">
-                                                    <small class="text-muted">Opsional. Untuk sinkronisasi ERP.</small>
-                                                    @error('erp_item_code')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">Deskripsi</label>
                                                 <div class="col-sm-8">
                                                     <textarea name="description" rows="3"
@@ -153,7 +139,7 @@
                                 </div>
 
                                 {{-- Kolom Kanan: Stok & Dimensi --}}
-                                <div class="col-md-5">
+                                <div class="col-md-5 d-flex flex-column">
 
                                     {{-- Card: Stok & Reorder --}}
                                     <div class="card card-secondary card-outline">
@@ -187,19 +173,6 @@
                                             </div>
 
                                             <div class="form-group row">
-                                                <label class="col-sm-6 col-form-label">Reorder Point <span class="text-danger">*</span></label>
-                                                <div class="col-sm-6">
-                                                    <input type="number" name="reorder_point"
-                                                        class="form-control @error('reorder_point') is-invalid @enderror"
-                                                        value="{{ old('reorder_point', $data->reorder_point ?? 0) }}" min="0">
-                                                    <small class="text-muted">Titik pemesanan ulang.</small>
-                                                    @error('reorder_point')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="form-group row">
                                                 <label class="col-sm-6 col-form-label">Deadstock (hari) <span class="text-danger">*</span></label>
                                                 <div class="col-sm-6">
                                                     <input type="number" name="deadstock_threshold_days"
@@ -216,37 +189,11 @@
                                     </div>
 
                                     {{-- Card: Dimensi & Barcode --}}
-                                    <div class="card card-secondary card-outline">
+                                    <div class="card card-secondary card-outline flex-grow-1 mb-0">
                                         <div class="card-header">
                                             <h6 class="card-title mb-0"><i class="fas fa-weight mr-1"></i> Dimensi & Barcode</h6>
                                         </div>
                                         <div class="card-body">
-
-                                            <div class="form-group row">
-                                                <label class="col-sm-6 col-form-label">Berat (kg)</label>
-                                                <div class="col-sm-6">
-                                                    <input type="number" name="weight_kg" step="0.001"
-                                                        class="form-control @error('weight_kg') is-invalid @enderror"
-                                                        value="{{ old('weight_kg', $data->weight_kg ?? '') }}"
-                                                        placeholder="0.000" min="0">
-                                                    @error('weight_kg')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
-
-                                            <div class="form-group row">
-                                                <label class="col-sm-6 col-form-label">Volume (m³)</label>
-                                                <div class="col-sm-6">
-                                                    <input type="number" name="volume_m3" step="0.000001"
-                                                        class="form-control @error('volume_m3') is-invalid @enderror"
-                                                        value="{{ old('volume_m3', $data->volume_m3 ?? '') }}"
-                                                        placeholder="0.000000" min="0">
-                                                    @error('volume_m3')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
 
                                             <div class="form-group row">
                                                 <label class="col-sm-6 col-form-label">Barcode</label>

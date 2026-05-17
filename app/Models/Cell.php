@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\Auditable;
+use App\Services\CellCapacityService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -98,14 +99,7 @@ class Cell extends Model
 
     public function getPhysicalCapacityUsedAttribute(): int
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null && $this->baris !== null) {
-            return Stock::where('cell_id', $this->id)
-                ->where('quantity', '>', 0)
-                ->whereIn('status', ['available', 'reserved'])
-                ->count();
-        }
-
-        return (int) $this->capacity_used;
+        return app(CellCapacityService::class)->usedPoints($this);
     }
 
     public function getPhysicalCapacityRemainingAttribute(): int
@@ -118,9 +112,7 @@ class Cell extends Model
     {
         if ($this->capacity_max === 0) return 0;
 
-        $used = $this->isMspartCell()
-            ? $this->physical_capacity_used
-            : $this->capacity_used;
+        $used = $this->physical_capacity_used;
 
         return round($used / $this->capacity_max * 100, 1);
     }
@@ -130,11 +122,9 @@ class Cell extends Model
     {
         if ($this->status === 'blocked' || $this->status === 'reserved') return;
 
-        $used = $this->isMspartCell()
-            ? $this->physical_capacity_used
-            : (int) $this->capacity_used;
+        $used = $this->physical_capacity_used;
 
-        if ($this->isMspartCell() && (int) $this->capacity_used !== $used) {
+        if ((int) $this->capacity_used !== $used) {
             $this->capacity_used = $used;
         }
 

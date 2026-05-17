@@ -171,8 +171,9 @@ class CellController extends Controller
 
         $totalQty  = $stocks->sum('quantity');
         $totalSkus = $stocks->unique('item_id')->count();
+        $capacityUsed = $cell->physical_capacity_used;
         $utilPct   = $cell->capacity_max > 0
-            ? min(100, round($totalQty / $cell->capacity_max * 100))
+            ? min(100, round($capacityUsed / $cell->capacity_max * 100))
             : 0;
 
         return response()->json([
@@ -186,7 +187,8 @@ class CellController extends Controller
                 'level'         => chr(64 + $cell->level),
                 'status'        => $cell->status,
                 'capacity_max'  => $cell->capacity_max,
-                'capacity_used' => $totalQty,
+                'capacity_used' => $capacityUsed,
+                'capacity_remaining' => max(0, $cell->capacity_max - $capacityUsed),
                 'utilization'   => $utilPct,
                 'total_qty'     => (int) $totalQty,
                 'total_skus'    => $totalSkus,

@@ -10,6 +10,9 @@
         'empty'    => ['secondary','Stok Habis',  'fas fa-times-circle'],
     ];
     [$sCls, $sLabel, $sIcon] = $statusCfg[$stockStatus];
+    $canTransferStock = auth()->user()->isAdmin()
+        || auth()->user()->isSupervisor()
+        || auth()->user()->isOperator();
 @endphp
 <div class="container-fluid pb-4">
 
@@ -161,7 +164,7 @@
                         <th width="110">Tgl Masuk</th>
                         <th width="110">Tgl Expired</th>
                         <th class="text-center" width="90">Status</th>
-                        @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                        @if($canTransferStock)
                         <th class="text-center" width="80">Aksi</th>
                         @endif
                     </tr>
@@ -231,7 +234,7 @@
                             @endphp
                             <span class="badge badge-{{ $sBadge }}">{{ $sText }}</span>
                         </td>
-                        @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                        @if($canTransferStock)
                         <td class="text-center">
                             @if($s->status === 'available' && $s->quantity > 0)
                             <button class="btn btn-xs btn-outline-primary btn-transfer"
@@ -253,7 +256,7 @@
                     <tr>
                         <td colspan="4" class="text-right pr-2">Total:</td>
                         <td class="text-center">{{ number_format($totalQty) }}</td>
-                        @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+                        @if($canTransferStock)
                         <td colspan="5"></td>
                         @else
                         <td colspan="4"></td>
@@ -267,7 +270,7 @@
 </div>
 
 {{-- Modal Transfer Stok --}}
-@if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+@if($canTransferStock)
 <div class="modal fade" id="modalTransfer" tabindex="-1" role="dialog">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
@@ -487,7 +490,7 @@ $(function () {
         });
     });
 
-    @if(auth()->user()->isAdmin() || auth()->user()->isSupervisor())
+    @if($canTransferStock)
     // ── Transfer modal ─────────────────────────────────────────────────────
     var currentStockId = null;
 

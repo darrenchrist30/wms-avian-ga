@@ -39,12 +39,11 @@ def category_compatible(item: ItemInput, cell: CellInput) -> bool:
 
 
 def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
-    # Capacity is modeled as stock-record slots, not physical unit quantity.
-    # Same-SKU continuity reuses the existing stock record in that cell and does
-    # not require a new free slot.
+    # Capacity is modeled as normalized capacity points derived from
+    # quantity / item.max_stock in Laravel.
     feasible = [
         c for c in cells
-        if c.capacity_remaining >= 1 or item.item_id in c.existing_item_ids
+        if c.capacity_remaining >= item.capacity_demand
     ]
     if not feasible:
         return [c.cell_id for c in cells]
@@ -365,8 +364,7 @@ def repair_category_invalid_genes(
         if (
             current_cell is not None
             and (
-                current_cell.capacity_remaining >= 1
-                or item.item_id in current_cell.existing_item_ids
+                current_cell.capacity_remaining >= item.capacity_demand
             )
             and category_compatible(item, current_cell)
         ):
@@ -376,8 +374,7 @@ def repair_category_invalid_genes(
             cell.cell_id
             for cell in cells
             if (
-                cell.capacity_remaining >= 1
-                or item.item_id in cell.existing_item_ids
+                cell.capacity_remaining >= item.capacity_demand
             )
             and category_compatible(item, cell)
         ]
@@ -390,7 +387,7 @@ def repair_category_invalid_genes(
             neutral_pool = [
                 cell.cell_id
                 for cell in cells
-                if cell.capacity_remaining >= 1
+                if cell.capacity_remaining >= item.capacity_demand
                 and cell.dominant_category_id is None
             ]
             if neutral_pool:

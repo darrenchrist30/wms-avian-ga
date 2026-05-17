@@ -92,13 +92,14 @@ def fc_capacity(
     """
     FC_CAP (maks 35 poin):
 
-    Mengukur apakah total slot stock-record baru yang dialokasikan ke satu cell
-    tidak melebihi sisa kapasitasnya.
+    Mengukur apakah total capacity points yang dialokasikan ke satu cell
+    tidak melebihi sisa kapasitasnya. Capacity points berasal dari proxy:
+    qty / item.max_stock, dihitung di Laravel sebagai item.capacity_demand.
 
     Rumus:
-        gene_count = jumlah stock-record baru di cell yang sama
-        Jika gene_count ≤ capacity_remaining  → fc_cap = 35 (feasible)
-        Jika gene_count > capacity_remaining  → fc_cap = 35 × (capacity_remaining / gene_count)
+        demand = total capacity_demand item ke cell yang sama
+        Jika demand ≤ capacity_remaining  → fc_cap = 35 (feasible)
+        Jika demand > capacity_remaining  → fc_cap = 35 × (capacity_remaining / demand)
                                                         [penalti proporsional, Goldberg 1989]
 
     Semakin penuh cell namun masih dalam batas = nilai tetap 35.
@@ -111,20 +112,16 @@ def fc_capacity(
     if cell is None:
         return 0.0
 
-    # Hitung slot baru yang dibutuhkan di cell ini.
-    # Satu inbound detail menjadi satu stock record baru, kecuali SKU yang sama
-    # sudah ada di cell tersebut; kasus itu akan update record existing dan tidak
-    # memakai slot baru.
-    gene_count = sum(
-        1
+    demand = sum(
+        items[j].capacity_demand
         for j in range(len(chromosome))
-        if chromosome[j] == cell_id and items[j].item_id not in cell.existing_item_ids
+        if chromosome[j] == cell_id
     )
 
-    if gene_count <= cell.capacity_remaining:
+    if demand <= cell.capacity_remaining:
         return 35.0
 
-    ratio = cell.capacity_remaining / gene_count if gene_count > 0 else 0.0
+    ratio = cell.capacity_remaining / demand if demand > 0 else 0.0
     return round(max(0.0, 35.0 * ratio), 6)
 
 

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Cell;
+use App\Models\Item;
 use App\Models\StockMovement;
 
 class FastSlowMovingService
@@ -49,12 +50,14 @@ class FastSlowMovingService
     public function suggestCell(int $itemId, int $warehouseId, int $quantity): ?array
     {
         $info = $this->classify($itemId, $warehouseId);
+        $item = Item::find($itemId);
+        $capacityDemand = app(CellCapacityService::class)->pointsForQuantity($item, $quantity);
 
         $cells = Cell::with('rack')
             ->whereHas('rack', fn($q) => $q->where('warehouse_id', $warehouseId))
             ->whereIn('status', ['available', 'partial'])
             ->get()
-            ->filter(fn($c) => $c && $c->physical_capacity_remaining >= $quantity);
+            ->filter(fn($c) => $c && $c->physical_capacity_remaining >= $capacityDemand);
 
         if ($cells->isEmpty()) return null;
 
