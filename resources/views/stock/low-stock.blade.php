@@ -18,25 +18,43 @@
     </div>
 </div>
 
+<div class="alert alert-light border mb-3 py-2">
+    @if($type === 'empty')
+        <strong>Filter:</strong> hanya item dengan stok available = 0.
+    @elseif($type === 'low')
+        <strong>Filter:</strong> hanya item yang masih punya stok, tetapi sudah di bawah minimum.
+    @elseif($type === 'reorder')
+        <strong>Filter:</strong> hanya item yang sudah masuk batas reorder point.
+    @else
+        <strong>Filter:</strong> semua item stok habis, di bawah minimum, dan perlu reorder.
+    @endif
+</div>
+
 {{-- Summary --}}
 <div class="row mb-3">
     <div class="col-4 mb-2">
+        <a href="{{ route('stock.low-stock', ['type' => 'empty']) }}" class="text-decoration-none">
         <div class="small-box bg-dark mb-0">
             <div class="inner"><h4>{{ $summary['empty'] }}</h4><p>Stok Habis</p></div>
             <div class="icon"><i class="fas fa-times-circle"></i></div>
         </div>
+        </a>
     </div>
     <div class="col-4 mb-2">
+        <a href="{{ route('stock.low-stock', ['type' => 'low']) }}" class="text-decoration-none">
         <div class="small-box bg-danger mb-0">
             <div class="inner"><h4>{{ $summary['critical'] }}</h4><p>Di Bawah Minimum</p></div>
             <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
         </div>
+        </a>
     </div>
     <div class="col-4 mb-2">
+        <a href="{{ route('stock.low-stock', ['type' => 'reorder']) }}" class="text-decoration-none">
         <div class="small-box bg-warning mb-0">
             <div class="inner"><h4>{{ $summary['reorder'] }}</h4><p>Perlu Reorder</p></div>
             <div class="icon"><i class="fas fa-exclamation-circle"></i></div>
         </div>
+        </a>
     </div>
 </div>
 

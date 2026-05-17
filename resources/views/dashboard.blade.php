@@ -972,7 +972,7 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('stock.low-stock') }}" class="kpi-link">
+            <a href="{{ route('stock.low-stock', ['type' => 'empty']) }}" class="kpi-link">
                 <div class="kpi-card kpi-red">
                     <i class="fas fa-times-circle kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($stockHabisItems) }}</div>
@@ -982,7 +982,7 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('stock.low-stock') }}" class="kpi-link">
+            <a href="{{ route('stock.low-stock', ['type' => 'low']) }}" class="kpi-link">
                 <div class="kpi-card kpi-amber">
                     <i class="fas fa-exclamation-triangle kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($stockMenipisItems) }}</div>
@@ -992,7 +992,7 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="#" class="kpi-link kpi-tab-link" data-tab="#tab-topworst">
+            <a href="{{ route('stock.deadstock', ['days' => $deadstockDays]) }}" class="kpi-link">
                 <div class="kpi-card" style="background:linear-gradient(135deg,#374151,#1f2937);">
                     <i class="fas fa-hourglass-half kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($deadstockCount) }}</div>

@@ -341,27 +341,69 @@ class StockController extends Controller
 
     public function lowStock(Request $request)
     {
+        $type = $request->input('type', 'all');
+        $type = in_array($type, ['all', 'empty', 'low', 'reorder'], true) ? $type : 'all';
         $qtySubSql = '(SELECT COALESCE(SUM(sr.quantity),0) FROM stock_records sr
                        WHERE sr.item_id = items.id AND sr.status = "available")';
 
-        $items = Item::with(['category', 'unit'])
+        $baseQuery = Item::with(['category', 'unit'])
             ->select('items.*')
             ->selectRaw("{$qtySubSql} as current_stock")
             ->where('is_active', true)
-            ->where('reorder_point', '>', 0)
-            ->whereRaw("{$qtySubSql} <= reorder_point")
+            ->where('min_stock', '>', 0)
+            ->whereExists(fn($q) => $q->from('stock_records')->whereColumn('stock_records.item_id', 'items.id'));
+
+        $summaryItems = (clone $baseQuery)->get();
+
+        $items = (clone $baseQuery)
+            ->when($type === 'empty', fn($q) => $q->whereRaw("{$qtySubSql} = 0"))
+            ->when($type === 'low', fn($q) => $q
+                ->whereRaw("{$qtySubSql} > 0")
+                ->whereRaw("{$qtySubSql} < items.min_stock"))
+            ->when($type === 'reorder', fn($q) => $q
+                ->where('reorder_point', '>', 0)
+                ->whereRaw("{$qtySubSql} >= items.min_stock")
+                ->whereRaw("{$qtySubSql} <= items.reorder_point"))
+            ->when($type === 'all', fn($q) => $q
+                ->where(function ($q) use ($qtySubSql) {
+                    $q->whereRaw("{$qtySubSql} = 0")
+                        ->orWhereRaw("{$qtySubSql} < items.min_stock")
+                        ->orWhere(function ($q2) use ($qtySubSql) {
+                            $q2->where('reorder_point', '>', 0)
+                                ->whereRaw("{$qtySubSql} <= items.reorder_point");
+                        });
+                }))
             ->orderByRaw("{$qtySubSql} ASC")
             ->get();
 
         $summary = [
-            'empty'    => $items->where('current_stock', 0)->count(),
-            'critical' => $items->filter(fn($i) => $i->current_stock > 0
+            'empty'    => $summaryItems->where('current_stock', 0)->count(),
+            'critical' => $summaryItems->filter(fn($i) => $i->current_stock > 0
                                 && $i->current_stock <= $i->min_stock)->count(),
-            'reorder'  => $items->filter(fn($i) => $i->current_stock > $i->min_stock
+            'reorder'  => $summaryItems->filter(fn($i) => $i->current_stock > $i->min_stock
                                 && $i->current_stock <= $i->reorder_point)->count(),
         ];
 
-        return view('stock.low-stock', compact('items', 'summary'));
+        return view('stock.low-stock', compact('items', 'summary', 'type'));
+    }
+
+    public function deadstock(Request $request)
+    {
+        $days = max(1, (int) $request->input('days', 90));
+
+        $stocks = Stock::with(['item.category', 'item.unit', 'cell.rack', 'warehouse'])
+            ->deadstock($days)
+            ->orderByRaw('COALESCE(last_moved_at, inbound_date) ASC')
+            ->get();
+
+        $summary = [
+            'sku_count' => $stocks->pluck('item_id')->unique()->count(),
+            'record_count' => $stocks->count(),
+            'total_qty' => $stocks->sum('quantity'),
+            'days' => $days,
+        ];
+
+        return view('stock.deadstock', compact('stocks', 'summary', 'days'));
     }
 
     // =========================================================================

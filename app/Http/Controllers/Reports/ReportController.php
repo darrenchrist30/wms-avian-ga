@@ -147,6 +147,9 @@ class ReportController extends Controller
     public function putaway(Request $request)
     {
         $year = $request->input('year', now()->year);
+        $dateFrom = $request->input('date_from', now()->subDay()->toDateString());
+        $dateTo = $request->input('date_to', $dateFrom);
+        $operatorId = $request->input('operator_id');
 
         // Put-away per bulan (dari stock_records yang masuk)
         $monthlyPutAway = DB::table('stock_records')
@@ -205,9 +208,66 @@ class ReportController extends Controller
                 ? round(($gaStats->approved / $gaStats->total) * 100, 1) : 0,
         ];
 
+        $traceBase = DB::table('put_away_confirmations as pac')
+            ->join('inbound_details as idt', 'idt.id', '=', 'pac.inbound_order_item_id')
+            ->join('inbound_transactions as it', 'it.id', '=', 'idt.inbound_order_id')
+            ->join('items as i', 'i.id', '=', 'idt.item_id')
+            ->leftJoin('units as u', 'u.id', '=', 'i.unit_id')
+            ->join('cells as c', 'c.id', '=', 'pac.cell_id')
+            ->leftJoin('users as usr', 'usr.id', '=', 'pac.user_id')
+            ->whereBetween('pac.confirmed_at', [
+                $dateFrom . ' 00:00:00',
+                $dateTo . ' 23:59:59',
+            ])
+            ->when($operatorId, fn($q) => $q->where('pac.user_id', $operatorId));
+
+        $traceSummary = (clone $traceBase)
+            ->selectRaw('
+                COUNT(pac.id) as confirmation_count,
+                COALESCE(SUM(pac.quantity_stored), 0) as total_qty,
+                COUNT(DISTINCT it.id) as do_count,
+                COUNT(DISTINCT i.id) as sku_count
+            ')
+            ->first();
+
+        $confirmationLogs = (clone $traceBase)
+            ->select([
+                'pac.id',
+                'pac.confirmed_at',
+                'pac.quantity_stored',
+                'pac.follow_recommendation',
+                'pac.notes',
+                'usr.name as operator_name',
+                'it.do_number',
+                'i.sku',
+                'i.name as item_name',
+                'u.code as unit_code',
+                'c.code as cell_code',
+                'c.blok',
+                'c.grup',
+                'c.kolom',
+                'c.baris',
+            ])
+            ->orderByDesc('pac.confirmed_at')
+            ->limit(200)
+            ->get();
+
+        $operatorStats = (clone $traceBase)
+            ->selectRaw('COALESCE(usr.name, "User tidak aktif") as operator_name, COUNT(*) as confirmation_count, SUM(pac.quantity_stored) as total_qty')
+            ->groupBy('pac.user_id', 'usr.name')
+            ->orderByDesc('confirmation_count')
+            ->get();
+
+        $operators = DB::table('users')
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
         return view('reports.putaway', compact(
             'summary', 'gaStats', 'byCategory',
-            'chartPutAway', 'chartQty', 'year', 'years'
+            'chartPutAway', 'chartQty', 'year', 'years',
+            'dateFrom', 'dateTo', 'operatorId', 'operators',
+            'confirmationLogs', 'operatorStats', 'traceSummary'
         ));
     }
 

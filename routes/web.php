@@ -134,6 +134,7 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::get('search', [\App\Http\Controllers\Stock\StockController::class, 'search'])->name('search');
         Route::get('movements', [\App\Http\Controllers\Stock\StockController::class, 'movements'])->name('movements');
         Route::get('low-stock', [\App\Http\Controllers\Stock\StockController::class, 'lowStock'])->name('low-stock');
+        Route::get('deadstock', [\App\Http\Controllers\Stock\StockController::class, 'deadstock'])->name('deadstock');
         Route::get('near-expiry', [\App\Http\Controllers\Stock\StockController::class, 'nearExpiry'])->name('near-expiry');
         Route::get('transfer-scan', [\App\Http\Controllers\Stock\StockController::class, 'transferScan'])
             ->name('transfer-scan')->middleware('role:admin,supervisor,operator');

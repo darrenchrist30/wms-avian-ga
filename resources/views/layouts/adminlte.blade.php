@@ -928,6 +928,280 @@
         .table-hover tbody tr:hover {
             background-color: #f8fff9 !important;
         }
+
+        /* â”€â”€â”€ GLOBAL RESPONSIVE BASELINE â€” operator tablet/mobile â”€â”€â”€ */
+        @media (max-width: 991.98px) {
+            body {
+                font-size: 13px;
+                letter-spacing: 0;
+            }
+
+            .main-header.navbar {
+                left: 0 !important;
+                margin-left: 0 !important;
+                min-height: var(--navbar-height);
+            }
+
+            body.sidebar-mini.sidebar-collapse .main-header.navbar,
+            body.sidebar-mini.sidebar-closed .main-header.navbar,
+            body.sidebar-open .main-header.navbar {
+                left: 0 !important;
+                right: 0 !important;
+                width: auto !important;
+                margin-left: 0 !important;
+            }
+
+            .content-wrapper,
+            .main-footer,
+            .sidebar-collapse .content-wrapper,
+            .sidebar-collapse .main-footer {
+                margin-left: 0 !important;
+            }
+
+            .main-sidebar,
+            .main-sidebar::before {
+                width: var(--sidebar-width) !important;
+            }
+
+            body:not(.sidebar-open) .main-sidebar,
+            body:not(.sidebar-open) .main-sidebar::before,
+            body.sidebar-collapse:not(.sidebar-open) .main-sidebar,
+            body.sidebar-collapse:not(.sidebar-open) .main-sidebar::before,
+            body.sidebar-mini.sidebar-collapse:not(.sidebar-open) .main-sidebar,
+            body.sidebar-mini.sidebar-collapse:not(.sidebar-open) .main-sidebar::before {
+                margin-left: calc(-1 * var(--sidebar-width)) !important;
+            }
+
+            body.sidebar-open .main-sidebar,
+            body.sidebar-open .main-sidebar::before {
+                margin-left: 0 !important;
+            }
+
+            body.sidebar-open .brand-link {
+                justify-content: flex-start !important;
+                padding: 0 16px !important;
+                width: var(--sidebar-width) !important;
+            }
+
+            body.sidebar-open .brand-link .brand-text-wrapper,
+            body.sidebar-open .nav-sidebar .nav-link p,
+            body.sidebar-open .nav-link .right {
+                display: block !important;
+            }
+
+            body.sidebar-open .brand-link img.brand-image {
+                margin-right: 10px !important;
+            }
+
+            body.sidebar-open .nav-sidebar .nav-link,
+            body.sidebar-open .nav-treeview .nav-link {
+                justify-content: flex-start !important;
+                padding-left: 12px !important;
+            }
+
+            body.sidebar-open .nav-sidebar .nav-icon,
+            body.sidebar-open .nav-treeview .nav-icon {
+                margin-right: 10px !important;
+            }
+
+            .container-fluid {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .card-header {
+                padding: 12px 14px !important;
+            }
+
+            .card-body {
+                padding: 14px !important;
+            }
+
+            .card-header,
+            .card-body,
+            .modal-header,
+            .modal-body,
+            .modal-footer {
+                min-width: 0;
+            }
+
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .table-responsive > .table {
+                min-width: 640px;
+            }
+
+            .table td,
+            .table th {
+                white-space: nowrap;
+            }
+
+            .modal-dialog {
+                max-width: calc(100vw - 24px) !important;
+                margin: .75rem auto !important;
+            }
+
+            .modal-content {
+                max-height: calc(100vh - 24px);
+            }
+
+            .modal-body {
+                max-height: calc(100vh - 132px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .modal-footer {
+                gap: 8px;
+            }
+
+            .btn,
+            .form-control,
+            .custom-select,
+            .input-group-text {
+                min-height: 36px;
+            }
+
+            .btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                line-height: 1.2;
+                gap: 4px;
+            }
+
+            .btn i {
+                line-height: 1;
+            }
+
+            .btn-sm,
+            .form-control-sm,
+            .custom-select-sm {
+                min-height: 34px;
+            }
+
+            .btn-group,
+            .btn-toolbar,
+            .card-tools,
+            .dataTables_wrapper .row {
+                flex-wrap: wrap;
+            }
+
+            .info-box {
+                min-height: 74px;
+            }
+
+            .info-box-icon {
+                width: 52px !important;
+                font-size: 18px !important;
+            }
+
+            .small-box .inner h3 {
+                font-size: 26px;
+            }
+
+            .dropdown-menu-right {
+                max-width: calc(100vw - 24px);
+            }
+
+            #notifDropdown {
+                width: calc(100vw - 24px) !important;
+                max-width: 360px;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .container-fluid {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+
+            .content-wrapper>.content {
+                padding-bottom: 16px;
+            }
+
+            h1, .h1 { font-size: 1.75rem; }
+            h2, .h2 { font-size: 1.5rem; }
+            h3, .h3 { font-size: 1.3rem; }
+            h4, .h4 { font-size: 1.15rem; }
+
+            .card {
+                border-radius: 8px !important;
+            }
+
+            .card-header {
+                padding: 10px 12px !important;
+            }
+
+            .card-body {
+                padding: 12px !important;
+            }
+
+            .modal-dialog {
+                max-width: calc(100vw - 12px) !important;
+                margin: .375rem auto !important;
+            }
+
+            .modal-body {
+                max-height: calc(100vh - 118px);
+            }
+
+            .modal-footer .btn {
+                flex: 1 1 auto;
+                white-space: normal;
+            }
+
+            .dataTables_wrapper .dataTables_length,
+            .dataTables_wrapper .dataTables_filter,
+            .dataTables_wrapper .dataTables_info,
+            .dataTables_wrapper .dataTables_paginate {
+                text-align: left !important;
+                width: 100%;
+                margin: 4px 0;
+            }
+
+            .dataTables_wrapper .dataTables_filter input {
+                width: 100%;
+                margin-left: 0;
+            }
+
+            .main-footer {
+                text-align: center;
+                padding: 10px 8px !important;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .navbar-breadcrumb {
+                display: none !important;
+            }
+
+            .main-header .navbar-nav .nav-link {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+
+            .dropdown-user-menu {
+                min-width: calc(100vw - 24px) !important;
+            }
+
+            .table-responsive > .table {
+                min-width: 560px;
+            }
+
+            .btn:not(.btn-xs) {
+                min-height: 40px;
+            }
+
+            .input-group > .form-control,
+            .input-group > .input-group-append > .btn,
+            .input-group > .input-group-prepend > .input-group-text {
+                min-height: 40px;
+            }
+        }
     </style>
     @stack('styles')
 </head>

@@ -61,6 +61,160 @@
         display: flex; align-items: center; justify-content: center;
         flex-direction: column; gap: 6px; border-radius: 12px;
     }
+
+    #btnBatchScan,
+    a[href="{{ route('putaway.index') }}"].btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.2;
+    }
+
+    @media (max-width: 991.98px) {
+        #modalConfirm .modal-dialog,
+        #modalBatch .modal-dialog {
+            max-width: calc(100vw - 24px) !important;
+            margin: .75rem auto;
+        }
+
+        #modalConfirm .modal-content,
+        #modalBatch .modal-content {
+            max-height: calc(100vh - 24px);
+        }
+
+        #modalConfirm .modal-body,
+        #modalBatch .modal-body {
+            max-height: calc(100vh - 132px);
+            overflow-y: auto;
+        }
+
+        #batchItemsTable,
+        #phaseConfirm table {
+            min-width: 620px;
+        }
+
+        #datatable th,
+        #datatable td,
+        #batchItemsTable th,
+        #batchItemsTable td {
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        #btnDoConfirm,
+        #btnDoBatchConfirm {
+            min-height: 40px;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .container-fluid {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        .row.mb-3.align-items-center > .col-auto {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .row.mb-3.align-items-center > .col-auto .btn {
+            flex: 1 1 0;
+            min-height: 38px;
+        }
+
+        #summaryRow .info-box {
+            min-height: 70px;
+        }
+
+        #summaryRow .info-box-icon {
+            width: 48px;
+            font-size: 18px;
+        }
+
+        #summaryRow .info-box-text {
+            font-size: 11px;
+        }
+
+        #summaryRow .info-box-number {
+            font-size: 17px;
+        }
+
+        #modalConfirm .modal-dialog,
+        #modalBatch .modal-dialog {
+            max-width: calc(100vw - 12px) !important;
+            margin: .375rem auto;
+        }
+
+        #modalConfirm .modal-body,
+        #modalBatch .modal-body {
+            max-height: calc(100vh - 118px);
+        }
+
+        #modalConfirm .modal-footer,
+        #modalBatch .modal-footer {
+            gap: 8px;
+        }
+
+        #modalConfirm .modal-footer .btn,
+        #modalBatch .modal-footer .btn {
+            flex: 1 1 0;
+            white-space: normal;
+        }
+
+        #batchItemsTable,
+        #phaseConfirm table {
+            min-width: 560px;
+            font-size: 12px;
+        }
+
+        #batchItemsTable .form-control-sm,
+        #phaseConfirm .form-control-sm {
+            height: 31px;
+            padding: 3px 6px;
+        }
+
+        #cameraViewport,
+        #batchCameraViewport {
+            min-height: 240px !important;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        #datatable_wrapper .row {
+            margin-left: 0;
+            margin-right: 0;
+        }
+
+        #datatable_wrapper .dataTables_length,
+        #datatable_wrapper .dataTables_filter,
+        #datatable_wrapper .dataTables_info,
+        #datatable_wrapper .dataTables_paginate {
+            text-align: left !important;
+            width: 100%;
+            margin: 4px 0;
+        }
+
+        #datatable_wrapper .dataTables_filter input {
+            width: 100%;
+            margin-left: 0;
+        }
+
+        #modalConfirm .modal-header,
+        #modalBatch .modal-header {
+            padding: 8px 10px !important;
+        }
+
+        #modalConfirm .modal-title,
+        #modalBatch .modal-title {
+            font-size: 14px;
+        }
+
+        #btnOpenCamera,
+        #btnBatchOpenCamera {
+            min-height: 44px;
+        }
+    }
 </style>
 @endpush
 
@@ -916,11 +1070,12 @@ function showConfirmPhase(cell) {
 // ── Simpan ke DB ─────────────────────────────────────────────────────────────
 const MIN_LOADER_MS = 800;
 
-function doSaveConfirm(cellId, qty, notes, cellCode) {
+function doSaveConfirm(cellId, qty, notes, cellCode, splitCell = null, splitQty = 0) {
     const url = isOverride
         ? overrideUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId)
         : confirmUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId);
 
+    let saveSucceeded = false;
     const overlayStart = Date.now();
     $('#modalSavingOverlay').show();
     $('#btnDoConfirm').prop('disabled', true)
@@ -932,21 +1087,47 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
         setTimeout(fn, waitMore);
     }
 
+    const payload = {
+        _token:          csrfToken,
+        cell_id:         cellId,
+        quantity_stored: qty,
+        ga_detail_id:    isOverride ? null : (currentGaDetailId || null),
+        notes:           notes || ''
+    };
+
+    if (splitCell && splitQty > 0) {
+        payload.split_cell_id = splitCell.id;
+        payload.split_quantity_stored = splitQty;
+    }
+
+    function remainingQueueRowsAfterCurrentSave() {
+        const rowExists = currentRowId && $('#' + currentRowId).length ? 1 : 0;
+        const totalRows = queueTable
+            ? queueTable.rows().count()
+            : $('#datatable tbody tr:not(.blok-group-divider)').length;
+
+        return Math.max(0, totalRows - rowExists);
+    }
+
     $.ajax({
         url,
         method: 'POST',
-        data: {
-            _token:          csrfToken,
-            cell_id:         cellId,
-            quantity_stored: qty,
-            ga_detail_id:    isOverride ? null : (currentGaDetailId || null),
-            notes:           notes || ''
-        },
+        data: payload,
         success: function(res) {
-            if (res.status !== 'success') return;
+            if (res.status !== 'success') {
+                afterMinLoader(function() {
+                    $('#modalSavingOverlay').hide();
+                    Swal.fire('Gagal Menyimpan', res.message || 'Response server tidak valid.', 'error');
+                });
+                return;
+            }
+
+            saveSucceeded = true;
 
             afterMinLoader(function() {
+                $('#modalSavingOverlay').hide();
                 $('#modalConfirm').modal('hide');
+                const isQueueEmptyAfterSave = remainingQueueRowsAfterCurrentSave() === 0;
 
                 // Hapus baris dari antrian
                 const $row = $('#' + currentRowId);
@@ -967,7 +1148,7 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
                 }
                 updateStats();
 
-                if (done === TOTAL) {
+                if (isQueueEmptyAfterSave) {
                     setTimeout(function() {
                         Swal.fire({
                             icon: 'success',
@@ -992,7 +1173,9 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
             afterMinLoader(function() {
                 $('#modalSavingOverlay').hide();
                 $('#btnDoConfirm').prop('disabled', false)
-                    .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi Sekarang');
+                    .html(splitCell && splitQty > 0
+                        ? '<i class="fas fa-check-double mr-2"></i>Konfirmasi ' + qty + ' + ' + splitQty + ' ' + modalUnitLabel + ' (2 sel)'
+                        : '<i class="fas fa-check-circle mr-2"></i>Konfirmasi Sekarang');
                 if ($('#phaseConfirm').is(':hidden')) showScanPhase();
                 Swal.fire('Gagal Menyimpan',
                     xhr.responseJSON?.message || 'Terjadi kesalahan server.', 'error');
@@ -1000,8 +1183,12 @@ function doSaveConfirm(cellId, qty, notes, cellCode) {
         },
         complete: function() {
             afterMinLoader(function() {
+                if (saveSucceeded) return;
+
                 $('#btnDoConfirm').prop('disabled', false)
-                    .html('<i class="fas fa-check-circle mr-2"></i>Konfirmasi Sekarang');
+                    .html(splitCell && splitQty > 0
+                        ? '<i class="fas fa-check-double mr-2"></i>Konfirmasi ' + qty + ' + ' + splitQty + ' ' + modalUnitLabel + ' (2 sel)'
+                        : '<i class="fas fa-check-circle mr-2"></i>Konfirmasi Sekarang');
             });
         }
     });
@@ -1359,8 +1546,14 @@ $('#btnDoConfirm').on('click', function() {
         return;
     }
 
+    const splitQty = splitMode && altCellData ? Math.max(0, modalQty - qtyVal) : 0;
+    if (splitQty > 0 && !altCellData?.id) {
+        Swal.fire('Cell Alternatif Belum Siap', 'Tunggu rekomendasi cell alternatif selesai dimuat.', 'warning');
+        return;
+    }
+
     const cellCode = modalCell?.code || String(cellId);
-    doSaveConfirm(cellId, qtyVal, notes, cellCode);
+    doSaveConfirm(cellId, qtyVal, notes, cellCode, splitQty > 0 ? altCellData : null, splitQty);
 });
 
 // ══════════════════════════════════════════════════════════════════════
@@ -1530,6 +1723,12 @@ function batchShowResult(res) {
 
     const tbody = $('#batchItemsTbody').empty();
     res.items.forEach(function(item, i) {
+        const isSplit = item.requires_split && item.split_ready && item.alt_cell;
+        const primaryQty = item.requires_split ? item.primary_quantity : item.quantity;
+        const qtyInputAttrs = item.requires_split
+            ? 'value="' + primaryQty + '" min="' + primaryQty + '" max="' + primaryQty + '" readonly '
+            : 'value="' + item.quantity + '" min="1" max="' + item.quantity + '" ';
+
         tbody.append(
             '<tr>' +
             '<td class="text-center text-muted">' + (i + 1) + '</td>' +
@@ -1539,17 +1738,43 @@ function batchShowResult(res) {
             '<td class="text-center">' +
             '<input type="number" class="form-control form-control-sm text-center font-weight-bold batch-qty-input" ' +
             'data-ga-detail="' + item.ga_detail_id + '" data-max="' + item.quantity + '" ' +
-            'value="' + item.quantity + '" min="1" max="' + item.quantity + '" ' +
+            qtyInputAttrs +
             'style="width:72px;margin:0 auto;font-size:13px">' +
             '</td>' +
             '<td class="text-center text-muted">' + $('<span>').text(item.unit).html() + '</td>' +
             '<td class="text-center"><span class="badge badge-primary px-1" style="font-size:10px">' + $('<span>').text(item.cell_code).html() + '</span></td>' +
             '</tr>'
         );
+
+        if (isSplit) {
+            tbody.append(
+                '<tr class="batch-split-row">' +
+                '<td class="text-center text-muted">' + (i + 1) + '</td>' +
+                '<td><div class="font-weight-bold" style="font-size:13px">' + $('<span>').text(item.item_name).html() + '</div>' +
+                '<small class="text-muted">' + $('<span>').text(item.item_sku).html() + '</small></td>' +
+                '<td style="font-size:12px;font-weight:600;color:#0056b3">' + $('<span>').text(item.do_number).html() + '</td>' +
+                '<td class="text-center">' +
+                '<input type="number" class="form-control form-control-sm text-center font-weight-bold" ' +
+                'value="' + item.split_quantity + '" min="' + item.split_quantity + '" max="' + item.split_quantity + '" readonly ' +
+                'style="width:72px;margin:0 auto;font-size:13px">' +
+                '</td>' +
+                '<td class="text-center text-muted">' + $('<span>').text(item.unit).html() + '</td>' +
+                '<td class="text-center"><span class="badge badge-primary px-1" style="font-size:10px">' + $('<span>').text(item.alt_cell.code).html() + '</span></td>' +
+                '</tr>'
+            );
+        } else if (item.requires_split && !item.split_ready) {
+            tbody.append(
+                '<tr class="batch-split-row" style="background:#fff8f8">' +
+                '<td class="text-center text-muted" style="font-size:11px">â†³</td>' +
+                '<td colspan="5" class="text-danger" style="font-size:11px">Sisa qty belum punya cell alternatif. Item ini akan disimpan parsial saja.</td>' +
+                '</tr>'
+            );
+        }
     });
 
     const totalQty = res.items.reduce(function(s, it) { return s + it.quantity; }, 0);
-    $('#btnBatchConfirmLabel').text('Konfirmasi ' + res.items.length + ' Item (' + totalQty + ' unit)');
+    const splitCount = res.items.filter(it => it.requires_split && it.split_ready).length;
+    $('#btnBatchConfirmLabel').text('Konfirmasi ' + res.items.length + ' Item (' + totalQty + ' unit' + (splitCount ? ', ' + splitCount + ' split' : '') + ')');
 
     $('#batchPhaseScan').hide();
     $('#batchPhaseResult').show();
@@ -1627,7 +1852,20 @@ $('#btnDoBatchConfirm').on('click', function() {
         const batchItemsWithQty = batchItems.map(function(item) {
             const $inp = $('.batch-qty-input[data-ga-detail="' + item.ga_detail_id + '"]');
             const qty  = $inp.length ? Math.max(1, Math.min(parseInt($inp.val()) || item.quantity, item.quantity)) : item.quantity;
-            return Object.assign({}, item, { quantity: qty });
+            const payload = {
+                cell_id: item.cell_id,
+                order_id: item.order_id,
+                detail_id: item.detail_id,
+                ga_detail_id: item.ga_detail_id || null,
+                quantity: qty
+            };
+
+            if (item.requires_split && item.split_ready && item.alt_cell && item.split_quantity > 0) {
+                payload.split_cell_id = item.alt_cell.id;
+                payload.split_quantity = item.split_quantity;
+            }
+
+            return payload;
         });
 
         $('#batchSavingOverlay').css('display', 'flex');

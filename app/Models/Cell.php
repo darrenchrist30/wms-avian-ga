@@ -58,12 +58,12 @@ class Cell extends Model
     // Sisa kapasitas (dua nama alias agar kompatibel)
     public function getRemainingCapacityAttribute(): int
     {
-        return $this->capacity_max - $this->capacity_used;
+        return max(0, $this->physical_capacity_max - $this->physical_capacity_used);
     }
 
     public function getCapacityRemainingAttribute(): int
     {
-        return $this->capacity_max - $this->capacity_used;
+        return max(0, $this->physical_capacity_max - $this->physical_capacity_used);
     }
 
     public function getPhysicalCodeAttribute(): string

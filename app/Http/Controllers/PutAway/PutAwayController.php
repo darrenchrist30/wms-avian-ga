@@ -10,6 +10,7 @@ use App\Models\InboundOrder;
 use App\Models\InboundOrderItem;
 use App\Models\Stock;
 use App\Models\Warehouse;
+use App\Services\CellCapacityService;
 use App\Services\FastSlowMovingService;
 use App\Services\PutAwayService;
 use Illuminate\Http\Request;
@@ -209,7 +210,7 @@ class PutAwayController extends Controller
                         'will_merge'  => $currentQty > 0,
                         'current_qty' => $currentQty,
                         'max_stock'   => (int) ($detail->item?->max_stock ?? 0),
-                        'capacity_demand' => app(\App\Services\CellCapacityService::class)->pointsForQuantity(
+                        'capacity_demand' => app(CellCapacityService::class)->pointsForQuantity(
                             $detail->item,
                             (int) ($request->input('quantity') ?: $detail->quantity_received)
                         ),
@@ -249,6 +250,8 @@ class PutAwayController extends Controller
             'cell_id'          => 'required|exists:cells,id',
             'quantity_stored'  => 'required|integer|min:1',
             'ga_detail_id'     => 'nullable|exists:ga_recommendation_details,id',
+            'split_cell_id'    => 'nullable|exists:cells,id|different:cell_id',
+            'split_quantity_stored' => 'nullable|integer|min:1',
             'notes'            => 'nullable|string|max:255',
         ]);
 
@@ -256,6 +259,19 @@ class PutAwayController extends Controller
         $detail = InboundOrderItem::where('inbound_order_id', $orderId)
             ->findOrFail($detailId);
         $cell   = Cell::findOrFail($request->cell_id);
+        $splitCell = $request->filled('split_cell_id')
+            ? Cell::findOrFail($request->split_cell_id)
+            : null;
+        $splitQty = $request->filled('split_quantity_stored')
+            ? (int) $request->split_quantity_stored
+            : 0;
+
+        if (($splitCell && $splitQty <= 0) || (!$splitCell && $splitQty > 0)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data split penempatan tidak lengkap.',
+            ], 422);
+        }
 
         // Cari GA detail yang jadi acuan (jika ada)
         $gaDetail = null;
@@ -283,22 +299,51 @@ class PutAwayController extends Controller
         }
 
         try {
-            $confirmation = $this->putAwayService->confirmPlacement(
-                detail: $detail,
-                cell: $cell,
-                quantityStored: $request->quantity_stored,
-                userId: auth()->id(),
-                gaDetail: $gaDetail,
-                notes: $request->notes,
-            );
+            $primaryQty = (int) $request->quantity_stored;
+            $remainingQty = max(0, (int) $detail->quantity_received - (int) $detail->putAwayConfirmations()->sum('quantity_stored'));
+
+            if ($primaryQty + $splitQty > $remainingQty) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Total qty penempatan ({$primaryQty} + {$splitQty}) melebihi sisa qty item ({$remainingQty}).",
+                ], 422);
+            }
+
+            $confirmation = DB::transaction(function () use ($detail, $cell, $splitCell, $primaryQty, $splitQty, $gaDetail, $request) {
+                $primaryConfirmation = $this->putAwayService->confirmPlacement(
+                    detail: $detail,
+                    cell: $cell,
+                    quantityStored: $primaryQty,
+                    userId: auth()->id(),
+                    gaDetail: $gaDetail,
+                    notes: $request->notes,
+                );
+
+                if ($splitCell && $splitQty > 0) {
+                    $this->putAwayService->confirmPlacement(
+                        detail: $detail->fresh(['item', 'inboundOrder']),
+                        cell: $splitCell,
+                        quantityStored: $splitQty,
+                        userId: auth()->id(),
+                        gaDetail: null,
+                        notes: trim(($request->notes ? $request->notes . ' ' : '') . '[SPLIT_ALT] dari auto split put-away'),
+                    );
+                }
+
+                return $primaryConfirmation;
+            });
 
             $order->refresh();
             $doneCount  = $order->items()->where('status', 'put_away')->count();
             $totalCount = $order->items()->count();
 
+            $message = $splitCell
+                ? "Item berhasil di-put-away split ke {$cell->physical_code} dan {$splitCell->physical_code}."
+                : "Item berhasil di-put-away ke lokasi {$cell->physical_label}.";
+
             return response()->json([
                 'status'   => 'success',
-                'message'  => "Item berhasil di-put-away ke lokasi {$cell->physical_label}.",
+                'message'  => $message,
                 'progress' => [
                     'done'        => $doneCount,
                     'total'       => $totalCount,
@@ -307,6 +352,7 @@ class PutAwayController extends Controller
                 ],
                 'follow_recommendation' => $confirmation->follow_recommendation,
                 'cell_code'             => $cell->physical_code,
+                'split_cell_code'       => $splitCell?->physical_code,
             ]);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
@@ -332,27 +378,15 @@ class PutAwayController extends Controller
         $detail     = $request->filled('detail_id')
             ? InboundOrderItem::with('item')->find((int) $request->detail_id)
             : null;
+        $capacityService = app(CellCapacityService::class);
         $capacityDemand = $detail
-            ? app(\App\Services\CellCapacityService::class)->pointsForQuantity($detail->item, $qty)
+            ? $capacityService->pointsForQuantity($detail->item, $qty)
             : $qty;
 
-        // Cari cell alternatif di warehouse yang sama, masih ada kapasitas
-        $alternatives = Cell::with('rack')
-            ->where('is_active', true)
-            ->where('id', '!=', $request->for_cell_id)
-            ->whereRaw('(capacity_max - capacity_used) > 0')
-            ->whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
-            ->get()
-            ->sortByDesc(function (Cell $cell) use ($capacityDemand) {
-                $score = 0;
-                // Prioritas 1: muat seluruh qty
-                if ($cell->physical_capacity_remaining >= $capacityDemand) $score += 5000;
-                // Prioritas 2: kapasitas tersisa terbesar
-                $score += $cell->physical_capacity_remaining;
-                return $score;
-            })
-            ->take(6)
-            ->values();
+        // Cari cell alternatif di warehouse yang sama.
+        // Do not subtract unsigned DB columns here: overfilled cells can make
+        // MySQL underflow before PHP can clamp the remaining capacity to zero.
+        $alternatives = $this->rankedAlternativeCells($sourceCell, $order, $capacityDemand, 6);
 
         return response()->json([
             'source_cell' => [
@@ -372,6 +406,7 @@ class PutAwayController extends Controller
                 'capacity_used'      => $c->physical_capacity_used,
                 'status'             => $c->status,
                 'fits_all'           => $c->physical_capacity_remaining >= $capacityDemand,
+                'distance_score'     => $this->cellDistanceScore($sourceCell, $c),
             ])->values(),
         ]);
     }
@@ -449,24 +484,59 @@ class PutAwayController extends Controller
         ->whereHas('inboundOrderItem', fn($q) => $q->where('status', 'pending'))
         ->get();
 
+        $capacityService = app(CellCapacityService::class);
+
         return response()->json([
             'status'  => $details->isEmpty() ? 'empty' : 'found',
             'message' => $details->isEmpty() ? 'Tidak ada item pending untuk cell/rak ini.' : null,
             'display_code' => $displayCode,
             'display_rack' => $displayRack,
-            'items' => $details->map(fn($d) => [
-                'ga_detail_id' => $d->id,
-                'order_id'     => $d->gaRecommendation->inbound_order_id,
-                'detail_id'    => $d->inbound_order_item_id,
-                'cell_id'      => $d->cell_id,
-                'cell_code'    => $d->cell?->physical_code ?? $d->cell?->code ?? '-',
-                'row_id'       => 'row-ga-' . $d->id,
-                'item_name'    => $d->inboundOrderItem->item->name ?? '-',
-                'item_sku'     => $d->inboundOrderItem->item->sku ?? '-',
-                'unit'         => $d->inboundOrderItem->item->unit?->code ?? '-',
-                'quantity'     => $d->quantity,
-                'do_number'    => $d->gaRecommendation->inboundOrder->do_number,
-            ]),
+            'items' => $details->map(function ($d) use ($capacityService) {
+                $detail = $d->inboundOrderItem;
+                $cell = $d->cell;
+                $order = $d->gaRecommendation->inboundOrder;
+                $qty = (int) $d->quantity;
+                $capacityDemand = $capacityService->pointsForQuantity($detail->item, $qty);
+                $capacityRemaining = $cell?->physical_capacity_remaining ?? 0;
+                $fitsAll = $capacityRemaining >= $capacityDemand;
+                $maxFitQty = $fitsAll
+                    ? $qty
+                    : $this->maxFitQuantityForCell($cell, $detail, $qty);
+                $splitQty = max(0, $qty - $maxFitQty);
+
+                $altCell = null;
+                if ($splitQty > 0 && $maxFitQty > 0 && $cell) {
+                    $splitDemand = $capacityService->pointsForQuantity($detail->item, $splitQty);
+                    $altCell = $this->rankedAlternativeCells($cell, $order, $splitDemand, 6)
+                        ->first(fn(Cell $candidate) => $candidate->physical_capacity_remaining >= $splitDemand);
+                }
+
+                return [
+                    'ga_detail_id'       => $d->id,
+                    'order_id'           => $order->id,
+                    'detail_id'          => $d->inbound_order_item_id,
+                    'cell_id'            => $d->cell_id,
+                    'cell_code'          => $cell?->physical_code ?? $cell?->code ?? '-',
+                    'row_id'             => 'row-ga-' . $d->id,
+                    'item_name'          => $detail->item->name ?? '-',
+                    'item_sku'           => $detail->item->sku ?? '-',
+                    'unit'               => $detail->item->unit?->code ?? '-',
+                    'quantity'           => $qty,
+                    'primary_quantity'   => $maxFitQty,
+                    'split_quantity'     => $altCell ? $splitQty : 0,
+                    'requires_split'     => $splitQty > 0,
+                    'split_ready'        => (bool) $altCell,
+                    'capacity_remaining' => $capacityRemaining,
+                    'capacity_needed'    => $capacityDemand,
+                    'do_number'          => $order->do_number,
+                    'alt_cell'           => $altCell ? [
+                        'id' => $altCell->id,
+                        'code' => $altCell->physical_code,
+                        'rack_code' => $altCell->rack?->code ?? '-',
+                        'capacity_remaining' => $altCell->physical_capacity_remaining,
+                    ] : null,
+                ];
+            }),
         ]);
     }
 
@@ -477,6 +547,21 @@ class PutAwayController extends Controller
 
     public function batchConfirm(Request $request)
     {
+        $items = collect($request->input('items', []))
+            ->map(function ($item) {
+                $hasSplitCell = !empty($item['split_cell_id']);
+                $hasPositiveSplitQty = isset($item['split_quantity']) && (int) $item['split_quantity'] > 0;
+
+                if (!$hasSplitCell && !$hasPositiveSplitQty) {
+                    unset($item['split_cell_id'], $item['split_quantity']);
+                }
+
+                return $item;
+            })
+            ->all();
+
+        $request->merge(['items' => $items]);
+
         $request->validate([
             'items'                => 'required|array|min:1',
             'items.*.cell_id'      => 'required|exists:cells,id',
@@ -484,6 +569,8 @@ class PutAwayController extends Controller
             'items.*.detail_id'    => 'required|exists:inbound_details,id',
             'items.*.ga_detail_id' => 'nullable|integer',
             'items.*.quantity'     => 'required|integer|min:1',
+            'items.*.split_cell_id' => 'nullable|exists:cells,id',
+            'items.*.split_quantity' => 'nullable|integer|min:1',
             'notes'                => 'nullable|string|max:255',
         ]);
 
@@ -496,6 +583,20 @@ class PutAwayController extends Controller
         foreach ($request->items as $item) {
             try {
                 $cell   = Cell::findOrFail($item['cell_id']);
+                $splitCell = !empty($item['split_cell_id'])
+                    ? Cell::findOrFail($item['split_cell_id'])
+                    : null;
+                $splitQty = !empty($item['split_quantity'])
+                    ? (int) $item['split_quantity']
+                    : 0;
+
+                if (($splitCell && $splitQty <= 0) || (!$splitCell && $splitQty > 0)) {
+                    throw new \Exception('Data split batch tidak lengkap.');
+                }
+                if ($splitCell && $splitCell->id === $cell->id) {
+                    throw new \Exception('Cell split batch tidak boleh sama dengan cell utama.');
+                }
+
                 $detail = InboundOrderItem::where('inbound_order_id', $item['order_id'])
                     ->findOrFail($item['detail_id']);
 
@@ -508,14 +609,33 @@ class PutAwayController extends Controller
                     ? GaRecommendationDetail::find($item['ga_detail_id'])
                     : null;
 
-                $this->putAwayService->confirmPlacement(
-                    detail: $detail,
-                    cell: $cell,
-                    quantityStored: $item['quantity'],
-                    userId: auth()->id(),
-                    gaDetail: $gaDetail,
-                    notes: $request->notes ?? '',
-                );
+                $primaryQty = (int) $item['quantity'];
+                $remainingQty = max(0, (int) $detail->quantity_received - (int) $detail->putAwayConfirmations()->sum('quantity_stored'));
+                if ($primaryQty + $splitQty > $remainingQty) {
+                    throw new \Exception('Total qty batch melebihi sisa qty item.');
+                }
+
+                DB::transaction(function () use ($detail, $cell, $splitCell, $primaryQty, $splitQty, $gaDetail, $request) {
+                    $this->putAwayService->confirmPlacement(
+                        detail: $detail,
+                        cell: $cell,
+                        quantityStored: $primaryQty,
+                        userId: auth()->id(),
+                        gaDetail: $gaDetail,
+                        notes: $request->notes ?? '',
+                    );
+
+                    if ($splitCell && $splitQty > 0) {
+                        $this->putAwayService->confirmPlacement(
+                            detail: $detail->fresh(['item', 'inboundOrder']),
+                            cell: $splitCell,
+                            quantityStored: $splitQty,
+                            userId: auth()->id(),
+                            gaDetail: null,
+                            notes: trim(($request->notes ? $request->notes . ' ' : '') . '[SPLIT_ALT] dari batch put-away'),
+                        );
+                    }
+                });
                 $confirmed++;
                 $touchedOrderIds[] = $item['order_id'];
             } catch (\Exception $e) {
@@ -626,5 +746,72 @@ class PutAwayController extends Controller
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 422);
         }
+    }
+
+    private function cellDistanceScore(Cell $from, Cell $to): int
+    {
+        if (
+            $from->blok === null || $from->grup === null || $from->kolom === null || $from->baris === null
+            || $to->blok === null || $to->grup === null || $to->kolom === null || $to->baris === null
+        ) {
+            return 9999;
+        }
+
+        $blokDistance = abs((int) $from->blok - (int) $to->blok);
+        $grupDistance = abs($this->grupIndex((string) $from->grup) - $this->grupIndex((string) $to->grup));
+        $kolomDistance = abs((int) $from->kolom - (int) $to->kolom);
+        $barisDistance = abs((int) $from->baris - (int) $to->baris);
+
+        return ($blokDistance * 100) + ($grupDistance * 25) + ($kolomDistance * 5) + $barisDistance;
+    }
+
+    private function rankedAlternativeCells(Cell $sourceCell, InboundOrder $order, int $capacityDemand, int $take = 6)
+    {
+        return Cell::with('rack')
+            ->where('is_active', true)
+            ->where('id', '!=', $sourceCell->id)
+            ->whereColumn('capacity_max', '>', 'capacity_used')
+            ->whereHas('rack', fn($q) => $q->where('warehouse_id', $order->warehouse_id))
+            ->get()
+            ->filter(fn(Cell $cell) => $cell->physical_capacity_remaining > 0)
+            ->sortByDesc(function (Cell $cell) use ($sourceCell, $capacityDemand) {
+                $remaining = $cell->physical_capacity_remaining;
+                $distance = $this->cellDistanceScore($sourceCell, $cell);
+                $sameRack = (int) $cell->blok === (int) $sourceCell->blok
+                    && strtoupper((string) $cell->grup) === strtoupper((string) $sourceCell->grup);
+
+                $score = 0;
+                if ($remaining >= $capacityDemand) $score += 1_000_000;
+                if ($sameRack) $score += 500_000;
+                elseif ((int) $cell->blok === (int) $sourceCell->blok) $score += 150_000;
+
+                if ((int) $cell->kolom === (int) $sourceCell->kolom) $score += 20_000;
+                if ((int) $cell->baris === (int) $sourceCell->baris) $score += 10_000;
+
+                $score += max(0, 100_000 - ($distance * 1_000));
+                $score += min($remaining, 100);
+
+                return $score;
+            })
+            ->take($take)
+            ->values();
+    }
+
+    private function maxFitQuantityForCell(?Cell $cell, InboundOrderItem $detail, int $quantity): int
+    {
+        if (!$cell || $quantity <= 0) {
+            return 0;
+        }
+
+        $maxStock = app(CellCapacityService::class)->itemMaxStock($detail->item);
+
+        return max(0, min($quantity, (int) floor($cell->physical_capacity_remaining * $maxStock / CellCapacityService::SCALE)));
+    }
+
+    private function grupIndex(string $grup): int
+    {
+        $letter = strtoupper(trim($grup))[0] ?? 'Z';
+
+        return max(0, ord($letter) - ord('A'));
     }
 }

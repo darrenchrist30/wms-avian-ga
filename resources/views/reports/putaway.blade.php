@@ -9,7 +9,9 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-map-marker-alt text-warning mr-2"></i>Laporan Put-Away
         </h5>
-        <small class="text-muted">Analisis penempatan barang dan performa algoritma GA</small>
+        <small class="text-muted">
+            {{ auth()->user()->isOperator() ? 'Ringkasan dan riwayat konfirmasi put-away' : 'Analisis penempatan barang dan performa algoritma GA' }}
+        </small>
     </div>
     <div class="d-flex align-items-center" style="gap:6px;">
         <form method="GET" class="d-flex align-items-center" style="gap:6px;">
@@ -24,29 +26,168 @@
 
 {{-- Summary Cards --}}
 <div class="row mb-3">
-    <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-warning mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_ga']) }}</h4><p>Total Run GA</p></div>
-            <div class="icon"><i class="fas fa-dna"></i></div>
+    @if(auth()->user()->isOperator())
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-success mb-0">
+                <div class="inner"><h4>{{ number_format($traceSummary->confirmation_count ?? 0) }}</h4><p>Konfirmasi Put-Away</p></div>
+                <div class="icon"><i class="fas fa-check-double"></i></div>
+            </div>
         </div>
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-info mb-0">
+                <div class="inner"><h4>{{ number_format($traceSummary->total_qty ?? 0) }}</h4><p>Total Qty Disimpan</p></div>
+                <div class="icon"><i class="fas fa-boxes"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-primary mb-0">
+                <div class="inner"><h4>{{ number_format($traceSummary->do_count ?? 0) }}</h4><p>DO Diproses</p></div>
+                <div class="icon"><i class="fas fa-file-alt"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-secondary mb-0">
+                <div class="inner"><h4>{{ number_format($traceSummary->sku_count ?? 0) }}</h4><p>SKU Diproses</p></div>
+                <div class="icon"><i class="fas fa-barcode"></i></div>
+            </div>
+        </div>
+    @else
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-warning mb-0">
+                <div class="inner"><h4>{{ number_format($summary['total_ga']) }}</h4><p>Total Run GA</p></div>
+                <div class="icon"><i class="fas fa-dna"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-success mb-0">
+                <div class="inner"><h4>{{ $summary['avg_fitness'] }}</h4><p>Avg Fitness Score</p></div>
+                <div class="icon"><i class="fas fa-star"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box bg-info mb-0">
+                <div class="inner"><h4>{{ number_format($summary['avg_exec_ms']) }} ms</h4><p>Avg Waktu Eksekusi</p></div>
+                <div class="icon"><i class="fas fa-bolt"></i></div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3 mb-2">
+            <div class="small-box {{ $summary['approved_pct'] >= 80 ? 'bg-success' : 'bg-secondary' }} mb-0">
+                <div class="inner"><h4>{{ $summary['approved_pct'] }}%</h4><p>GA Diterima</p></div>
+                <div class="icon"><i class="fas fa-thumbs-up"></i></div>
+            </div>
+        </div>
+    @endif
+</div>
+
+{{-- Trace Konfirmasi Operator --}}
+<div class="card mb-3">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center flex-wrap" style="gap:8px;">
+        <strong><i class="fas fa-user-check mr-1 text-success"></i>Riwayat Konfirmasi Put-Away</strong>
+        {{-- <small class="text-muted">Default menampilkan data kemarin. Gunakan filter untuk tanggal lain.</small> --}}
     </div>
-    <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-success mb-0">
-            <div class="inner"><h4>{{ $summary['avg_fitness'] }}</h4><p>Avg Fitness Score</p></div>
-            <div class="icon"><i class="fas fa-star"></i></div>
+    <div class="card-body">
+        <form method="GET" class="row align-items-end mb-3">
+            <input type="hidden" name="year" value="{{ $year }}">
+            <div class="col-md-3 col-6 mb-2">
+                <label class="small text-muted mb-1">Dari Tanggal</label>
+                <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <label class="small text-muted mb-1">Sampai Tanggal</label>
+                <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-3 col-12 mb-2">
+                <label class="small text-muted mb-1">Operator</label>
+                <select name="operator_id" class="form-control form-control-sm">
+                    <option value="">Semua operator</option>
+                    @foreach($operators as $op)
+                        <option value="{{ $op->id }}" {{ (string) $operatorId === (string) $op->id ? 'selected' : '' }}>
+                            {{ $op->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-3 col-12 mb-2">
+                <button class="btn btn-sm btn-success btn-block">
+                    <i class="fas fa-search mr-1"></i>Tampilkan
+                </button>
+            </div>
+        </form>
+
+        <div class="row mb-3">
+            @forelse($operatorStats as $stat)
+                <div class="col-md-3 col-6 mb-2">
+                    <div class="border rounded p-2 h-100">
+                        <div class="font-weight-bold text-truncate">{{ $stat->operator_name }}</div>
+                        <small class="text-muted">{{ number_format($stat->confirmation_count) }} konfirmasi</small>
+                        <div class="text-success font-weight-bold">{{ number_format($stat->total_qty) }} qty</div>
+                    </div>
+                </div>
+            @empty
+                <div class="col-12">
+                    <div class="alert alert-light border mb-0 text-muted">
+                        Belum ada konfirmasi put-away pada rentang tanggal ini.
+                    </div>
+                </div>
+            @endforelse
         </div>
-    </div>
-    <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-info mb-0">
-            <div class="inner"><h4>{{ number_format($summary['avg_exec_ms']) }} ms</h4><p>Avg Waktu Eksekusi</p></div>
-            <div class="icon"><i class="fas fa-bolt"></i></div>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-hover table-striped table-bordered mb-0 w-100" id="tblPutawayTrace">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Operator</th>
+                        <th>DO</th>
+                        <th>Item</th>
+                        <th class="text-center">Qty</th>
+                        <th>Cell</th>
+                        <th class="text-center">GA</th>
+                        <th>Catatan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($confirmationLogs as $log)
+                        <tr>
+                            <td class="text-nowrap" data-order="{{ $log->confirmed_at ? \Carbon\Carbon::parse($log->confirmed_at)->timestamp : 0 }}">
+                                {{ $log->confirmed_at ? \Carbon\Carbon::parse($log->confirmed_at)->format('d/m/Y H:i') : '-' }}
+                            </td>
+                            <td>{{ $log->operator_name ?? 'User tidak aktif' }}</td>
+                            <td class="font-weight-bold text-nowrap">{{ $log->do_number }}</td>
+                            <td>
+                                <strong>{{ $log->item_name }}</strong><br>
+                                <small class="text-muted">{{ $log->sku }}</small>
+                            </td>
+                            <td class="text-center font-weight-bold text-nowrap">
+                                {{ number_format($log->quantity_stored) }} {{ $log->unit_code }}
+                            </td>
+                            <td class="text-nowrap">
+                                <span class="badge badge-primary">{{ $log->cell_code }}</span>
+                                <small class="text-muted d-block">
+                                    {{ $log->blok }}-{{ $log->grup }}-{{ $log->kolom }}-{{ $log->baris }}
+                                </small>
+                            </td>
+                            <td class="text-center">
+                                @if($log->follow_recommendation)
+                                    <span class="badge badge-success">Sesuai</span>
+                                @else
+                                    <span class="badge badge-warning text-dark">Override</span>
+                                @endif
+                            </td>
+                            <td>
+                                <small class="text-muted">{{ $log->notes ?: '-' }}</small>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
-    </div>
-    <div class="col-6 col-md-3 mb-2">
-        <div class="small-box {{ $summary['approved_pct'] >= 80 ? 'bg-success' : 'bg-secondary' }} mb-0">
-            <div class="inner"><h4>{{ $summary['approved_pct'] }}%</h4><p>GA Diterima</p></div>
-            <div class="icon"><i class="fas fa-thumbs-up"></i></div>
-        </div>
+
+        @if($confirmationLogs->count() >= 200)
+            <small class="text-muted d-block mt-2">
+                Menampilkan 200 data terbaru. Persempit tanggal/operator untuk audit yang lebih spesifik.
+            </small>
+        @endif
     </div>
 </div>
 
@@ -81,6 +222,7 @@
 </div>
 
 {{-- GA Stats Detail --}}
+@if(!auth()->user()->isOperator())
 @if($summary['total_ga'] > 0)
 <div class="card">
     <div class="card-header py-2">
@@ -171,6 +313,7 @@
     </div>
 </div>
 @endif
+@endif
 
 </div>
 @endsection
@@ -181,6 +324,18 @@
 const monthNames = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 $(function () {
+    $('#tblPutawayTrace').DataTable({
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+        order: [[0, 'desc']],
+        scrollX: true,
+        autoWidth: false,
+        columnDefs: [
+            { targets: [4, 6], className: 'text-center' },
+            { targets: [7], orderable: false },
+        ],
+    });
+
     // Trend Put-Away
     Highcharts.chart('chartPutAway', {
         chart: { style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
