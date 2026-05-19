@@ -83,7 +83,37 @@ def run_ga(request: GARequest):
     )
 
     try:
-        engine = GeneticAlgorithmEngine(request)
+        driver = (request.parameters.engine_driver or "custom").lower()
+
+        if driver == "pygad":
+            try:
+                from ga.pygad_engine import PyGadGeneticAlgorithmEngine
+            except ModuleNotFoundError as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "PyGAD library belum terinstall. Jalankan "
+                        "'pip install -r requirements.txt' di folder ga-engine."
+                    ),
+                ) from e
+
+            engine = PyGadGeneticAlgorithmEngine(request)
+        elif driver == "deap":
+            try:
+                from ga.deap_engine import DeapGeneticAlgorithmEngine
+            except ModuleNotFoundError as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "DEAP GA library belum terinstall. Jalankan "
+                        "'pip install -r requirements.txt' di folder ga-engine."
+                    ),
+                ) from e
+
+            engine = DeapGeneticAlgorithmEngine(request)
+        else:
+            engine = GeneticAlgorithmEngine(request)
+
         result = engine.run()
         return result
     except Exception as e:

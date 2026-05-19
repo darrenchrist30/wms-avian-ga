@@ -60,6 +60,7 @@ return [
         'url'      => env('GA_ENGINE_URL', 'http://127.0.0.1:8001'),
         'timeout'  => env('GA_ENGINE_TIMEOUT', 120),
         'use_mock' => env('GA_ENGINE_USE_MOCK', true),
+        'driver'   => env('GA_ENGINE_DRIVER', 'custom'),
     ],
 
 ];

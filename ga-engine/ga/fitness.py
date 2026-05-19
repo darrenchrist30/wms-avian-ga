@@ -129,7 +129,12 @@ def fc_capacity(
 # FC_CAT — Fitness Kategori (maks 25)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def fc_category(item: ItemInput, cell: CellInput) -> float:
+def fc_category(
+    item: ItemInput,
+    cell: CellInput,
+    item_cells: Dict[int, set[int]],
+    cells_dict: Dict[int, CellInput],
+) -> float:
     """
     FC_CAT (maks 25 poin):
 
@@ -153,8 +158,29 @@ def fc_category(item: ItemInput, cell: CellInput) -> float:
     ):
         return 25.0
 
-    # Tier 2: cell belum memiliki kategori dominan (kosong/baru) → netral, lebih baik dari mismatch
+    # Tier 2: cell belum memiliki kategori dominan (kosong/baru).
+    #
+    # Jika item sudah punya lokasi existing, cell netral yang dekat lokasi
+    # existing adalah expansion cell yang valid secara operasional. Beri skor
+    # hampir setara category match supaya GA tidak memilih cell jauh hanya demi
+    # FC_CAT.
     if cell.dominant_category_id is None:
+        existing_cell_ids = item_cells.get(item.item_id, set())
+        if existing_cell_ids:
+            distances = [
+                cell_distance(cell, cells_dict.get(existing_cell_id))
+                for existing_cell_id in existing_cell_ids
+                if cells_dict.get(existing_cell_id) is not None
+            ]
+            min_dist = min(distances) if distances else 9999.0
+
+            if min_dist <= 1:
+                return 24.0
+            if min_dist <= 5:
+                return 22.0
+            if min_dist <= 10:
+                return 18.0
+
         return 12.5
 
     # Tier 3: kategori dominan cell berbeda dengan item → penalti
@@ -243,9 +269,30 @@ def fc_affinity(
     seen_cells = item_cells.get(item.item_id, set())
     seen_racks = item_racks.get(item.item_id, set())
 
-    if seen_racks:
-        if cell.rack_code and cell.rack_code in seen_racks:
+    if seen_cells:
+        # For MSpart, rack_code may only represent the blok. That is too broad:
+        # 2-A and 2-C share the same blok but are operationally different areas.
+        # Score continuity by physical distance to the nearest existing SKU cell.
+        distances = [
+            cell_distance(cell, cells_dict.get(existing_cell_id))
+            for existing_cell_id in seen_cells
+            if cells_dict.get(existing_cell_id) is not None
+        ]
+        min_dist = min(distances) if distances else 9999.0
+
+        if min_dist <= 0:
             continuity_score = 20.0
+        elif min_dist <= 1:
+            continuity_score = 19.0
+        elif min_dist <= 5:
+            continuity_score = 16.0
+        elif min_dist <= 10:
+            continuity_score = 8.0
+        else:
+            continuity_score = 0.0
+    elif seen_racks:
+        if cell.rack_code and cell.rack_code in seen_racks:
+            continuity_score = 12.0
         else:
             continuity_score = 0.0
     else:
@@ -433,7 +480,7 @@ def evaluate_chromosome(
             continue
 
         cap   = fc_capacity(i, chromosome, items, cells_dict)
-        cat   = fc_category(items[i], cell)
+        cat   = fc_category(items[i], cell, item_cells, cells_dict)
         aff = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks, item_cells)
         split = fc_split(i, chromosome, items, item_cells, cells_dict)
 

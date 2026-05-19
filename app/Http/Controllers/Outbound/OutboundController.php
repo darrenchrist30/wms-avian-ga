@@ -24,18 +24,20 @@ class OutboundController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = StockMovement::with(['item', 'warehouse', 'fromCell.rack.zone', 'performedBy'])
+        $query = StockMovement::with(['item', 'warehouse', 'fromCell.rack', 'performedBy'])
             ->where('reference_type', 'FIFO_PICKING')
             ->when($request->filled('warehouse_id'), fn($q) => $q->where('warehouse_id', $request->warehouse_id))
             ->when($request->filled('date_from'),    fn($q) => $q->whereDate('moved_at', '>=', $request->date_from))
             ->when($request->filled('date_to'),      fn($q) => $q->whereDate('moved_at', '<=', $request->date_to));
+
+        $total = (clone $query)->count();
 
         if ($search = $request->input('search.value')) {
             $query->whereHas('item', fn($q) => $q->where('name', 'like', "%{$search}%")
                 ->orWhere('sku', 'like', "%{$search}%"));
         }
 
-        $total    = $query->count();
+        $filtered = (clone $query)->count();
         $orderCol = $request->input('order.0.column', 1);
         $orderDir = $request->input('order.0.dir', 'desc') === 'asc' ? 'asc' : 'desc';
         $colMap   = [1 => 'moved_at', 6 => 'quantity'];
@@ -62,7 +64,7 @@ class OutboundController extends Controller
         return response()->json([
             'draw'            => (int) $request->get('draw', 1),
             'recordsTotal'    => $total,
-            'recordsFiltered' => $total,
+            'recordsFiltered' => $filtered,
             'data'            => $data,
         ]);
     }

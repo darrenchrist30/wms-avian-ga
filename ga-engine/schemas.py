@@ -62,6 +62,7 @@ class GAParameters(BaseModel):
     elitism:         int   = 3
     early_stopping:  int   = 20
     seed:            Optional[int] = None  # None = random tiap run; set integer untuk reproducibility
+    engine_driver:   str   = "pygad"       # custom | deap | pygad
 
 
 class GARequest(BaseModel):

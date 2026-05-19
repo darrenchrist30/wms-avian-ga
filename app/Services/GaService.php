@@ -364,6 +364,7 @@ class GaService
                 'elitism'          => 3,
                 'early_stopping'   => $earlyStopping,
                 'seed'             => (int) env('GA_SEED', 20260515),
+                'engine_driver'    => strtolower((string) config('services.ga_engine.driver', 'custom')),
             ],
         ];
     }

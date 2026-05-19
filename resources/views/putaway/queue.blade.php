@@ -883,6 +883,7 @@ let currentDetailId  = null;   // InboundOrderItem id (for URL)
 let currentGaDetailId = null;  // GaRecommendationDetail id (for ga_detail_id param)
 let currentRowId     = null;
 let isOverride       = false;
+let manualNonGaOverride = false;
 let modalCell        = null;
 let modalGaCell      = null;
 let modalQty         = 0;
@@ -967,6 +968,7 @@ function slotCapacityInfoHtml(cell) {
 
 // ── Helper: tampilkan Phase 1 ─────────────────────────────────────────────────
 function showScanPhase() {
+    manualNonGaOverride = false;
     $('#phaseScan').show();
     $('#phaseConfirm').hide();
     $('#btnDoConfirm').hide();
@@ -1051,7 +1053,7 @@ function showConfirmPhase(cell) {
     $('#confirmQty').val(modalQty).attr('max', modalQty).show();
     $('#qtyMaxLabel').text('maks. ' + modalQty + ' ' + modalUnitLabel);
     $('#qtyUnitLabel').text(modalUnitLabel + ' yang akan ditempatkan');
-    $('#confirmNotes').val(isOverride ? '[OVERRIDE] ' : '');
+    $('#confirmNotes').val(isOverride ? '[OVERRIDE] ' : (manualNonGaOverride ? '[NON_GA] ' : ''));
 
     $('#phaseScan').hide();
     $('#phaseConfirm').show();
@@ -1071,7 +1073,8 @@ function showConfirmPhase(cell) {
 const MIN_LOADER_MS = 800;
 
 function doSaveConfirm(cellId, qty, notes, cellCode, splitCell = null, splitQty = 0) {
-    const url = isOverride
+    const usesManualOverride = isOverride || manualNonGaOverride;
+    const url = usesManualOverride
         ? overrideUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId)
         : confirmUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId);
 
@@ -1091,7 +1094,7 @@ function doSaveConfirm(cellId, qty, notes, cellCode, splitCell = null, splitQty 
         _token:          csrfToken,
         cell_id:         cellId,
         quantity_stored: qty,
-        ga_detail_id:    isOverride ? null : (currentGaDetailId || null),
+        ga_detail_id:    usesManualOverride ? null : (currentGaDetailId || null),
         notes:           notes || ''
     };
 
@@ -1214,6 +1217,10 @@ function showScanResultSwal(cell, matchesGa, capOk) {
         borderColor = '#fd7e14'; bgColor = '#fff8f0'; textColor = '#fd7e14';
         badgeHtml = '<span class="badge badge-warning text-dark" style="font-size:11px">'
                   + '<i class="fas fa-exclamation-triangle mr-1"></i>Override Lokasi</span>';
+    } else if (manualNonGaOverride) {
+        borderColor = '#fd7e14'; bgColor = '#fff8f0'; textColor = '#fd7e14';
+        badgeHtml = '<span class="badge badge-warning text-dark" style="font-size:11px">'
+                  + '<i class="fas fa-exclamation-triangle mr-1"></i>Bukan Rekomendasi GA</span>';
     } else if (matchesGa) {
         borderColor = '#0d8564'; bgColor = '#f0fff4'; textColor = '#0d8564';
         badgeHtml = '<span class="badge badge-success" style="font-size:11px">'
@@ -1225,7 +1232,8 @@ function showScanResultSwal(cell, matchesGa, capOk) {
 
     const rackMeta   = cell.rack_code ? 'Rak ' + cell.rack_code : '';
     const gaCellCode = modalGaCell ? modalGaCell.code : '—';
-    const notesVal   = isOverride ? '[OVERRIDE] ' : '';
+    const displayedCellCode = manualNonGaOverride ? cell.code : gaCellCode;
+    const notesVal   = isOverride ? '[OVERRIDE] ' : (manualNonGaOverride ? '[NON_GA] ' : '');
 
     // Reset split state
     splitMode   = false;
@@ -1286,7 +1294,7 @@ function showScanResultSwal(cell, matchesGa, capOk) {
         + '<td class="align-middle" style="font-size:12px">' + (modalDoNumber || '—') + '</td>'
         + qtyCell
         + '<td class="text-center align-middle"><small class="text-muted">' + modalUnitLabel + '</small></td>'
-        + '<td class="text-center align-middle"><span class="badge badge-primary px-2" style="font-size:11px">' + gaCellCode + '</span></td>'
+        + '<td class="text-center align-middle"><span class="badge badge-primary px-2" style="font-size:11px">' + displayedCellCode + '</span></td>'
         + '</tr>'
         + altRow
         + '</tbody></table></div></div>'
@@ -1386,7 +1394,7 @@ function doModalScanQr(code) {
             _token:      csrfToken,
             qr_code:     code,
             ga_cell_id:  modalGaCell ? modalGaCell.id : null,
-            is_override: isOverride ? 1 : 0,
+            is_override: (isOverride || !!modalGaCell) ? 1 : 0,
             detail_id:   currentDetailId,
             quantity:    modalQty
         },
@@ -1410,21 +1418,32 @@ function doModalScanQr(code) {
                 $('#scanLoading').hide();
                 $('#modalQrInput').prop('disabled', false);
                 Swal.fire({
-                    icon: 'error',
-                    title: 'Sel Tidak Sesuai Rekomendasi GA',
+                    icon: 'warning',
+                    title: 'Sel Bukan Rekomendasi GA',
                     html:
                         '<p>Anda memindai <strong>' + cell.code + '</strong>, sedangkan GA merekomendasikan ' +
                         '<strong>' + modalGaCell.code + '</strong>.</p>' +
-                        '<p class="mb-0 text-muted" style="font-size:13px">Scan ulang QR cell <strong>' +
-                        modalGaCell.code + '</strong>, atau gunakan <strong>Override Lokasi</strong> ' +
-                        'jika penempatan di luar rekomendasi benar-benar diperlukan.</p>',
-                    confirmButtonText: 'Scan Ulang',
-                    confirmButtonColor: '#dc3545',
-                }).then(() => { $('#modalQrInput').val('').focus(); });
+                        '<p class="mb-0 text-muted" style="font-size:13px">Operator tetap boleh menyimpan ke sel ini jika kondisi lapangan memang lebih sesuai. Sistem akan mencatatnya sebagai penempatan di luar rekomendasi GA.</p>',
+                    showCancelButton: true,
+                    confirmButtonText: '<i class="fas fa-check mr-1"></i>Lanjutkan Manual',
+                    cancelButtonText: 'Scan Ulang',
+                    confirmButtonColor: '#fd7e14',
+                    cancelButtonColor: '#6c757d',
+                    reverseButtons: true,
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        manualNonGaOverride = true;
+                        currentGaDetailId = null;
+                        showScanResultSwal(cell, false, capOk);
+                    } else {
+                        $('#modalQrInput').val('').focus();
+                    }
+                });
 
             } else {
                 $('#scanLoading').hide();
                 $('#modalQrInput').prop('disabled', false);
+                manualNonGaOverride = false;
                 showScanResultSwal(cell, matchesGa, capOk);
             }
         },
@@ -1462,6 +1481,7 @@ function openConfirmModal(orderId, detailId, gaDetailId, rowId, itemName, qty, u
     currentGaDetailId = overrideMode ? null : (gaDetailId || null);
     currentRowId      = rowId;
     isOverride        = !!overrideMode;
+    manualNonGaOverride = false;
     modalQty          = qty;
     modalUnitLabel    = unitLabel || 'unit';
     modalItemName     = itemName || '';

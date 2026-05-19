@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Black Box Testing — WMS Avian GA</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; background: #fff; }
+  .page { max-width: 1100px; margin: 0 auto; padding: 30px 40px; }
+
+  /* Header */
+  .header { text-align: center; border-bottom: 3px double #000; padding-bottom: 14px; margin-bottom: 20px; }
+  .header h1 { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+  .header h2 { font-size: 12pt; font-weight: bold; margin-top: 4px; }
+  .header p  { font-size: 10pt; margin-top: 4px; color: #333; }
+
+  /* Meta info */
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 30px; margin-bottom: 20px; font-size: 10.5pt; }
+  .meta-item { display: flex; gap: 6px; }
+  .meta-item label { font-weight: bold; white-space: nowrap; }
+  .meta-item span { border-bottom: 1px solid #000; flex: 1; min-width: 120px; }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 24px; }
+  th { background: #1a3a5c; color: #fff; padding: 7px 6px; text-align: center; font-size: 9pt; }
+  td { border: 1px solid #555; padding: 6px 7px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f5f7fa; }
+  .tc-no  { text-align: center; font-weight: bold; color: #1a3a5c; white-space: nowrap; }
+  .center { text-align: center; }
+  .pass   { background: #d4edda !important; text-align: center; font-weight: bold; color: #155724; }
+  .fail   { background: #f8d7da !important; text-align: center; font-weight: bold; color: #721c24; }
+  .fill   { background: #fff9c4; }
+
+  /* Section title */
+  .section { font-weight: bold; font-size: 11pt; color: #1a3a5c; border-left: 4px solid #1a3a5c;
+             padding-left: 8px; margin: 18px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Legend */
+  .legend { display: flex; gap: 20px; margin-bottom: 16px; font-size: 9.5pt; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-box { width: 16px; height: 16px; border: 1px solid #555; }
+
+  /* Sign area */
+  .sign-area { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 30px; }
+  .sign-box { text-align: center; }
+  .sign-box .title { font-size: 10pt; font-weight: bold; margin-bottom: 60px; }
+  .sign-box .line { border-top: 1px solid #000; padding-top: 4px; font-size: 10pt; }
+
+  @media print {
+    body { font-size: 10pt; }
+    .page { padding: 15px 20px; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #1a3a5c !important; color: #fff !important; }
+    .pass { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fail { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Pengujian Black Box Testing</h1>
+    <h2>Sistem Manajemen Gudang (WMS) Avian<br>dengan Optimasi Genetic Algorithm</h2>
+    <p>Skripsi — Program Studi Teknik Informatika</p>
+  </div>
+
+  <div class="meta">
+    <div class="meta-item"><label>Nama Penguji</label><span></span></div>
+    <div class="meta-item"><label>Tanggal Uji</label><span></span></div>
+    <div class="meta-item"><label>Jabatan</label><span></span></div>
+    <div class="meta-item"><label>Versi Sistem</label><span>1.0.0 (PyGAD)</span></div>
+  </div>
+
+  <div class="legend">
+    <strong>Keterangan Hasil:</strong>
+    <div class="legend-item"><div class="legend-box pass" style="background:#d4edda"></div> Pass — sesuai harapan</div>
+    <div class="legend-item"><div class="legend-box fail" style="background:#f8d7da"></div> Fail — tidak sesuai harapan</div>
+    <div class="legend-item"><div class="legend-box" style="background:#fff9c4"></div> Kolom diisi penguji</div>
+  </div>
+
+  <!-- MODUL 1 -->
+  <div class="section">Modul 1 — Manajemen Inbound Order</div>
+  <table>
+    <thead>
+      <tr>
+        <th width="55">No TC</th>
+        <th width="160">Skenario Uji</th>
+        <th width="190">Prosedur Uji</th>
+        <th width="120">Data Uji</th>
+        <th width="170">Hasil Diharapkan</th>
+        <th width="130">Hasil Aktual</th>
+        <th width="55">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tc-no">TC-01</td>
+        <td>Membuat inbound order baru</td>
+        <td>1. Buka menu Inbound<br>2. Klik "Buat Order"<br>3. Isi form (DO Number, tanggal, gudang)<br>4. Klik Simpan</td>
+        <td>DO: PB-TEST-001<br>Gudang: Avian<br>Tanggal: hari ini</td>
+        <td>Order tersimpan dengan status <em>draft</em>, muncul di daftar order</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-02</td>
+        <td>Menambah item ke order</td>
+        <td>1. Buka order draft<br>2. Klik "Tambah Item"<br>3. Pilih item dan masukkan qty<br>4. Klik Simpan</td>
+        <td>Item: BEARING 6000<br>Qty: 5 BJ</td>
+        <td>Item masuk ke daftar detail order dengan qty dan satuan yang benar</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-03</td>
+        <td>Validasi input qty kosong</td>
+        <td>1. Klik Tambah Item<br>2. Pilih item<br>3. Kosongkan field qty<br>4. Klik Simpan</td>
+        <td>Qty: (dikosongkan)</td>
+        <td>Muncul pesan error validasi, data tidak tersimpan</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-04</td>
+        <td>Menghapus item dari order</td>
+        <td>1. Buka order dengan item<br>2. Klik hapus pada salah satu item<br>3. Konfirmasi hapus</td>
+        <td>Item yang ada di order</td>
+        <td>Item terhapus dari daftar, qty order berkurang</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- MODUL 2 -->
+  <div class="section">Modul 2 — GA Recommendation (Optimasi Penempatan)</div>
+  <table>
+    <thead>
+      <tr>
+        <th width="55">No TC</th>
+        <th width="160">Skenario Uji</th>
+        <th width="190">Prosedur Uji</th>
+        <th width="120">Data Uji</th>
+        <th width="170">Hasil Diharapkan</th>
+        <th width="130">Hasil Aktual</th>
+        <th width="55">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tc-no">TC-05</td>
+        <td>Jalankan GA dan tampilkan rekomendasi</td>
+        <td>1. Buka order dengan 3–6 item<br>2. Klik "Jalankan GA"<br>3. Tunggu proses selesai</td>
+        <td>Order: 5 item kategori berbeda</td>
+        <td>Rekomendasi sel tampil untuk setiap item beserta fitness score</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-06</td>
+        <td>GA menghormati constraint kapasitas sel</td>
+        <td>1. Jalankan GA pada order item qty besar<br>2. Cek sel yang direkomendasikan<br>3. Bandingkan qty dengan kapasitas sel</td>
+        <td>Item qty=120, kapasitas sel tersedia=100</td>
+        <td>GA tidak merekomendasikan sel yang kapasitasnya tidak cukup</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-07</td>
+        <td>GA mengelompokkan item kategori sama</td>
+        <td>1. Buat order dengan item kategori Engine Parts semua<br>2. Jalankan GA<br>3. Cek zona rekomendasi</td>
+        <td>BEARING 6000 + BEARING 6200 (Engine Parts)</td>
+        <td>Rekomendasi mengarah ke zona yang sama atau berdekatan</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-08</td>
+        <td>Fitness score tampil dengan komponen lengkap</td>
+        <td>1. Jalankan GA<br>2. Buka detail rekomendasi<br>3. Cek komponen skor</td>
+        <td>Order aktif</td>
+        <td>Tampil fc_cap, fc_cat, fc_aff, fc_split, dan total fitness (0–100)</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- MODUL 3 -->
+  <div class="section">Modul 3 — Proses Put-Away</div>
+  <table>
+    <thead>
+      <tr>
+        <th width="55">No TC</th>
+        <th width="160">Skenario Uji</th>
+        <th width="190">Prosedur Uji</th>
+        <th width="120">Data Uji</th>
+        <th width="170">Hasil Diharapkan</th>
+        <th width="130">Hasil Aktual</th>
+        <th width="55">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tc-no">TC-09</td>
+        <td>Konfirmasi put-away sesuai rekomendasi GA</td>
+        <td>1. Buka antrian put-away<br>2. Scan QR sel yang direkomendasikan GA<br>3. Klik Konfirmasi</td>
+        <td>QR: sel rekomendasi GA</td>
+        <td>Status item berubah ke confirmed, stok tersimpan di sistem</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-10</td>
+        <td>Scan QR sel yang tidak sesuai rekomendasi</td>
+        <td>1. Buka antrian put-away<br>2. Scan QR sel berbeda dari rekomendasi</td>
+        <td>QR: sel lain (bukan rekomendasi)</td>
+        <td>Muncul peringatan mismatch, sistem minta konfirmasi override</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-11</td>
+        <td>Override sel secara manual</td>
+        <td>1. Klik tombol Override<br>2. Pilih sel alternatif<br>3. Simpan</td>
+        <td>Sel alternatif tersedia</td>
+        <td>Override tersimpan, item dikonfirmasi di sel pilihan manual</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-12</td>
+        <td>Semua item selesai — order completed</td>
+        <td>1. Konfirmasi semua item dalam satu order<br>2. Cek status order</td>
+        <td>Order dengan 5 item, semua dikonfirmasi</td>
+        <td>Status order berubah otomatis ke <em>completed</em></td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-13</td>
+        <td>Scan sel dengan kapasitas penuh</td>
+        <td>1. Cari sel berstatus full<br>2. Scan QR sel tersebut<br>3. Coba konfirmasi</td>
+        <td>Sel status: full</td>
+        <td>Sistem menampilkan peringatan sel sudah penuh</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- MODUL 4 -->
+  <div class="section">Modul 4 — Visualisasi Denah Gudang 3D</div>
+  <table>
+    <thead>
+      <tr>
+        <th width="55">No TC</th>
+        <th width="160">Skenario Uji</th>
+        <th width="190">Prosedur Uji</th>
+        <th width="120">Data Uji</th>
+        <th width="170">Hasil Diharapkan</th>
+        <th width="130">Hasil Aktual</th>
+        <th width="55">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tc-no">TC-14</td>
+        <td>Tampilkan model 3D gudang</td>
+        <td>1. Buka menu Denah Gudang<br>2. Pilih gudang</td>
+        <td>Gudang: Avian</td>
+        <td>Model 3D rak tampil dengan warna sesuai tingkat utilisasi</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-15</td>
+        <td>Klik sel MSpart — popup kolom</td>
+        <td>1. Klik area MSpart di 3D view</td>
+        <td>Blok 1, Grup A</td>
+        <td>Popup tampil ringkasan 7 kolom: status, kapasitas, utilisasi per kolom</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-16</td>
+        <td>Drill-down ke detail slot kolom</td>
+        <td>1. Di popup kolom, klik salah satu baris kolom</td>
+        <td>Kolom 1, Blok 1 Grup A</td>
+        <td>Popup menampilkan isi setiap slot (status + nama item)</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-17</td>
+        <td>Cari item berdasarkan SKU</td>
+        <td>1. Ketik SKU di kolom pencarian<br>2. Klik hasil pencarian</td>
+        <td>SKU: 03SP-BE6000</td>
+        <td>Sel yang berisi item ter-highlight di denah 3D</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- MODUL 5 -->
+  <div class="section">Modul 5 — Laporan &amp; Keamanan</div>
+  <table>
+    <thead>
+      <tr>
+        <th width="55">No TC</th>
+        <th width="160">Skenario Uji</th>
+        <th width="190">Prosedur Uji</th>
+        <th width="120">Data Uji</th>
+        <th width="170">Hasil Diharapkan</th>
+        <th width="130">Hasil Aktual</th>
+        <th width="55">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="tc-no">TC-18</td>
+        <td>Tampilkan laporan put-away</td>
+        <td>1. Buka menu Laporan → Put-Away<br>2. Filter tanggal hari ini<br>3. Klik Tampilkan</td>
+        <td>Filter: tanggal hari ini</td>
+        <td>Tabel rekapitulasi put-away muncul dengan data lengkap</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-19</td>
+        <td>Filter laporan berdasarkan kepatuhan GA</td>
+        <td>1. Buka laporan put-away<br>2. Filter: "Ikuti Rekomendasi = Ya"</td>
+        <td>Filter: follow_recommendation = Ya</td>
+        <td>Hanya tampil item yang dikonfirmasi sesuai rekomendasi GA</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+      <tr>
+        <td class="tc-no">TC-20</td>
+        <td>Akses sistem tanpa login (keamanan)</td>
+        <td>1. Logout dari sistem<br>2. Akses URL halaman put-away langsung di browser</td>
+        <td>URL: /put-away/queue (tanpa session)</td>
+        <td>Otomatis redirect ke halaman login</td>
+        <td class="fill"></td>
+        <td class="fill center"></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Summary -->
+  <div class="section">Rekapitulasi Hasil Pengujian</div>
+  <table style="width:60%">
+    <thead>
+      <tr><th>Keterangan</th><th>Jumlah</th><th>Persentase</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Total Test Case</td><td class="center">20</td><td class="center">100%</td></tr>
+      <tr><td>Pass</td><td class="fill center"></td><td class="fill center"></td></tr>
+      <tr><td>Fail</td><td class="fill center"></td><td class="fill center"></td></tr>
+      <tr><td><strong>Kesimpulan</strong></td><td class="fill" colspan="2"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="sign-area">
+    <div class="sign-box">
+      <div class="title">Dibuat oleh,</div>
+      <div class="line">Darren Christopher</div>
+      <div style="font-size:9pt;color:#555">Peneliti</div>
+    </div>
+    <div class="sign-box">
+      <div class="title">Diuji oleh,</div>
+      <div class="line">( _________________________ )</div>
+      <div style="font-size:9pt;color:#555">Penguji</div>
+    </div>
+    <div class="sign-box">
+      <div class="title">Diketahui oleh,</div>
+      <div class="line">( _________________________ )</div>
+      <div style="font-size:9pt;color:#555">Pembimbing / Supervisor</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

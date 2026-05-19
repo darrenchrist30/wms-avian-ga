@@ -710,32 +710,74 @@ class PutAwayController extends Controller
         $request->validate([
             'cell_id'         => 'required|exists:cells,id',
             'quantity_stored' => 'required|integer|min:1',
+            'split_cell_id'   => 'nullable|exists:cells,id|different:cell_id',
+            'split_quantity_stored' => 'nullable|integer|min:1',
             'notes'           => 'nullable|string|max:255',
         ]);
 
         $detail = InboundOrderItem::where('inbound_order_id', $orderId)->findOrFail($detailId);
         $cell   = Cell::findOrFail($request->cell_id);
+        $splitCell = $request->filled('split_cell_id')
+            ? Cell::findOrFail($request->split_cell_id)
+            : null;
+        $splitQty = $request->filled('split_quantity_stored')
+            ? (int) $request->split_quantity_stored
+            : 0;
+
+        if (($splitCell && $splitQty <= 0) || (!$splitCell && $splitQty > 0)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Data split override tidak lengkap.',
+            ], 422);
+        }
 
         $order = InboundOrder::findOrFail($orderId);
 
         try {
+            $primaryQty = (int) $request->quantity_stored;
+            $remainingQty = max(0, (int) $detail->quantity_received - (int) $detail->putAwayConfirmations()->sum('quantity_stored'));
+
+            if ($primaryQty + $splitQty > $remainingQty) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => "Total qty override ({$primaryQty} + {$splitQty}) melebihi sisa qty item ({$remainingQty}).",
+                ], 422);
+            }
+
             // Override = confirm tanpa ga_detail (follow_recommendation akan false)
-            $this->putAwayService->confirmPlacement(
-                detail: $detail,
-                cell: $cell,
-                quantityStored: $request->quantity_stored,
-                userId: auth()->id(),
-                gaDetail: null,
-                notes: '[OVERRIDE] ' . ($request->notes ?? ''),
-            );
+            DB::transaction(function () use ($detail, $cell, $splitCell, $primaryQty, $splitQty, $request) {
+                $this->putAwayService->confirmPlacement(
+                    detail: $detail,
+                    cell: $cell,
+                    quantityStored: $primaryQty,
+                    userId: auth()->id(),
+                    gaDetail: null,
+                    notes: '[OVERRIDE] ' . ($request->notes ?? ''),
+                );
+
+                if ($splitCell && $splitQty > 0) {
+                    $this->putAwayService->confirmPlacement(
+                        detail: $detail->fresh(['item', 'inboundOrder']),
+                        cell: $splitCell,
+                        quantityStored: $splitQty,
+                        userId: auth()->id(),
+                        gaDetail: null,
+                        notes: trim('[OVERRIDE_SPLIT] ' . ($request->notes ?? '')),
+                    );
+                }
+            });
 
             $order->refresh();
             $doneCount  = $order->items()->where('status', 'put_away')->count();
             $totalCount = $order->items()->count();
 
+            $message = $splitCell
+                ? "Override berhasil. Item ditempatkan split ke {$cell->physical_code} dan {$splitCell->physical_code}."
+                : "Override berhasil. Item ditempatkan ke lokasi {$cell->physical_label} (di luar rekomendasi GA).";
+
             return response()->json([
                 'status'  => 'success',
-                'message' => "Override berhasil. Item ditempatkan ke lokasi {$cell->physical_label} (di luar rekomendasi GA).",
+                'message' => $message,
                 'progress' => [
                     'done'        => $doneCount,
                     'total'       => $totalCount,

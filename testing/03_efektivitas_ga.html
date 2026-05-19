@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Pengujian Efektivitas GA — WMS Avian</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Times New Roman', serif; font-size: 11pt; color: #000; background: #fff; }
+  .page { max-width: 1050px; margin: 0 auto; padding: 30px 40px; }
+
+  .header { text-align: center; border-bottom: 3px double #000; padding-bottom: 14px; margin-bottom: 20px; }
+  .header h1 { font-size: 14pt; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+  .header h2 { font-size: 12pt; font-weight: bold; margin-top: 4px; }
+  .header p  { font-size: 10pt; margin-top: 4px; color: #333; }
+
+  .section { font-weight: bold; font-size: 11pt; background: #1a3a5c; color: #fff;
+             padding: 6px 12px; margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .subsection { font-weight: bold; font-size: 10.5pt; color: #1a3a5c;
+                border-left: 4px solid #1a3a5c; padding-left: 8px; margin: 14px 0 6px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 14px; }
+  th { background: #1a3a5c; color: #fff; padding: 7px 8px; text-align: center; font-size: 9pt; }
+  th.left { text-align: left; }
+  td { border: 1px solid #666; padding: 6px 8px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f5f7fa; }
+  .center { text-align: center; }
+  .fill { background: #fff9c4 !important; }
+  .result-good { background: #d4edda !important; text-align: center; font-weight: bold; color: #155724; }
+  .result-ok   { background: #fff3cd !important; text-align: center; font-weight: bold; color: #856404; }
+  .result-bad  { background: #f8d7da !important; text-align: center; font-weight: bold; color: #721c24; }
+
+  .formula-box { background: #f0f4f8; border: 1px solid #c5d5e8; border-radius: 4px;
+                 padding: 12px 16px; margin: 10px 0; font-size: 10pt; }
+  .formula { font-family: 'Courier New', monospace; font-size: 10.5pt; background: #fff;
+             border: 1px solid #ccc; padding: 8px 12px; margin: 6px 0; border-radius: 3px; }
+
+  .info-box { background: #e8f4f8; border-left: 4px solid #17a2b8; padding: 10px 14px;
+              margin: 10px 0; font-size: 10pt; line-height: 1.6; }
+
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 30px; margin-bottom: 16px; font-size: 10.5pt; }
+  .meta-item { display: flex; gap: 6px; }
+  .meta-item label { font-weight: bold; white-space: nowrap; }
+  .meta-item span { border-bottom: 1px solid #000; flex: 1; min-width: 100px; }
+
+  .sign-area { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 30px; }
+  .sign-box { text-align: center; }
+  .sign-box .title { font-size: 10pt; font-weight: bold; margin-bottom: 60px; }
+  .sign-box .line { border-top: 1px solid #000; padding-top: 4px; font-size: 10pt; }
+
+  .summary-card { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
+  .card { border: 1px solid #c5d5e8; border-radius: 6px; padding: 12px; text-align: center; background: #f8fbff; }
+  .card .val { font-size: 22pt; font-weight: bold; color: #1a3a5c; }
+  .card .lbl { font-size: 9pt; color: #666; margin-top: 2px; }
+
+  @media print {
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .section { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .result-good, .result-ok, .result-bad { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .info-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Pengujian Efektivitas Algoritma Genetika</h1>
+    <h2>Sistem Manajemen Gudang (WMS) Avian<br>Optimasi Penempatan Barang (Warehouse Slotting)</h2>
+    <p>Skripsi — Program Studi Teknik Informatika &nbsp;|&nbsp; Tahun 2026</p>
+  </div>
+
+  <div class="meta">
+    <div class="meta-item"><label>Penguji</label><span></span></div>
+    <div class="meta-item"><label>Tanggal Pengujian</label><span></span></div>
+    <div class="meta-item"><label>Engine GA</label><span>PyGAD 3.6.0</span></div>
+    <div class="meta-item"><label>Versi Sistem</label><span>1.0.0</span></div>
+  </div>
+
+  <!-- PARAMETER GA -->
+  <div class="section">1. Parameter Konfigurasi GA</div>
+  <table style="width:70%">
+    <thead>
+      <tr><th class="left">Parameter</th><th>Nilai</th><th class="left">Keterangan</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Ukuran Populasi</td><td class="center">100</td><td>Jumlah kromosom per generasi</td></tr>
+      <tr><td>Maks Generasi</td><td class="center">150</td><td>Batas atas iterasi GA</td></tr>
+      <tr><td>Mutation Rate</td><td class="center">0.15</td><td>15% gen mengalami mutasi</td></tr>
+      <tr><td>Crossover Rate</td><td class="center">0.80</td><td>80% kemungkinan crossover terjadi</td></tr>
+      <tr><td>Elitism</td><td class="center">3</td><td>Top-3 kromosom dipertahankan tiap generasi</td></tr>
+      <tr><td>Early Stopping</td><td class="center">20</td><td>Berhenti jika 20 generasi tidak ada perbaikan</td></tr>
+      <tr><td>Seleksi</td><td class="center">Tournament (k=3)</td><td>Tournament selection 3 kandidat</td></tr>
+      <tr><td>Inisialisasi</td><td class="center">50% Random + 50% Greedy</td><td>Hybrid initialization</td></tr>
+    </tbody>
+  </table>
+
+  <!-- METRIK -->
+  <div class="section">2. Komponen Fitness Score</div>
+  <div class="info-box">
+    Fitness score setiap gen (item) dihitung dari 4 komponen:
+    <strong>FC_TOTAL = FC_CAP + FC_CAT + FC_AFF + FC_SPLIT</strong> (maksimum = 100)
+  </div>
+  <table>
+    <thead>
+      <tr><th>Komponen</th><th>Maks Skor</th><th class="left">Penjelasan</th><th>Bobot</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="center"><strong>FC_CAP</strong></td>
+        <td class="center">35</td>
+        <td>Kesesuaian kapasitas: skor tinggi jika sel memiliki sisa kapasitas yang cukup</td>
+        <td class="center">35%</td>
+      </tr>
+      <tr>
+        <td class="center"><strong>FC_CAT</strong></td>
+        <td class="center">25</td>
+        <td>Kesesuaian kategori: skor tinggi jika sel berada di zona kategori item yang sama</td>
+        <td class="center">25%</td>
+      </tr>
+      <tr>
+        <td class="center"><strong>FC_AFF</strong></td>
+        <td class="center">20</td>
+        <td>Afinitas item: skor tinggi jika item ditempatkan dekat item yang sering berdampingan</td>
+        <td class="center">20%</td>
+      </tr>
+      <tr>
+        <td class="center"><strong>FC_SPLIT</strong></td>
+        <td class="center">20</td>
+        <td>Anti-split: skor tinggi jika SKU yang sama tidak tersebar di banyak sel berbeda</td>
+        <td class="center">20%</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- HASIL PENGUJIAN PER ORDER -->
+  <div class="section">3. Hasil Pengujian per Inbound Order</div>
+  <table>
+    <thead>
+      <tr>
+        <th>No. Order</th>
+        <th>Jml Item</th>
+        <th>Avg FC_CAP</th>
+        <th>Avg FC_CAT</th>
+        <th>Avg FC_AFF</th>
+        <th>Avg FC_SPLIT</th>
+        <th>Avg Fitness</th>
+        <th>Waktu (ms)</th>
+        <th>Generasi</th>
+        <th>Kategori</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>PB-PYGAD-20260518-001</td>
+        <td class="center">1</td>
+        <td class="center">35.0</td>
+        <td class="center">25.0</td>
+        <td class="center">20.0</td>
+        <td class="center">12.0</td>
+        <td class="center"><strong>92.0</strong></td>
+        <td class="center">43</td>
+        <td class="center">8</td>
+        <td class="result-good">Sangat Efektif</td>
+      </tr>
+      <tr>
+        <td>PB-PYGAD-20260518-002</td>
+        <td class="center">3</td>
+        <td class="center">35.0</td>
+        <td class="center">24.7</td>
+        <td class="center">19.7</td>
+        <td class="center">15.0</td>
+        <td class="center"><strong>94.3</strong></td>
+        <td class="center">314</td>
+        <td class="center">8</td>
+        <td class="result-good">Sangat Efektif</td>
+      </tr>
+      <tr>
+        <td>PB-PYGAD-20260518-003</td>
+        <td class="center">5</td>
+        <td class="center">35.0</td>
+        <td class="center">24.0</td>
+        <td class="center">19.4</td>
+        <td class="center">15.0</td>
+        <td class="center"><strong>93.4</strong></td>
+        <td class="center">1437</td>
+        <td class="center">12</td>
+        <td class="result-good">Sangat Efektif</td>
+      </tr>
+      <tr>
+        <td>PB-PYGAD-20260518-004</td>
+        <td class="center">4</td>
+        <td class="center">35.0</td>
+        <td class="center">24.0</td>
+        <td class="center">19.5</td>
+        <td class="center">15.0</td>
+        <td class="center"><strong>93.5</strong></td>
+        <td class="center">1161</td>
+        <td class="center">12</td>
+        <td class="result-good">Sangat Efektif</td>
+      </tr>
+      <tr>
+        <td>PB-PYGAD-20260518-005</td>
+        <td class="center">5</td>
+        <td class="center">35.0</td>
+        <td class="center">25.0</td>
+        <td class="center">13.8</td>
+        <td class="center">18.8</td>
+        <td class="center"><strong>92.6</strong></td>
+        <td class="center">573</td>
+        <td class="center">12</td>
+        <td class="result-good">Sangat Efektif</td>
+      </tr>
+      <tr>
+        <td>PB-PYGAD-20260518-006</td>
+        <td class="center">5</td>
+        <td class="center">35.0</td>
+        <td class="center">24.4</td>
+        <td class="center">19.4</td>
+        <td class="center">13.4</td>
+        <td class="center"><strong>92.2</strong></td>
+        <td class="center">1203</td>
+        <td class="center">12</td>
+        <td class="result-good">Sangat Efektif</td>
+      </tr>
+      <tr style="background:#1a3a5c;color:#fff">
+        <td><strong>RATA-RATA</strong></td>
+        <td class="center"><strong>3.8</strong></td>
+        <td class="center"><strong>35.0</strong></td>
+        <td class="center"><strong>24.5</strong></td>
+        <td class="center"><strong>18.5</strong></td>
+        <td class="center"><strong>14.9</strong></td>
+        <td class="center"><strong>93.0</strong></td>
+        <td class="center"><strong>789</strong></td>
+        <td class="center"><strong>10.7</strong></td>
+        <td class="center"><strong>Sangat Efektif</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- RINGKASAN -->
+  <div class="summary-card">
+    <div class="card"><div class="val">93.0</div><div class="lbl">Avg Fitness Score</div></div>
+    <div class="card"><div class="val">100%</div><div class="lbl">FC_CAP Max (35/35)</div></div>
+    <div class="card"><div class="val">789 ms</div><div class="lbl">Avg Waktu Eksekusi</div></div>
+    <div class="card"><div class="val">10.7</div><div class="lbl">Avg Generasi Konvergen</div></div>
+  </div>
+
+  <!-- PERHITUNGAN EFEKTIVITAS -->
+  <div class="section">4. Perhitungan Efektivitas</div>
+
+  <div class="subsection">4.1 Efektivitas Kapasitas (FC_CAP)</div>
+  <div class="formula-box">
+    <div class="formula">Efektivitas Kapasitas = (Avg FC_CAP / Maks FC_CAP) × 100%
+                        = (35.0 / 35) × 100%
+                        = <strong>100%</strong></div>
+    <p style="margin-top:6px">Interpretasi: GA <strong>selalu</strong> merekomendasikan sel yang kapasitasnya mencukupi</p>
+  </div>
+
+  <div class="subsection">4.2 Efektivitas Kategori (FC_CAT)</div>
+  <div class="formula-box">
+    <div class="formula">Efektivitas Kategori = (Avg FC_CAT / Maks FC_CAT) × 100%
+                        = (24.5 / 25) × 100%
+                        = <strong>98.0%</strong></div>
+    <p style="margin-top:6px">Interpretasi: Hampir semua item ditempatkan di zona kategori yang sesuai</p>
+  </div>
+
+  <div class="subsection">4.3 Efektivitas Afinitas (FC_AFF)</div>
+  <div class="formula-box">
+    <div class="formula">Efektivitas Afinitas = (Avg FC_AFF / Maks FC_AFF) × 100%
+                        = (18.5 / 20) × 100%
+                        = <strong>92.5%</strong></div>
+    <p style="margin-top:6px">Interpretasi: Item dengan riwayat co-occurrence ditempatkan di zona berdekatan</p>
+  </div>
+
+  <div class="subsection">4.4 Efektivitas Anti-Split (FC_SPLIT)</div>
+  <div class="formula-box">
+    <div class="formula">Efektivitas Anti-Split = (Avg FC_SPLIT / Maks FC_SPLIT) × 100%
+                         = (14.9 / 20) × 100%
+                         = <strong>74.5%</strong></div>
+    <p style="margin-top:6px">Interpretasi: Beberapa SKU tersebar di lebih dari 1 sel karena sudah ada stok sebelumnya (wajar)</p>
+  </div>
+
+  <div class="subsection">4.5 Efektivitas GA Keseluruhan</div>
+  <div class="formula-box">
+    <div class="formula">Efektivitas GA = (Avg Total Fitness / 100) × 100%
+                     = (93.0 / 100) × 100%
+                     = <strong>93.0%</strong></div>
+  </div>
+
+  <!-- TABEL INTERPRETASI -->
+  <div class="section">5. Interpretasi &amp; Kesimpulan</div>
+  <table style="width:65%">
+    <thead>
+      <tr><th>Rentang Fitness</th><th>Kategori Efektivitas</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="center">90 – 100</td><td class="result-good">Sangat Efektif</td></tr>
+      <tr><td class="center">75 – 89</td><td class="result-ok">Efektif</td></tr>
+      <tr><td class="center">60 – 74</td><td class="result-ok">Cukup Efektif</td></tr>
+      <tr><td class="center">&lt; 60</td><td class="result-bad">Tidak Efektif</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-box" style="margin-top:12px">
+    <strong>Kesimpulan:</strong><br>
+    Berdasarkan hasil pengujian terhadap <strong>6 inbound order</strong> dengan total
+    <strong>23 item</strong>, Algoritma Genetika berbasis PyGAD menghasilkan rata-rata fitness score
+    sebesar <strong>93.0 / 100</strong>, sehingga termasuk dalam kategori <strong>Sangat Efektif</strong>
+    dalam mengoptimalkan penempatan barang di gudang.<br><br>
+    Komponen FC_CAP mencapai skor maksimum (100%), menunjukkan bahwa GA <em>tidak pernah</em>
+    merekomendasikan sel yang kapasitasnya tidak memadai. Komponen FC_CAT mencapai 98%, menunjukkan
+    kesesuaian tinggi antara kategori item dengan zona penempatan.
+  </div>
+
+  <!-- CATATAN PENGUJI -->
+  <div class="section">6. Catatan Penguji</div>
+  <table>
+    <tbody>
+      <tr>
+        <td style="height:80px;vertical-align:top;background:#fff9c4">
+          <em style="color:#999;font-size:9pt">Tuliskan catatan, temuan, atau observasi selama pengujian...</em>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sign-area">
+    <div class="sign-box">
+      <div class="title">Dibuat oleh,</div>
+      <div class="line">Darren Christopher</div>
+      <div style="font-size:9pt;color:#555">Peneliti</div>
+    </div>
+    <div class="sign-box">
+      <div class="title">Diketahui oleh,</div>
+      <div class="line">( _________________________ )</div>
+      <div style="font-size:9pt;color:#555">Dosen Pembimbing</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

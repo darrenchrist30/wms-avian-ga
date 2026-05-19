@@ -102,7 +102,28 @@ $(document).ready(function () {
                 d.date_from    = $('#filter-from').val();
                 d.date_to      = $('#filter-to').val();
             },
-            type: 'GET'
+            type: 'GET',
+            error: function(xhr) {
+                var message = 'Data outbound gagal dimuat.';
+                if (xhr.status === 401 || xhr.status === 419) {
+                    message = 'Sesi login berakhir. Silakan login ulang.';
+                } else if (xhr.status === 403) {
+                    message = 'Akun Anda tidak punya akses ke data outbound.';
+                } else if (xhr.status === 500) {
+                    message = 'Terjadi error server saat memuat data outbound.';
+                }
+
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'DataTable Error',
+                        text: message,
+                        confirmButtonColor: '#dc3545'
+                    });
+                } else {
+                    alert(message);
+                }
+            }
         },
         columns: [
             { data: 'DT_RowIndex',  name: 'DT_RowIndex',   orderable: false, searchable: false, className: 'text-center' },

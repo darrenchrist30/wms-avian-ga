@@ -68,14 +68,8 @@ class Cell extends Model
 
     public function getPhysicalCodeAttribute(): string
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null && $this->baris !== null) {
-            return sprintf(
-                '%s-%s-%s-%s',
-                $this->blok,
-                strtoupper((string) $this->grup),
-                $this->kolom,
-                $this->baris
-            );
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
+            return sprintf('%s-%s-%s', $this->blok, strtoupper((string) $this->grup), $this->kolom);
         }
 
         return (string) $this->code;
@@ -83,10 +77,10 @@ class Cell extends Model
 
     public function getPhysicalLabelAttribute(): string
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null && $this->baris !== null) {
+        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
             $grup = strtoupper((string) $this->grup);
 
-            return "Blok {$this->blok} - Grup {$grup} - Kolom {$this->kolom} - Baris {$this->baris}";
+            return "Blok {$this->blok} - Grup {$grup} - Kolom {$this->kolom}";
         }
 
         return (string) ($this->label ?: $this->code);

@@ -153,7 +153,7 @@ class InboundOrderController extends Controller
             'items.item.unit',
             'items.item.category',
             'gaRecommendations' => fn($q) => $q->latest()->with([
-                'details.cell.rack.zone',
+                'details.cell.rack',
                 'details.inboundOrderItem.item',
                 'generatedBy',
             ]),

@@ -189,7 +189,22 @@
                         d.category_id = $('#filter-category').val();
                         d.status      = $('#filter-status').val();
                     },
-                    type: 'GET'
+                    type: 'GET',
+                    error: function(xhr) {
+                        var message = 'Data sparepart gagal dimuat.';
+                        if (xhr.status === 401 || xhr.status === 419) {
+                            message = 'Sesi login berakhir. Silakan login ulang.';
+                        } else if (xhr.status === 500) {
+                            message = 'Terjadi error server saat memuat data sparepart.';
+                        }
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'DataTable Error',
+                            text: message,
+                            confirmButtonColor: '#dc3545'
+                        });
+                    }
                 },
                 columns: [{
                         data: 'action',

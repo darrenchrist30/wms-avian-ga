@@ -23,7 +23,19 @@
       "Bash(php test_parser.php)",
       "Read(//c/laragon/www//**)",
       "Read(//c/Users/TUF-GAMING//**)",
-      "Bash(php -r \"echo 'PHP OK';\")"
+      "Bash(php -r \"echo 'PHP OK';\")",
+      "Bash(python -c \"import pygad; import numpy; print\\('pygad', pygad.__version__, '| numpy', numpy.__version__\\)\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\laragon\\\\www\\\\wms-avian-ga\\\\resources\\\\views\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/audit\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/location\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/public\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/layouts\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/inbound\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/stock\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/putaway\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/warehouse3d\")",
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/reports\")"
     ]
   }
 }

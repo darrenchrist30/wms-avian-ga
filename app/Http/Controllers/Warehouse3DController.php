@@ -98,6 +98,7 @@ class Warehouse3DController extends Controller
             return [
                 'cell_id'       => $cell->id,
                 'code'          => $cell->code,
+                'display_code'  => $cell->physical_code,
                 'level'         => $cell->level,
                 'column'        => $cell->column,
                 'blok'          => $cell->blok,
@@ -166,26 +167,27 @@ class Warehouse3DController extends Controller
         }
 
         $columns = collect(range(1, 7))->map(function ($kolom) use ($blok, $grup, $barisRak) {
-            $cells   = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->where('is_active', true)->get();
-            $cellIds = $cells->pluck('id');
-            $capUsed = $cellIds->isEmpty()
-                ? 0
-                : Stock::whereIn('cell_id', $cellIds)->where('status', 'available')->where('quantity', '>', 0)->count();
-            $capMax  = (int) ($cells->max('capacity_max') ?: 20);
-            $util    = $capMax > 0 ? min(100, round($capUsed / $capMax * 100)) : 0;
-            $full    = $capUsed > 0 && $capUsed >= $capMax ? 1 : 0;
-            $partial = $capUsed > 0 && $capUsed < $capMax ? 1 : 0;
+            $cells        = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->where('is_active', true)->get();
+            $barisCount   = $cells->count();
+            $capUsed      = (int) $cells->sum('capacity_used');
+            $capMax       = (int) ($cells->sum('capacity_max') ?: $barisCount * 20);
+            $fullCount    = $cells->where('status', 'full')->count();
+            $partialCount = $cells->where('status', 'partial')->count();
+            $emptyCount   = $cells->filter(fn ($c) => (int) $c->capacity_used <= 0)->count();
+            $util         = $capMax > 0 ? min(100, (int) round($capUsed / $capMax * 100)) : 0;
+            $status       = $capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial');
             return [
-                'kolom'    => $kolom,
-                'label'    => "K{$kolom}",
-                'baris_rak'=> $barisRak,
-                'total'    => 1,
-                'full'     => $full,
-                'partial'  => $partial,
-                'empty'    => $capUsed > 0 ? 0 : 1,
-                'util_pct' => $util,
-                'cap_used' => $capUsed,
-                'cap_max'  => $capMax,
+                'kolom'         => $kolom,
+                'label'         => "Kolom {$kolom}",
+                'baris_rak'     => $barisRak,
+                'baris_count'   => $barisCount,
+                'cap_used'      => $capUsed,
+                'cap_max'       => $capMax,
+                'full_count'    => $fullCount,
+                'partial_count' => $partialCount,
+                'empty_count'   => $emptyCount,
+                'util_pct'      => $util,
+                'status'        => $status,
             ];
         });
 
@@ -231,6 +233,7 @@ class Warehouse3DController extends Controller
             return [
                 'cell_id'      => $cell->id,
                 'code'         => $cell->code,
+                'display_code' => $cell->physical_code,
                 'baris'        => $cell->baris,
                 'status'       => $status,
                 'capacity_used'=> $capUsed,
@@ -317,6 +320,7 @@ class Warehouse3DController extends Controller
         return response()->json([
             'cell' => [
                 'code'          => $cell->code,
+                'display_code'  => $cell->physical_code,
                 'label'         => $cell->label,
                 'rack'          => $cell->rack?->code ?? '—',
                 'warehouse'     => $cell->rack?->warehouse?->name ?? '—',
