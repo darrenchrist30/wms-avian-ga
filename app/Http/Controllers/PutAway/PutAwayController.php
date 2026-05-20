@@ -81,11 +81,17 @@ class PutAwayController extends Controller
     // GET /putaway/queue
     // ─────────────────────────────────────────────────────────────────────────
 
-    public function queue()
+    public function queue(Request $request)
     {
-        $activeOrderScope = fn($q) =>
+        $queueFilters = $this->queueFilters($request);
+
+        $activeOrderScope = function ($q) use ($request) {
             $q->where('status', 'accepted')
-              ->whereHas('inboundOrder', fn($q2) => $q2->where('status', 'put_away'));
+              ->whereHas('inboundOrder', function ($q2) use ($request) {
+                  $q2->where('status', 'put_away');
+                  $this->applyQueueOrderFilters($q2, $request);
+              });
+        };
 
         $items = GaRecommendationDetail::with([
             'gaRecommendation.inboundOrder',
@@ -110,17 +116,49 @@ class PutAwayController extends Controller
         })
         ->values();
 
-        $activeDOs    = InboundOrder::where('status', 'put_away')
-            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
-            ->count();
+        $activeDoQuery = InboundOrder::where('status', 'put_away')
+            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'));
+        $this->applyQueueOrderFilters($activeDoQuery, $request);
+        $activeDOs = $activeDoQuery->count();
 
-        $completedDOs = InboundOrder::where('status', 'completed')
-            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
-            ->count();
+        $completedDoQuery = InboundOrder::where('status', 'completed')
+            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'));
+        $this->applyQueueOrderFilters($completedDoQuery, $request);
+        $completedDOs = $completedDoQuery->count();
 
         $totalOrders = $items->pluck('gaRecommendation.inbound_order_id')->unique()->count();
 
-        return view('putaway.queue', compact('items', 'totalOrders', 'activeDOs', 'completedDOs'));
+        return view('putaway.queue', compact('items', 'totalOrders', 'activeDOs', 'completedDOs', 'queueFilters'));
+    }
+
+    private function queueFilters(Request $request): array
+    {
+        $today = now()->toDateString();
+        $allActive = $request->boolean('all_active');
+
+        return [
+            'all_active' => $allActive,
+            'start_date' => $allActive ? '' : ($request->input('start_date') ?: $today),
+            'end_date'   => $allActive ? '' : ($request->input('end_date') ?: $today),
+            'do_number' => trim((string) $request->input('do_number', '')),
+        ];
+    }
+
+    private function applyQueueOrderFilters($query, Request $request): void
+    {
+        $filters = $this->queueFilters($request);
+
+        if ($filters['do_number'] !== '') {
+            $query->where('do_number', 'like', '%' . $filters['do_number'] . '%');
+        }
+
+        if (!$filters['all_active'] && $filters['start_date'] !== '') {
+            $query->whereDate('do_date', '>=', $filters['start_date']);
+        }
+
+        if (!$filters['all_active'] && $filters['end_date'] !== '') {
+            $query->whereDate('do_date', '<=', $filters['end_date']);
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -423,9 +461,13 @@ class PutAwayController extends Controller
 
     public function batchScan(Request $request)
     {
-        $request->validate(['qr_code' => 'required|string']);
+        $request->validate([
+            'qr_code' => 'required|string',
+            'override' => 'nullable|boolean',
+        ]);
 
         $qrCode = $request->qr_code;
+        $isOverride = $request->boolean('override');
 
         // Extract cell code from URL QR (e.g. http://host/c/1-A → 1-A)
         if (str_contains($qrCode, '/c/')) {
@@ -440,13 +482,22 @@ class PutAwayController extends Controller
         })->where('is_active', true)->with('rack')->first();
 
         $cellIds     = collect();
+        $targetCell  = null;
         $displayCode = $qrCode;
         $displayRack = '-';
 
         if ($exactCell) {
             $cellIds     = collect([$exactCell->id]);
+            $targetCell  = $exactCell;
             $displayCode = $exactCell->physical_code;
             $displayRack = $exactCell->rack?->code ?? '-';
+
+            if ($isOverride && $exactCell->blok !== null && $exactCell->grup !== null) {
+                $cellIds = Cell::where('blok', $exactCell->blok)
+                    ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper((string) $exactCell->grup)])
+                    ->where('is_active', true)
+                    ->pluck('id');
+            }
         } else {
             // ── Try 2: blok-grup rack QR (e.g. "1-A" → all cells blok=1, grup=A) ─
             $parts = explode('-', $qrCode);
@@ -461,6 +512,28 @@ class PutAwayController extends Controller
 
                 $displayCode = strtoupper($qrCode) . ' (Rak)';
                 $displayRack = strtoupper($qrCode);
+
+                if ($isOverride) {
+                    $targetCell = Cell::where('blok', $blok)
+                        ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper($grup)])
+                        ->where('is_active', true)
+                        ->with('rack')
+                        ->get()
+                        ->filter(fn(Cell $cell) => $cell->physical_capacity_remaining > 0)
+                        ->sortBy(function (Cell $cell) {
+                            return sprintf(
+                                '%d-%03d-%03d',
+                                $cell->status === 'available' ? 0 : 1,
+                                (int) $cell->kolom,
+                                (int) $cell->baris
+                            );
+                        })
+                        ->first();
+
+                    if ($targetCell) {
+                        $displayCode = $targetCell->physical_code . ' (Override)';
+                    }
+                }
             }
         }
 
@@ -471,31 +544,84 @@ class PutAwayController extends Controller
             ], 404);
         }
 
+        if ($isOverride && !$targetCell) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => "Tidak ada cell aktif yang masih punya kapasitas untuk override di '{$qrCode}'.",
+            ], 422);
+        }
+
         $details = GaRecommendationDetail::with([
             'gaRecommendation.inboundOrder',
             'inboundOrderItem.item.unit',
             'cell',
         ])
         ->whereIn('cell_id', $cellIds)
-        ->whereHas('gaRecommendation', fn($q) =>
+        ->whereHas('gaRecommendation', function ($q) use ($request) {
             $q->where('status', 'accepted')
-              ->whereHas('inboundOrder', fn($q2) => $q2->where('status', 'put_away'))
-        )
-        ->whereHas('inboundOrderItem', fn($q) => $q->where('status', 'pending'))
+              ->whereHas('inboundOrder', function ($q2) use ($request) {
+                  $q2->where('status', 'put_away');
+                  $this->applyQueueOrderFilters($q2, $request);
+              });
+        })
+        ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
         ->get();
 
         $capacityService = app(CellCapacityService::class);
+        $overrideRemaining = $targetCell ? $capacityService->remainingPoints($targetCell) : 0;
+        $overrideAllocatedQty = [];
+        $skippedCapacity = 0;
 
-        return response()->json([
-            'status'  => $details->isEmpty() ? 'empty' : 'found',
-            'message' => $details->isEmpty() ? 'Tidak ada item pending untuk cell/rak ini.' : null,
-            'display_code' => $displayCode,
-            'display_rack' => $displayRack,
-            'items' => $details->map(function ($d) use ($capacityService) {
+        $batchItems = $details->map(function ($d) use ($capacityService, $isOverride, $targetCell, &$overrideRemaining, &$overrideAllocatedQty, &$skippedCapacity) {
                 $detail = $d->inboundOrderItem;
                 $cell = $d->cell;
                 $order = $d->gaRecommendation->inboundOrder;
                 $qty = (int) $d->quantity;
+
+                if ($isOverride && $targetCell) {
+                    $itemId = (int) $detail->item_id;
+                    $alreadyAllocated = (int) ($overrideAllocatedQty[$itemId] ?? 0);
+                    $currentQty = (int) Stock::where('cell_id', $targetCell->id)
+                        ->where('item_id', $itemId)
+                        ->where('quantity', '>', 0)
+                        ->whereIn('status', ['available', 'reserved'])
+                        ->sum('quantity');
+                    $before = $capacityService->pointsForQuantity($detail->item, $currentQty + $alreadyAllocated);
+                    $after = $capacityService->pointsForQuantity($detail->item, $currentQty + $alreadyAllocated + $qty);
+                    $overrideDemand = max(0, $after - $before);
+
+                    if ($overrideDemand > $overrideRemaining) {
+                        $skippedCapacity++;
+                        return null;
+                    }
+
+                    $overrideRemaining -= $overrideDemand;
+                    $overrideAllocatedQty[$itemId] = $alreadyAllocated + $qty;
+
+                    return [
+                        'ga_detail_id'       => $d->id,
+                        'order_id'           => $order->id,
+                        'detail_id'          => $d->inbound_order_item_id,
+                        'cell_id'            => $targetCell->id,
+                        'cell_code'          => $targetCell->physical_code,
+                        'ga_cell_code'       => $cell?->physical_code ?? $cell?->code ?? '-',
+                        'row_id'             => 'row-ga-' . $d->id,
+                        'item_name'          => $detail->item->name ?? '-',
+                        'item_sku'           => $detail->item->sku ?? '-',
+                        'unit'               => $detail->item->unit?->code ?? '-',
+                        'quantity'           => $qty,
+                        'primary_quantity'   => $qty,
+                        'split_quantity'     => 0,
+                        'requires_split'     => false,
+                        'split_ready'        => false,
+                        'capacity_remaining' => $overrideRemaining,
+                        'capacity_needed'    => $overrideDemand,
+                        'do_number'          => $order->do_number,
+                        'alt_cell'           => null,
+                        'is_override'        => true,
+                    ];
+                }
+
                 $capacityDemand = $capacityService->pointsForQuantity($detail->item, $qty);
                 $capacityRemaining = $cell?->physical_capacity_remaining ?? 0;
                 $fitsAll = $capacityRemaining >= $capacityDemand;
@@ -529,6 +655,8 @@ class PutAwayController extends Controller
                     'capacity_remaining' => $capacityRemaining,
                     'capacity_needed'    => $capacityDemand,
                     'do_number'          => $order->do_number,
+                    'ga_cell_code'       => $cell?->physical_code ?? $cell?->code ?? '-',
+                    'is_override'        => false,
                     'alt_cell'           => $altCell ? [
                         'id' => $altCell->id,
                         'code' => $altCell->physical_code,
@@ -536,7 +664,24 @@ class PutAwayController extends Controller
                         'capacity_remaining' => $altCell->physical_capacity_remaining,
                     ] : null,
                 ];
-            }),
+            })->filter()->values();
+
+        return response()->json([
+            'status'  => $batchItems->isEmpty() ? 'empty' : 'found',
+            'message' => $batchItems->isEmpty()
+                ? ($isOverride ? 'Tidak ada item yang bisa dioverride ke cell ini. Cek rak GA atau kapasitas cell tujuan.' : 'Tidak ada item pending untuk cell/rak ini.')
+                : null,
+            'is_override' => $isOverride,
+            'display_code' => $displayCode,
+            'display_rack' => $displayRack,
+            'override_target_cell' => $targetCell ? [
+                'id' => $targetCell->id,
+                'code' => $targetCell->physical_code,
+                'rack_code' => $targetCell->rack?->code ?? '-',
+                'capacity_remaining' => $targetCell->physical_capacity_remaining,
+            ] : null,
+            'items' => $batchItems,
+            'skipped_capacity' => $skippedCapacity,
         ]);
     }
 
@@ -571,6 +716,7 @@ class PutAwayController extends Controller
             'items.*.quantity'     => 'required|integer|min:1',
             'items.*.split_cell_id' => 'nullable|exists:cells,id',
             'items.*.split_quantity' => 'nullable|integer|min:1',
+            'items.*.is_override'  => 'nullable|boolean',
             'notes'                => 'nullable|string|max:255',
         ]);
 
@@ -605,7 +751,8 @@ class PutAwayController extends Controller
                     continue;
                 }
 
-                $gaDetail = !empty($item['ga_detail_id'])
+                $isOverride = !empty($item['is_override']);
+                $gaDetail = !$isOverride && !empty($item['ga_detail_id'])
                     ? GaRecommendationDetail::find($item['ga_detail_id'])
                     : null;
 
@@ -615,14 +762,18 @@ class PutAwayController extends Controller
                     throw new \Exception('Total qty batch melebihi sisa qty item.');
                 }
 
-                DB::transaction(function () use ($detail, $cell, $splitCell, $primaryQty, $splitQty, $gaDetail, $request) {
+                DB::transaction(function () use ($detail, $cell, $splitCell, $primaryQty, $splitQty, $gaDetail, $request, $isOverride) {
+                    $notes = $isOverride
+                        ? trim('[OVERRIDE_BATCH] ' . ($request->notes ?? ''))
+                        : ($request->notes ?? '');
+
                     $this->putAwayService->confirmPlacement(
                         detail: $detail,
                         cell: $cell,
                         quantityStored: $primaryQty,
                         userId: auth()->id(),
                         gaDetail: $gaDetail,
-                        notes: $request->notes ?? '',
+                        notes: $notes,
                     );
 
                     if ($splitCell && $splitQty > 0) {

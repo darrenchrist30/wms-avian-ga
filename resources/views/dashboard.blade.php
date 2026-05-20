@@ -952,12 +952,12 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('inbound.orders.index', ['status' => '']) }}" class="kpi-link">
+            <a href="{{ route('inbound.orders.index', ['status' => 'inbound', 'date_mode' => 'today']) }}" class="kpi-link">
                 <div class="kpi-card kpi-teal">
                     <i class="fas fa-sign-in-alt kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($inboundToday) }}</div>
                     <div class="kpi-label">Inbound Hari Ini</div>
-                    <div class="kpi-trend"><span class="up">Order masuk hari ini (semua status)</span></div>
+                    <div class="kpi-trend"><span class="up">Status inbound, tanggal hari ini</span></div>
                 </div>
             </a>
         </div>

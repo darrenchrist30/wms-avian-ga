@@ -811,7 +811,7 @@
                                                         </small>
                                                         <div class="mt-1" style="font-size:11px">
                                                             Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
-                                                            Sisa slot: <strong>{{ $capRemain }}</strong>/{{ $capMax }}
+                                                            Sisa kapasitas: <strong>{{ $capRemain }}</strong>/{{ $capMax }} poin
                                                         </div>
                                                         <div class="cap-bar-wrap mt-1">
                                                             <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>
@@ -1317,7 +1317,7 @@
                     $wrap.find('.fs-cell-info').text('Rak ' + rackCode + ' · ' + s.count + 'x outbound/30hr');
                     $wrap.find('.fs-cell-cap').html(
                         s.cell
-                            ? 'Sisa slot: <strong>' + capRem + '</strong>/' + capMax
+                            ? 'Sisa kapasitas: <strong>' + capRem + '</strong>/' + capMax + ' poin'
                             : '<span class="text-danger">Tidak ada cell tersedia</span>'
                     );
                 });
@@ -1702,7 +1702,7 @@
 
             const warnRow = !capOk
                 ? '<tr><td colspan="6" class="p-0"><div class="alert alert-danger py-1 px-2 mb-0 rounded-0" style="font-size:12px">'
-                  + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan cell lain yang memiliki slot kosong.</div></td></tr>'
+                  + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan baris lain yang memiliki kapasitas kosong.</div></td></tr>'
                 : '';
 
             const html =

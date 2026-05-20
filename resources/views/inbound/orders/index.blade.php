@@ -68,6 +68,17 @@
                                         </div>
                                     </div>
                                 </div>
+                                <div class="col-sm-12 col-md-4">
+                                    <div class="form-group row">
+                                        <label class="col-sm-4 col-form-label small font-weight-bold">Tanggal DO</label>
+                                        <div class="col-sm-8">
+                                            <select class="form-control form-control-sm" id="filter-date-mode">
+                                                <option value="">Semua tanggal</option>
+                                                <option value="today">Hari ini</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                         <table id="datatable"
@@ -146,6 +157,10 @@
             if (urlStatus !== null) {
                 $('#filter-status').val(urlStatus);
             }
+            var urlDateMode = new URLSearchParams(window.location.search).get('date_mode');
+            if (urlDateMode !== null) {
+                $('#filter-date-mode').val(urlDateMode);
+            }
 
             var baseURL      = "{{ route('inbound.orders.datatable') }}";
             var routeDestroy    = "{{ route('inbound.orders.destroy', ':id') }}";
@@ -167,6 +182,7 @@
                     data: function(d) {
                         d.status       = $('#filter-status').val();
                         d.warehouse_id = $('#filter-warehouse').val();
+                        d.date_mode    = $('#filter-date-mode').val();
                     },
                     type: 'GET'
                 },
@@ -349,12 +365,13 @@
             $('.btnRefresh').on('click', function() {
                 $('#filter-status').val('inbound');
                 $('#filter-warehouse').val('');
+                $('#filter-date-mode').val('');
                 selectedIds = {};
                 updateBatchButton();
                 table.ajax.reload();
             });
 
-            $('#filter-status, #filter-warehouse').on('change', function() {
+            $('#filter-status, #filter-warehouse, #filter-date-mode').on('change', function() {
                 table.ajax.reload();
             });
 

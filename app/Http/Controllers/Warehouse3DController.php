@@ -175,7 +175,9 @@ class Warehouse3DController extends Controller
             $partialCount = $cells->where('status', 'partial')->count();
             $emptyCount   = $cells->filter(fn ($c) => (int) $c->capacity_used <= 0)->count();
             $util         = $capMax > 0 ? min(100, (int) round($capUsed / $capMax * 100)) : 0;
-            $status       = $capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial');
+            $status       = $capUsed <= 0
+                ? 'available'
+                : (($barisCount > 0 && $fullCount >= $barisCount) ? 'full' : 'partial');
             return [
                 'kolom'         => $kolom,
                 'label'         => "Kolom {$kolom}",
@@ -186,6 +188,7 @@ class Warehouse3DController extends Controller
                 'full_count'    => $fullCount,
                 'partial_count' => $partialCount,
                 'empty_count'   => $emptyCount,
+                'over_capacity' => max(0, $capUsed - $capMax),
                 'util_pct'      => $util,
                 'status'        => $status,
             ];

@@ -731,6 +731,7 @@ function buildMspartCells(rx, rz, rackCode, cells) {
                 totalUsed: 0,
                 totalMax: 0,
                 filledBaris: 0,
+                fullBaris: 0,
                 hasBlocked: false,
                 hasReserved: false,
             });
@@ -740,6 +741,7 @@ function buildMspartCells(rx, rz, rackCode, cells) {
         col.totalUsed += Number(cell.capacity_used || 0);
         col.totalMax  += Number(cell.capacity_max  || 0);
         if ((cell.utilization ?? 0) > 0) col.filledBaris++;
+        if (cell.status === 'full') col.fullBaris++;
         if (cell.status === 'blocked')  col.hasBlocked  = true;
         if (cell.status === 'reserved') col.hasReserved = true;
     });
@@ -758,7 +760,7 @@ function buildMspartCells(rx, rz, rackCode, cells) {
         const aggStatus = col.hasBlocked  ? 'blocked'
                        : col.hasReserved  ? 'reserved'
                        : col.filledBaris === 0                  ? 'available'
-                       : col.filledBaris >= col.cellIds.length  ? 'full'
+                       : col.fullBaris >= col.cellIds.length    ? 'full'
                        : 'partial';
         const aggCell = { status: aggStatus, utilization: aggUtil };
 
@@ -1033,10 +1035,12 @@ function buildRack(rx, rz, rack) {
     mspartCells.forEach(c => {
         if (!c.grup) return;
         if (!mspartByGroup[c.grup]) {
-            mspartByGroup[c.grup] = { used: 0, max: 0, blocked: 0, reserved: 0 };
+            mspartByGroup[c.grup] = { used: 0, max: 0, total: 0, full: 0, blocked: 0, reserved: 0 };
         }
         mspartByGroup[c.grup].used += Number(c.capacity_used || 0);
         mspartByGroup[c.grup].max  += Number(c.capacity_max || 0);
+        mspartByGroup[c.grup].total++;
+        if (c.status === 'full') mspartByGroup[c.grup].full++;
         if (c.status === 'blocked')  mspartByGroup[c.grup].blocked++;
         if (c.status === 'reserved') mspartByGroup[c.grup].reserved++;
     });
@@ -1048,7 +1052,7 @@ function buildRack(rx, rz, rack) {
         const utilization = Math.round((agg.used / agg.max) * 100);
         return {
             ...cell,
-            status: agg.blocked > 0 ? 'blocked' : (agg.reserved > 0 ? 'reserved' : (agg.used <= 0 ? 'available' : (agg.used >= agg.max ? 'full' : 'partial'))),
+            status: agg.blocked > 0 ? 'blocked' : (agg.reserved > 0 ? 'reserved' : (agg.used <= 0 ? 'available' : (agg.full >= agg.total ? 'full' : 'partial'))),
             capacity_used: agg.used,
             capacity_max: agg.max,
             utilization,
@@ -1396,20 +1400,29 @@ function showMspartColumnDetail(blok, grup, kolom) {
 
     $.getJSON(COLUMN_DETAIL_URL, { blok, grup, kolom }, function (res) {
         let rows = res.levels.length === 0
-            ? '<tr><td colspan="2" class="text-center text-muted py-3">Tidak ada data.</td></tr>'
+            ? '<tr><td colspan="4" class="text-center text-muted py-3">Tidak ada data.</td></tr>'
             : res.levels.map(lv => {
                 const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
+                const barisCode = `${res.blok}-${res.grup}-${res.kolom}-${lv.baris}`;
+                const capText = `${Number(lv.capacity_used || 0).toLocaleString('id')} / ${Number(lv.capacity_max || 0).toLocaleString('id')} poin`;
                 const itemHtml = !lv.stocks.length
                     ? '<small class="text-muted">- kosong -</small>'
                     : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span><small class="text-muted ml-1">(masuk: ${s.inbound_date||'-'})</small></div>`).join('');
                 return `<tr>
+                    <td class="text-center" width="110">
+                        <span class="badge badge-primary px-2">Baris ${lv.baris}</span>
+                        <div class="small text-muted mt-1">${barisCode}</div>
+                    </td>
                     <td class="text-center" width="90"><span class="badge badge-${sc} px-2">${lv.status}</span></td>
+                    <td class="text-center" width="130">
+                        <span class="font-weight-bold">${capText}</span>
+                    </td>
                     <td>${itemHtml}</td>
                 </tr>`;
             }).join('');
 
-        const totalSlots  = res.levels.length;
-        const filledSlots = res.levels.filter(lv => lv.stocks.length > 0).length;
+        const totalBaris  = res.levels.length;
+        const filledBaris = res.levels.filter(lv => lv.stocks.length > 0).length;
         const totalItems  = res.levels.reduce((t, lv) => t + lv.stocks.length, 0);
 
         $('#cellModalBody').html(`
@@ -1419,8 +1432,8 @@ function showMspartColumnDetail(blok, grup, kolom) {
                     <div class="font-weight-bold">Blok ${res.blok} &rsaquo; Grup ${res.grup} &rsaquo; Kolom ${res.kolom}</div>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <small class="text-muted">Slot Terisi</small>
-                    <div class="font-weight-bold">${filledSlots} / ${totalSlots} slot</div>
+                    <small class="text-muted">Baris Terisi</small>
+                    <div class="font-weight-bold">${filledBaris} / ${totalBaris} baris</div>
                 </div>
                 <div class="col-md-4 mb-2">
                     <small class="text-muted">Total Item</small>
@@ -1428,12 +1441,14 @@ function showMspartColumnDetail(blok, grup, kolom) {
                 </div>
             </div>
             <div class="p-2">
-                <strong class="d-block mb-2"><i class="fas fa-layer-group mr-1 text-primary"></i>Isi Slot &mdash; Kolom ${res.kolom}</strong>
+                <strong class="d-block mb-2"><i class="fas fa-layer-group mr-1 text-primary"></i>Isi Baris &mdash; Kolom ${res.kolom}</strong>
                 <div class="table-responsive">
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="thead-light">
                             <tr>
+                                <th class="text-center" width="110">Baris</th>
                                 <th class="text-center" width="90">Status</th>
+                                <th class="text-center" width="130">Kapasitas Baris</th>
                                 <th>Isi Item</th>
                             </tr>
                         </thead>
@@ -1459,28 +1474,31 @@ function showMspartRowDetail(blok, grup) {
 
         const totalBaris   = res.columns.reduce((t, c) => t + (c.baris_count || 0), 0);
         const filledBaris  = res.columns.reduce((t, c) => t + (c.full_count || 0) + (c.partial_count || 0), 0);
+        const emptyBaris   = Math.max(0, totalBaris - filledBaris);
         const totalCapUsed = res.columns.reduce((t, c) => t + c.cap_used, 0);
         const totalCapMax  = res.columns.reduce((t, c) => t + c.cap_max, 0);
-        const overallUtil  = totalCapMax > 0 ? Math.round(totalCapUsed / totalCapMax * 100) : 0;
+        const overallUtil  = totalCapMax > 0 ? Math.min(100, Math.round(totalCapUsed / totalCapMax * 100)) : 0;
 
         const rows = res.columns.map(col => {
             const uc = col.status === 'full' ? 'danger' : col.status === 'partial' ? 'warning' : 'success';
+            const capPct = Math.min(100, Math.max(0, Number(col.util_pct || 0)));
             const badges = [
-                col.full_count    > 0 ? `<span class="badge badge-danger mr-1">${col.full_count} penuh</span>`      : '',
-                col.partial_count > 0 ? `<span class="badge badge-warning mr-1">${col.partial_count} sebagian</span>` : '',
-                col.empty_count   > 0 ? `<span class="badge badge-success">${col.empty_count} kosong</span>`         : '',
+                col.full_count    > 0 ? `<span class="badge badge-danger mr-1">${col.full_count} baris penuh</span>`      : '',
+                col.partial_count > 0 ? `<span class="badge badge-warning mr-1">${col.partial_count} baris sebagian</span>` : '',
+                col.empty_count   > 0 ? `<span class="badge badge-success">${col.empty_count} baris kosong</span>`         : '',
             ].join('');
-            return `<tr class="btnKolom" data-blok="${res.blok}" data-grup="${res.grup}" data-kolom="${col.kolom}" style="cursor:pointer" title="Klik untuk detail slot">
+            return `<tr class="btnKolom" data-blok="${res.blok}" data-grup="${res.grup}" data-kolom="${col.kolom}" style="cursor:pointer" title="Klik untuk detail baris">
                 <td class="font-weight-bold text-primary">${col.label}</td>
-                <td class="text-center"><span class="badge badge-${uc} px-2">${col.status}</span></td>
-                <td class="text-center">${col.cap_used.toLocaleString('id')} / ${col.cap_max.toLocaleString('id')}</td>
-                <td style="min-width:120px">
-                    <div class="progress mb-1" style="height:8px">
-                        <div class="progress-bar bg-${uc}" style="width:${col.util_pct}%"></div>
-                    </div>
-                    <small class="text-muted">${col.util_pct}%</small>
+                <td class="text-center">
+                    <span class="font-weight-bold">${col.baris_count}</span>
                 </td>
-                <td>${badges || '<small class="text-muted">—</small>'}</td>
+                <td>${badges || '<small class="text-muted">-</small>'}</td>
+                <td style="min-width:150px">
+                    <div class="progress" style="height:8px">
+                        <div class="progress-bar bg-${uc}" style="width:${capPct}%"></div>
+                    </div>
+                    <small class="text-muted">${capPct}%</small>
+                </td>
             </tr>`;
         }).join('');
 
@@ -1491,29 +1509,31 @@ function showMspartRowDetail(blok, grup) {
                     <div class="font-weight-bold">Blok ${res.blok} &rsaquo; Grup ${res.grup}</div>
                 </div>
                 <div class="col-6 col-md-3 mb-2">
-                    <small class="text-muted">Slot Terisi</small>
-                    <div class="font-weight-bold">${filledBaris} / ${totalBaris} slot</div>
+                    <small class="text-muted">Baris</small>
+                    <div class="font-weight-bold">${filledBaris} terisi / ${emptyBaris} kosong</div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <small class="text-muted">Total Baris</small>
+                    <div class="font-weight-bold">${totalBaris} baris</div>
                 </div>
                 <div class="col-6 col-md-3 mb-2">
                     <small class="text-muted">Kapasitas</small>
-                    <div class="font-weight-bold">${totalCapUsed.toLocaleString('id')} / ${totalCapMax.toLocaleString('id')}</div>
-                </div>
-                <div class="col-6 col-md-3 mb-2">
-                    <small class="text-muted">Utilisasi</small>
-                    <div class="font-weight-bold">${overallUtil}%</div>
+                    <div class="progress mt-1" style="height:8px">
+                        <div class="progress-bar bg-info" style="width:${overallUtil}%"></div>
+                    </div>
+                    <small class="text-muted">${overallUtil}%</small>
                 </div>
             </div>
             <div class="p-2">
-                <strong class="d-block mb-2"><i class="fas fa-th-large mr-1 text-primary"></i>Kapasitas per Kolom &nbsp;<small class="text-muted font-weight-normal">— klik untuk lihat isi</small></strong>
+                <strong class="d-block mb-2"><i class="fas fa-th-large mr-1 text-primary"></i>Ringkasan per Kolom &nbsp;<small class="text-muted font-weight-normal">klik baris tabel untuk melihat isi per baris</small></strong>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover table-bordered mb-0">
                         <thead class="thead-light">
                             <tr>
                                 <th>Kolom</th>
-                                <th class="text-center">Status</th>
-                                <th class="text-center">Kapasitas Terpakai</th>
-                                <th>Utilisasi</th>
-                                <th class="text-center">Rincian Slot</th>
+                                <th class="text-center">Jumlah Baris</th>
+                                <th class="text-center">Status Baris</th>
+                                <th>Kapasitas</th>
                             </tr>
                         </thead>
                         <tbody>${rows}</tbody>

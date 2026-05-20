@@ -540,14 +540,18 @@ class GaService
             for ($j = $i + 1; $j < $count; $j++) {
                 $itemA = $items[$i];
                 $itemB = $items[$j];
+                $nameA = $this->normalizedItemName((string) $itemA->name);
+                $nameB = $this->normalizedItemName((string) $itemB->name);
                 $familyA = $this->skuFamilyKey((string) $itemA->sku, (string) $itemA->name);
                 $familyB = $this->skuFamilyKey((string) $itemB->sku, (string) $itemB->name);
+                $sameName = $nameA !== '' && $nameA === $nameB;
+                $sameFamily = $familyA && $familyA === $familyB;
 
-                if (!$familyA || $familyA !== $familyB) {
+                if (!$sameName && !$sameFamily) {
                     continue;
                 }
 
-                $score = 0.85;
+                $score = $sameName ? 0.95 : 0.85;
                 $key = $this->affinityPairKey((int) $itemA->id, (int) $itemB->id);
 
                 if (!isset($byPair[$key]) || (float) $byPair[$key]['affinity_score'] < $score) {
@@ -561,6 +565,14 @@ class GaService
         }
 
         return array_values($byPair);
+    }
+
+    private function normalizedItemName(string $name): string
+    {
+        $name = strtoupper(trim($name));
+        $name = preg_replace('/\s+/', ' ', $name) ?: $name;
+
+        return $name;
     }
 
     private function affinityPairKey(int $itemA, int $itemB): string

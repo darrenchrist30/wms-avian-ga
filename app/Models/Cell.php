@@ -13,7 +13,7 @@ class Cell extends Model
 
     public function getAuditLabel(): string
     {
-        return 'Sel ' . $this->code;
+        return 'Sel ' . $this->physical_code;
     }
 
     protected $fillable = [
@@ -68,8 +68,14 @@ class Cell extends Model
 
     public function getPhysicalCodeAttribute(): string
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
-            return sprintf('%s-%s-%s', $this->blok, strtoupper((string) $this->grup), $this->kolom);
+        if ($this->isMspartCell()) {
+            return sprintf(
+                '%s-%s-%s-%s',
+                $this->blok,
+                strtoupper((string) $this->grup),
+                $this->kolom,
+                $this->baris
+            );
         }
 
         return (string) $this->code;
@@ -77,10 +83,10 @@ class Cell extends Model
 
     public function getPhysicalLabelAttribute(): string
     {
-        if ($this->blok !== null && $this->grup !== null && $this->kolom !== null) {
+        if ($this->isMspartCell()) {
             $grup = strtoupper((string) $this->grup);
 
-            return "Blok {$this->blok} - Grup {$grup} - Kolom {$this->kolom}";
+            return "Blok {$this->blok} - Grup {$grup} - Kolom {$this->kolom} - Baris {$this->baris}";
         }
 
         return (string) ($this->label ?: $this->code);

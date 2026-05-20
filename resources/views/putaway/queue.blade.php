@@ -230,6 +230,17 @@
             <p class="text-muted mb-0 mt-1">
                 Semua item dari {{ $totalOrders }} DO — <strong>diurutkan berdasarkan rute lokasi</strong> (Blok → Grup → Kolom → Baris).
             </p>
+            @php
+                $today = now()->toDateString();
+            @endphp
+            @if(!empty($queueFilters['all_active'])
+                || ($queueFilters['start_date'] ?? $today) !== $today
+                || ($queueFilters['end_date'] ?? $today) !== $today
+                || !empty($queueFilters['do_number']))
+                <p class="small text-primary mb-0 mt-1">
+                    Filter aktif: {{ $totalOrders }} DO ditampilkan.
+                </p>
+            @endif
         </div>
         <div class="col-auto d-flex" style="gap:8px;">
             <button type="button" id="btnBatchScan" class="btn btn-sm btn-outline-success">
@@ -290,6 +301,50 @@
     </div>
 
     {{-- ── Queue Table ──────────────────────────────────────────────────────── --}}
+    @php
+        $today = now()->toDateString();
+        $filterActive = !empty($queueFilters['all_active'])
+            || ($queueFilters['start_date'] ?? $today) !== $today
+            || ($queueFilters['end_date'] ?? $today) !== $today
+            || !empty($queueFilters['do_number']);
+    @endphp
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <form method="GET" action="{{ route('putaway.queue') }}" class="row align-items-end">
+                <div class="col-6 col-md-2 mb-2">
+                    <label class="small text-muted mb-1">Start Date</label>
+                    <input type="date" name="start_date" value="{{ $queueFilters['start_date'] ?? '' }}" class="form-control form-control-sm" @disabled(!empty($queueFilters['all_active']))>
+                </div>
+                <div class="col-6 col-md-2 mb-2">
+                    <label class="small text-muted mb-1">End Date</label>
+                    <input type="date" name="end_date" value="{{ $queueFilters['end_date'] ?? '' }}" class="form-control form-control-sm" @disabled(!empty($queueFilters['all_active']))>
+                </div>
+                <div class="col-12 col-md-3 mb-2">
+                    <label class="small text-muted mb-1">No. DO</label>
+                    <input type="text" name="do_number" value="{{ $queueFilters['do_number'] ?? '' }}" class="form-control form-control-sm" placeholder="PB / DO">
+                </div>
+                <div class="col-12 col-md-3 mb-2">
+                    <label class="small text-muted mb-1 d-block">Mode</label>
+                    <div class="custom-control custom-switch pt-1">
+                        <input type="checkbox" class="custom-control-input" id="filterAllActive" name="all_active" value="1" @checked(!empty($queueFilters['all_active']))>
+                        <label class="custom-control-label" for="filterAllActive">Semua DO aktif</label>
+                    </div>
+                </div>
+                <div class="col-12 col-md-2 mb-2 d-flex" style="gap:6px;">
+                    <button class="btn btn-sm btn-primary flex-fill" type="submit">
+                        <i class="fas fa-filter mr-1"></i>Filter
+                    </button>
+                    @if($filterActive)
+                        <a href="{{ route('putaway.queue') }}" class="btn btn-sm btn-outline-secondary" title="Reset filter">
+                            <i class="fas fa-times"></i>
+                        </a>
+                    @endif
+                </div>
+            </form>
+        </div>
+    </div>
+
     @if($items->isEmpty())
         <div class="card shadow-sm">
             <div class="card-body text-center py-5 text-muted">
@@ -774,6 +829,16 @@
                             </div>
                         </div>
 
+                        <div class="custom-control custom-switch mt-2">
+                            <input type="checkbox" class="custom-control-input" id="batchOverrideMode">
+                            <label class="custom-control-label font-weight-bold text-warning" for="batchOverrideMode">
+                                Override Batch
+                            </label>
+                            <div class="text-muted" style="font-size:11px">
+                                Pakai jika cell fisik berbeda dari rekomendasi GA. Sistem tetap mencatat sebagai override.
+                            </div>
+                        </div>
+
                         <div id="batchScanLoading" class="text-center py-2" style="display:none">
                             <i class="fas fa-spinner fa-spin text-primary mr-1"></i>
                             <small class="text-muted">Mencari item untuk cell ini…</small>
@@ -785,7 +850,7 @@
 
                         {{-- Cell result banner --}}
                         <div class="px-3 pt-3 pb-2">
-                            <div class="d-flex align-items-center justify-content-between p-3 rounded"
+                            <div id="batchResultBanner" class="d-flex align-items-center justify-content-between p-3 rounded"
                                  style="border:2px solid #0d8564;background:#f0fff4">
                                 <div>
                                     <div style="font-size:26px;font-weight:800;letter-spacing:1px;color:#0d8564;line-height:1"
@@ -796,6 +861,10 @@
                                     <div id="batchResultCount" style="font-size:28px;font-weight:900;color:#1a2332;line-height:1">0</div>
                                     <div class="text-muted" style="font-size:11px">item ditemukan</div>
                                 </div>
+                            </div>
+                            <div id="batchOverrideNotice" class="alert alert-warning py-2 px-3 mt-2 mb-0" style="display:none;font-size:12px">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                Cell ini bukan rekomendasi GA. Jika disimpan, semua item di batch ini akan tercatat sebagai override.
                             </div>
                         </div>
 
@@ -810,7 +879,7 @@
                                             <th width="110">No. SJ</th>
                                             <th width="60" class="text-center">Qty</th>
                                             <th width="55" class="text-center">Satuan</th>
-                                            <th width="80" class="text-center">Sel GA</th>
+                                            <th width="100" class="text-center" id="batchCellColumnHead">Sel GA</th>
                                         </tr>
                                     </thead>
                                     <tbody id="batchItemsTbody"></tbody>
@@ -872,6 +941,7 @@ const batchConfirmUrl  = "{{ route('putaway.batch-confirm') }}";
 const confirmUrlTpl    = "{{ route('putaway.confirm', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
 const overrideUrlTpl   = "{{ route('putaway.override', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
 const altCellUrlTpl    = "{{ route('putaway.alternative-cells', ['order' => 'ORDER_ID']) }}";
+const queueFilters     = @json($queueFilters);
 const csrfToken        = $('meta[name="csrf-token"]').attr('content');
 let   doSelesai  = {{ $completedDOs }};
 let   doAktif    = {{ $activeDOs }};
@@ -1243,7 +1313,7 @@ function showScanResultSwal(cell, matchesGa, capOk) {
     if (!capOk && !canPartial) {
         warnRow = '<tr><td colspan="6" class="p-0">'
             + '<div class="alert alert-danger py-1 px-2 mb-0 rounded-0" style="font-size:12px">'
-            + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan cell lain yang memiliki slot kosong.</div></td></tr>';
+            + '<i class="fas fa-times-circle mr-1"></i>Cell penuh — scan baris lain yang memiliki kapasitas kosong.</div></td></tr>';
     }
 
     // Row 1: item dengan qty editable
@@ -1723,8 +1793,13 @@ let batchCellId      = null;
 let batchCellCode    = '';
 let batchQrScanner   = null;
 let batchCamActive   = false;
+let batchOverrideMode = false;
 
-function batchShowScan() {
+function batchShowScan(resetOverride = false) {
+    if (resetOverride) {
+        batchOverrideMode = false;
+        $('#batchOverrideMode').prop('checked', false);
+    }
     $('#batchPhaseScan').show();
     $('#batchPhaseResult').hide();
     $('#batchPhaseEmpty').hide();
@@ -1736,15 +1811,27 @@ function batchShowScan() {
 function batchShowResult(res) {
     batchItems    = res.items;
     batchCellCode = res.display_code;
+    batchOverrideMode = !!res.is_override;
 
     $('#batchResultCellCode').text(res.display_code);
     $('#batchResultCellMeta').text('Rak ' + res.display_rack);
     $('#batchResultCount').text(res.items.length);
+    $('#batchCellColumnHead').text(batchOverrideMode ? 'Sel Tujuan' : 'Sel GA');
+    $('#batchOverrideNotice').toggle(batchOverrideMode);
+    $('#batchResultBanner').css({
+        borderColor: batchOverrideMode ? '#fd7e14' : '#0d8564',
+        background: batchOverrideMode ? '#fff8f0' : '#f0fff4'
+    });
 
     const tbody = $('#batchItemsTbody').empty();
     res.items.forEach(function(item, i) {
         const isSplit = item.requires_split && item.split_ready && item.alt_cell;
         const primaryQty = item.requires_split ? item.primary_quantity : item.quantity;
+        const cellBadgeClass = item.is_override ? 'badge-warning text-dark' : 'badge-primary';
+        const cellInfo = item.is_override
+            ? '<span class="badge ' + cellBadgeClass + ' px-1" style="font-size:10px">' + $('<span>').text(item.cell_code).html() + '</span>' +
+              '<br><small class="text-muted" style="font-size:9px">GA: ' + $('<span>').text(item.ga_cell_code || '-').html() + '</small>'
+            : '<span class="badge ' + cellBadgeClass + ' px-1" style="font-size:10px">' + $('<span>').text(item.cell_code).html() + '</span>';
         const qtyInputAttrs = item.requires_split
             ? 'value="' + primaryQty + '" min="' + primaryQty + '" max="' + primaryQty + '" readonly '
             : 'value="' + item.quantity + '" min="1" max="' + item.quantity + '" ';
@@ -1762,7 +1849,7 @@ function batchShowResult(res) {
             'style="width:72px;margin:0 auto;font-size:13px">' +
             '</td>' +
             '<td class="text-center text-muted">' + $('<span>').text(item.unit).html() + '</td>' +
-            '<td class="text-center"><span class="badge badge-primary px-1" style="font-size:10px">' + $('<span>').text(item.cell_code).html() + '</span></td>' +
+            '<td class="text-center">' + cellInfo + '</td>' +
             '</tr>'
         );
 
@@ -1792,9 +1879,21 @@ function batchShowResult(res) {
         }
     });
 
+    if (res.skipped_capacity && Number(res.skipped_capacity) > 0) {
+        tbody.append(
+            '<tr style="background:#fff8f0">' +
+            '<td colspan="6" class="text-warning" style="font-size:12px">' +
+            '<i class="fas fa-info-circle mr-1"></i>' + res.skipped_capacity + ' item tidak dimasukkan karena kapasitas cell tujuan tidak cukup.' +
+            '</td></tr>'
+        );
+    }
+
     const totalQty = res.items.reduce(function(s, it) { return s + it.quantity; }, 0);
     const splitCount = res.items.filter(it => it.requires_split && it.split_ready).length;
-    $('#btnBatchConfirmLabel').text('Konfirmasi ' + res.items.length + ' Item (' + totalQty + ' unit' + (splitCount ? ', ' + splitCount + ' split' : '') + ')');
+    $('#btnBatchConfirmLabel').text(
+        (batchOverrideMode ? 'Override ' : 'Konfirmasi ') +
+        res.items.length + ' Item (' + totalQty + ' unit' + (splitCount ? ', ' + splitCount + ' split' : '') + ')'
+    );
 
     $('#batchPhaseScan').hide();
     $('#batchPhaseResult').show();
@@ -1819,7 +1918,7 @@ function doBatchScan(qrCode) {
     $.ajax({
         url: batchScanUrl,
         method: 'GET',
-        data: { qr_code: qrCode },
+        data: Object.assign({ qr_code: qrCode, override: $('#batchOverrideMode').is(':checked') ? 1 : 0 }, queueFilters),
         success: function(res) {
             if (res.status === 'found') {
                 batchShowResult(res);
@@ -1856,13 +1955,17 @@ $('#btnDoBatchConfirm').on('click', function() {
 
     const totalQty = batchItems.reduce(function(s, it) { return s + it.quantity; }, 0);
     Swal.fire({
-        title: 'Konfirmasi Batch?',
-        html:  'Simpan <strong>' + batchItems.length + ' item (' + totalQty + ' unit)</strong> dari rak <strong>' + batchCellCode + '</strong> ke sel GA masing-masing.',
-        icon:  'question',
+        title: batchOverrideMode ? 'Override Batch?' : 'Konfirmasi Batch?',
+        html:  batchOverrideMode
+            ? 'Simpan <strong>' + batchItems.length + ' item (' + totalQty + ' unit)</strong> ke <strong>' + batchCellCode + '</strong>. Sistem akan mencatat sebagai <strong>override GA</strong>.'
+            : 'Simpan <strong>' + batchItems.length + ' item (' + totalQty + ' unit)</strong> dari rak <strong>' + batchCellCode + '</strong> ke sel GA masing-masing.',
+        icon:  batchOverrideMode ? 'warning' : 'question',
         showCancelButton: true,
-        confirmButtonColor: '#0d8564',
+        confirmButtonColor: batchOverrideMode ? '#fd7e14' : '#0d8564',
         cancelButtonColor:  '#6c757d',
-        confirmButtonText:  '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan Semua',
+        confirmButtonText:  batchOverrideMode
+            ? '<i class="fas fa-exclamation-triangle mr-1"></i>Ya, Override Semua'
+            : '<i class="fas fa-check-circle mr-1"></i>Ya, Simpan Semua',
         cancelButtonText:   'Batal',
         reverseButtons: true
     }).then(function(result) {
@@ -1876,8 +1979,9 @@ $('#btnDoBatchConfirm').on('click', function() {
                 cell_id: item.cell_id,
                 order_id: item.order_id,
                 detail_id: item.detail_id,
-                ga_detail_id: item.ga_detail_id || null,
-                quantity: qty
+                ga_detail_id: item.is_override ? null : (item.ga_detail_id || null),
+                quantity: qty,
+                is_override: item.is_override ? 1 : 0
             };
 
             if (item.requires_split && item.split_ready && item.alt_cell && item.split_quantity > 0) {
@@ -1950,7 +2054,7 @@ $('#btnDoBatchConfirm').on('click', function() {
 
 // ── Batch open/close ──────────────────────────────────────────────────────────
 $('#btnBatchScan').on('click', function() {
-    batchShowScan();
+    batchShowScan(true);
     $('#modalBatch').modal('show');
 });
 
