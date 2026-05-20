@@ -4,6 +4,26 @@
 
 @push('styles')
     <style>
+        /* ── Tombol Konfirmasi — warna Avian ── */
+        .btnConfirm {
+            background-color: #0d8564 !important;
+            border-color: #0d8564 !important;
+            color: #fff !important;
+            transition: background-color .18s ease-in-out, border-color .18s ease-in-out, box-shadow .18s ease-in-out;
+        }
+        .btnConfirm:hover {
+            background-color: #0b7459 !important;
+            border-color: #0a6b52 !important;
+            color: #fff !important;
+            box-shadow: 0 2px 6px rgba(13,133,100,.35) !important;
+        }
+        .btnConfirm:active,
+        .btnConfirm:focus {
+            background-color: #0a6b52 !important;
+            border-color: #09604a !important;
+            box-shadow: 0 0 0 0.2rem rgba(13,133,100,.4) !important;
+        }
+
         /* ── Camera scanner ── */
         @keyframes scanMove {
             0% {
@@ -527,9 +547,9 @@
                             <h6 class="mb-0" style="font-size:13px">
                                 <i class="fas fa-th mr-1"></i>
                                 Ringkasan Cell yang Digunakan GA
-                                <small class="text-muted font-weight-normal ml-2">
+                                {{-- <small class="text-muted font-weight-normal ml-2">
                                     — Kapasitas total sebelum put-away dilakukan
-                                </small>
+                                </small> --}}
                             </h6>
                         </div>
                         <div class="card-body py-2">
@@ -861,21 +881,21 @@
                                                 @if ($isRowDone)
                                                     <span class="text-muted">—</span>
                                                 @else
-                                                    <button type="button" class="btn btn-sm btn-success btnConfirm"
-                                                        data-detail-id="{{ $detail->id }}"
-                                                        data-ga-detail-id="{{ $gd->id }}"
-                                                        data-item-name="{{ $detail->item->name ?? '-' }}"
-                                                        data-ga-cell="{{ $gd->cell?->physical_code }}"
-                                                        data-ga-cell-id="{{ $gd->cell_id }}"
-                                                        data-cell-id="{{ $gd->cell_id }}"
-                                                        data-cell-code="{{ $gd->cell?->physical_code }}"
-                                                        data-cap-remaining="{{ $capRemain }}"
-                                                        data-cap-max="{{ $capMax }}"
-                                                        data-qty="{{ $gd->quantity }}">
-                                                        <i class="fas fa-check"></i> Konfirmasi
-                                                    </button>
-                                                    @if (auth()->user()->isAdmin() || auth()->user()->isSupervisor())
-                                                        <button type="button" class="btn btn-sm btn-warning btnOverride mt-1"
+                                                    <div class="d-flex flex-column align-items-center" style="gap:4px;">
+                                                        <button type="button" class="btn btn-sm btn-success btnConfirm"
+                                                            data-detail-id="{{ $detail->id }}"
+                                                            data-ga-detail-id="{{ $gd->id }}"
+                                                            data-item-name="{{ $detail->item->name ?? '-' }}"
+                                                            data-ga-cell="{{ $gd->cell?->physical_code }}"
+                                                            data-ga-cell-id="{{ $gd->cell_id }}"
+                                                            data-cell-id="{{ $gd->cell_id }}"
+                                                            data-cell-code="{{ $gd->cell?->physical_code }}"
+                                                            data-cap-remaining="{{ $capRemain }}"
+                                                            data-cap-max="{{ $capMax }}"
+                                                            data-qty="{{ $gd->quantity }}">
+                                                            <i class="fas fa-check mr-1"></i>Konfirmasi
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-warning btnOverride"
                                                             title="Override: paksa cell berbeda dari GA"
                                                             data-detail-id="{{ $detail->id }}"
                                                             data-item-name="{{ $detail->item->name ?? '-' }}"
@@ -884,9 +904,9 @@
                                                             data-cap-remaining="{{ $capRemain }}"
                                                             data-cap-max="{{ $capMax }}"
                                                             data-qty="{{ $gd->quantity }}">
-                                                            <i class="fas fa-shield-alt"></i> Override
+                                                            <i class="fas fa-map-marker-alt mr-1"></i>Override
                                                         </button>
-                                                    @endif
+                                                    </div>
                                                 @endif
                                             </td>
                                         </tr>

@@ -70,6 +70,26 @@
         line-height: 1.2;
     }
 
+    /* ── Tombol Konfirmasi — warna Avian ── */
+    .btnConfirm {
+        background-color: #0d8564 !important;
+        border-color: #0d8564 !important;
+        color: #fff !important;
+        transition: background-color .18s ease-in-out, border-color .18s ease-in-out, box-shadow .18s ease-in-out;
+    }
+    .btnConfirm:hover {
+        background-color: #0b7459 !important;
+        border-color: #0a6b52 !important;
+        color: #fff !important;
+        box-shadow: 0 2px 6px rgba(13,133,100,.35) !important;
+    }
+    .btnConfirm:active,
+    .btnConfirm:focus {
+        background-color: #0a6b52 !important;
+        border-color: #09604a !important;
+        box-shadow: 0 0 0 0.2rem rgba(13,133,100,.4) !important;
+    }
+
     @media (max-width: 991.98px) {
         #modalConfirm .modal-dialog,
         #modalBatch .modal-dialog {
@@ -362,7 +382,7 @@
                         <thead class="thead-light">
                             <tr>
                                 <th class="text-center" width="36">#</th>
-                                <th width="120">No. Surat Jalan</th>
+                                <th width="160" style="white-space:nowrap">No. Surat Jalan</th>
                                 <th>Item / SKU</th>
                                 <th width="60" class="text-center">QTY</th>
                                 <th width="55" class="text-center">Satuan</th>

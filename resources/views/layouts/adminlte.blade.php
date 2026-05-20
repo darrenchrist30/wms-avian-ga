@@ -1563,11 +1563,11 @@
                                     </a>
                                 </li>
                                 <li class="nav-item">
-                                    <a href="{{ route('stock.near-expiry') }}"
-                                        class="nav-link {{ request()->routeIs('stock.near-expiry') ? 'active' : '' }}">
-                                        <i class="fas fa-calendar-times nav-icon"
-                                            style="font-size:12px;color:#ef4444;"></i>
-                                        <p>Mendekati Kadaluarsa</p>
+                                    <a href="{{ route('stock.deadstock') }}"
+                                        class="nav-link {{ request()->routeIs('stock.deadstock') ? 'active' : '' }}">
+                                        <i class="fas fa-hourglass-half nav-icon"
+                                            style="font-size:12px;color:#6c757d;"></i>
+                                        <p>Deadstock</p>
                                     </a>
                                 </li>
                             </ul>

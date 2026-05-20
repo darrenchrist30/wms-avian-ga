@@ -1,0 +1,16 @@
+vendor/
+node_modules/
+.env
+.env.*
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+.venv/
+ga-engine/__pycache__/
+ga-engine/ga/__pycache__/
+*.pyc
+.git/
+.idea/
+.vscode/
