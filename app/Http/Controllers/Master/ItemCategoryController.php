@@ -108,6 +108,18 @@ class ItemCategoryController extends Controller
         }
     }
 
+    public function select2(Request $request)
+    {
+        $results = ItemCategory::where('is_active', true)
+            ->when($request->filled('q'), fn($q) => $q->where('name', 'like', '%' . $request->q . '%'))
+            ->orderBy('name')
+            ->limit(50)
+            ->get()
+            ->map(fn($c) => ['id' => $c->id, 'text' => $c->name]);
+
+        return response()->json(['results' => $results]);
+    }
+
     public function datatable(Request $request)
     {
         $query = ItemCategory::withCount('items');

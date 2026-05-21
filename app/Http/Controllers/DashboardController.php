@@ -217,8 +217,10 @@ class DashboardController extends Controller
             ->get();
 
         // ── Actionable cards ─────────────────────────────────────────────────────
-        // DO yang do_date-nya hari ini dan statusnya masih inbound (baru datang, belum diproses GA)
-        $inboundHariIni = InboundOrder::whereDate('do_date', today())
+        // Semua order yang masuk hari ini (semua status)
+        $inboundHariIniTotal = InboundOrder::whereDate('created_at', today())->count();
+        // Yang belum diproses GA (status masih inbound)
+        $inboundHariIni = InboundOrder::whereDate('created_at', today())
             ->where('status', 'inbound')
             ->count();
 
@@ -436,7 +438,7 @@ class DashboardController extends Controller
             'lowStockAlerts', 'deadstockStocks', 'recentMovements',
             'expiryStocks', 'scheduledInbound',
             // Actionable
-            'inboundHariIni', 'pendingQtyConfirm', 'pendingGaRun', 'pendingGaAccept', 'pendingPutAway',
+            'inboundHariIni', 'inboundHariIniTotal', 'pendingQtyConfirm', 'pendingGaRun', 'pendingGaAccept', 'pendingPutAway',
             // Process control
             'processFunnel', 'bottleneckSummary', 'oldestOpenOrders',
             // GA analytics

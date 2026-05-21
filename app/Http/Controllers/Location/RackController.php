@@ -152,6 +152,26 @@ class RackController extends Controller
         }
     }
 
+    public function select2(Request $request)
+    {
+        $results = Rack::with('warehouse')
+            ->where('is_active', true)
+            ->when($request->filled('q'), fn($q) => $q->where(function ($q2) use ($request) {
+                $q2->where('code', 'like', '%' . $request->q . '%')
+                   ->orWhere('name', 'like', '%' . $request->q . '%');
+            }))
+            ->when($request->filled('warehouse_id'), fn($q) => $q->where('warehouse_id', $request->warehouse_id))
+            ->orderBy('code')
+            ->limit(100)
+            ->get()
+            ->map(fn($r) => [
+                'id'   => $r->id,
+                'text' => $r->code . ' — ' . ($r->warehouse->name ?? '-'),
+            ]);
+
+        return response()->json(['results' => $results]);
+    }
+
     public function datatable(Request $request)
     {
         $query = Rack::with(['warehouse', 'dominantCategory'])->withCount('cells');

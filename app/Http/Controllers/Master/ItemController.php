@@ -53,7 +53,7 @@ class ItemController extends Controller
         ]);
         DB::beginTransaction();
         try {
-            Item::create([
+            $item = Item::create([
                 'sku'                      => strtoupper($request->sku),
                 'name'                     => $request->name,
                 'category_id'              => $request->category_id,
@@ -70,7 +70,8 @@ class ItemController extends Controller
                 'is_active'                => $request->boolean('is_active', true),
             ]);
             DB::commit();
-            return redirect()->route('master.items.index')->with('success', 'Sparepart berhasil ditambahkan.');
+            return redirect()->route('master.items.barcode', $item->id)
+                ->with('success', 'Sparepart berhasil ditambahkan. Cetak label barcode di bawah ini.');
         } catch (\Exception $e) {
             DB::rollBack();
             report($e);

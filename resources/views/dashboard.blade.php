@@ -714,7 +714,7 @@
     @endif
 
     {{-- ══════════════════════════════════════════════════════
-     ACTION REQUIRED — Hanya tampil jika ada yang pending
+    ACTION REQUIRED — Hanya tampil jika ada yang pending
 ══════════════════════════════════════════════════════ --}}
     @php
         $isOperatorDashboard = auth()->user()->hasRole('operator');
@@ -745,7 +745,7 @@
             <div>
                 <i class="fas fa-bell text-warning mr-2"></i>
                 <strong>{{ number_format($totalPending) }} DO perlu diproses</strong>
-                <span class="text-muted ml-1" style="font-size:12px">Klik kartu untuk membuka pekerjaan.</span>
+                {{-- <span class="text-muted ml-1" style="font-size:12px">Klik kartu untuk membuka pekerjaan.</span> --}}
             </div>
         </div>
         <div class="row mb-3">
@@ -952,12 +952,18 @@
             </a>
         </div>
         <div class="col-6 col-md-3">
-            <a href="{{ route('inbound.orders.index', ['status' => 'inbound', 'date_mode' => 'today']) }}" class="kpi-link">
+            <a href="{{ route('inbound.orders.index', ['status' => 'inbound', 'start_date' => today()->toDateString(), 'end_date' => today()->toDateString()]) }}" class="kpi-link">
                 <div class="kpi-card kpi-teal">
                     <i class="fas fa-sign-in-alt kpi-icon"></i>
-                    <div class="kpi-value">{{ number_format($inboundToday) }}</div>
+                    <div class="kpi-value">{{ number_format($inboundHariIniTotal) }}</div>
                     <div class="kpi-label">Inbound Hari Ini</div>
-                    <div class="kpi-trend"><span class="up">Status inbound, tanggal hari ini</span></div>
+                    <div class="kpi-trend">
+                        @if($inboundHariIni > 0)
+                            <span style="color:#fde68a;font-weight:600;">{{ $inboundHariIni }} belum diproses</span>
+                        @else
+                            <span class="up">Semua sudah diproses</span>
+                        @endif
+                    </div>
                 </div>
             </a>
         </div>

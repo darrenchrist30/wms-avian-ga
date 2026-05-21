@@ -44,10 +44,11 @@ class InboundOrderController extends Controller
         if ($request->filled('warehouse_id')) {
             $query->where('warehouse_id', $request->warehouse_id);
         }
-        if ($request->input('date_mode') === 'today') {
-            $query->whereDate('do_date', today());
-        } elseif ($request->filled('do_date')) {
-            $query->whereDate('do_date', $request->do_date);
+        if ($request->filled('start_date')) {
+            $query->whereDate('do_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('do_date', '<=', $request->end_date);
         }
 
         return DataTables::of($query)

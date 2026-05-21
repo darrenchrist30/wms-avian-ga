@@ -27,7 +27,7 @@
         </div>
     @endif
 
-    <div class="card shadow-sm {{ $typeForm == 'create' ? 'card-primary' : 'card-success' }} card-outline">
+    <div class="card shadow-sm">
         <div class="card-header py-2">
             <h3 class="card-title font-weight-bold">
                 <i class="fas fa-{{ $typeForm == 'create' ? 'plus-circle' : 'edit' }} mr-1"></i>
@@ -72,22 +72,19 @@
                 <div class="form-group row mb-3">
                     <label class="col-sm-3 col-form-label" style="font-weight:600">Kategori Dominan</label>
                     <div class="col-sm-6">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text" style="min-width:40px;"></span>
-                            </div>
-                            <select name="dominant_category_id"
-                                class="form-control @error('dominant_category_id') is-invalid @enderror">
-                                <option value="">-- Tidak Ditentukan --</option>
-                                @foreach ($categories as $cat)
-                                    <option value="{{ $cat->id }}"
-                                        {{ old('dominant_category_id', $data->dominant_category_id ?? '') == $cat->id ? 'selected' : '' }}>
-                                        {{ $cat->name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            @error('dominant_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
+                        @php
+                            $selCatId   = old('dominant_category_id', $data->dominant_category_id ?? '');
+                            $selCatText = $selCatId ? (\App\Models\ItemCategory::find($selCatId)?->name ?? '') : '';
+                        @endphp
+                        <select name="dominant_category_id" id="select-dominant-category"
+                            class="form-control @error('dominant_category_id') is-invalid @enderror"
+                            style="width:100%">
+                            <option value="">-- Tidak Ditentukan --</option>
+                            @if($selCatId)
+                                <option value="{{ $selCatId }}" selected>{{ $selCatText }}</option>
+                            @endif
+                        </select>
+                        @error('dominant_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         <small class="text-muted">Kategori sparepart yang diutamakan di rak ini. Dipakai GA untuk put-away optimal.</small>
                     </div>
                 </div>
@@ -273,7 +270,29 @@
 </div>
 @endsection
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('adminlte/plugins/select2/css/select2.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('adminlte/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
+@endpush
+
 @push('scripts')
+<script src="{{ asset('adminlte/plugins/select2/js/select2.full.min.js') }}"></script>
+<script>
+    $('#select-dominant-category').select2({
+        theme: 'bootstrap4',
+        placeholder: '-- Tidak Ditentukan --',
+        allowClear: true,
+        ajax: {
+            url: '{{ route("master.categories.select2") }}',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) { return { q: params.term }; },
+            processResults: function (data) { return { results: data.results }; },
+            cache: true
+        },
+        minimumInputLength: 0
+    });
+</script>
 <script>
 // ── Cell count label ─────────────────────────────────────────────────────────
 var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

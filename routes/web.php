@@ -49,9 +49,11 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     */
     Route::prefix('master')->name('master.')->group(function () {
         Route::get('categories/datatable', [\App\Http\Controllers\Master\ItemCategoryController::class, 'datatable'])->name('categories.datatable');
+        Route::get('categories/select2',   [\App\Http\Controllers\Master\ItemCategoryController::class, 'select2'])->name('categories.select2');
         Route::resource('categories', \App\Http\Controllers\Master\ItemCategoryController::class);
 
         Route::get('units/datatable', [\App\Http\Controllers\Master\UnitController::class, 'datatable'])->name('units.datatable');
+        Route::get('units/select2',   [\App\Http\Controllers\Master\UnitController::class, 'select2'])->name('units.select2');
         Route::resource('units', \App\Http\Controllers\Master\UnitController::class);
 
         Route::get('affinities/datatable', [\App\Http\Controllers\Master\ItemAffinityController::class, 'datatable'])->name('affinities.datatable');
@@ -76,6 +78,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class);
 
 Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
+        Route::get('racks/select2',   [\App\Http\Controllers\Location\RackController::class, 'select2'])->name('racks.select2');
         Route::resource('racks', \App\Http\Controllers\Location\RackController::class);
 
         Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');

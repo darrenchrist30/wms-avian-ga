@@ -42,41 +42,40 @@
                     <div class="card-body">
                         <form id="filter-container">
                             <div class="row m-2 filter collapse mb-3">
-                                <div class="col-sm-12 col-md-4">
-                                    <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Status</label>
-                                        <div class="col-sm-8">
-                                            <select class="form-control form-control-sm" id="filter-status">
-                                                <option value="">Semua Status</option>
-                                                <option value="inbound" selected>Inbound</option>
-                                                <option value="put_away">Put Away</option>
-                                                <option value="completed">Completed</option>
-                                            </select>
-                                        </div>
+                                <div class="col-sm-12 col-md-3">
+                                    <div class="form-group">
+                                        <label class="small font-weight-bold mb-1">Status</label>
+                                        <select class="form-control form-control-sm" id="filter-status">
+                                            <option value="">Semua Status</option>
+                                            <option value="inbound" selected>Inbound</option>
+                                            <option value="put_away">Put Away</option>
+                                            <option value="completed">Completed</option>
+                                        </select>
                                     </div>
                                 </div>
-                                <div class="col-sm-12 col-md-4">
-                                    <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Warehouse</label>
-                                        <div class="col-sm-8">
-                                            <select class="form-control form-control-sm" id="filter-warehouse">
-                                                <option value="">Semua Warehouse</option>
-                                                @foreach ($warehouses as $wh)
-                                                    <option value="{{ $wh->id }}">{{ $wh->name }}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
+                                <div class="col-sm-12 col-md-3">
+                                    <div class="form-group">
+                                        <label class="small font-weight-bold mb-1">Warehouse</label>
+                                        <select class="form-control form-control-sm" id="filter-warehouse">
+                                            <option value="">Semua Warehouse</option>
+                                            @foreach ($warehouses as $wh)
+                                                <option value="{{ $wh->id }}">{{ $wh->name }}</option>
+                                            @endforeach
+                                        </select>
                                     </div>
                                 </div>
-                                <div class="col-sm-12 col-md-4">
-                                    <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Tanggal DO</label>
-                                        <div class="col-sm-8">
-                                            <select class="form-control form-control-sm" id="filter-date-mode">
-                                                <option value="">Semua tanggal</option>
-                                                <option value="today">Hari ini</option>
-                                            </select>
-                                        </div>
+                                <div class="col-sm-12 col-md-3">
+                                    <div class="form-group">
+                                        <label class="small font-weight-bold mb-1">Start Date</label>
+                                        <input type="date" class="form-control form-control-sm" id="filter-start-date"
+                                            value="{{ date('Y-m-d') }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-12 col-md-3">
+                                    <div class="form-group">
+                                        <label class="small font-weight-bold mb-1">End Date</label>
+                                        <input type="date" class="form-control form-control-sm" id="filter-end-date"
+                                            value="{{ date('Y-m-d') }}">
                                     </div>
                                 </div>
                             </div>
@@ -152,15 +151,11 @@
 @push('scripts')
     <script>
         $(document).ready(function() {
-            // Pre-fill filter dari URL param ?status=
-            var urlStatus = new URLSearchParams(window.location.search).get('status');
-            if (urlStatus !== null) {
-                $('#filter-status').val(urlStatus);
-            }
-            var urlDateMode = new URLSearchParams(window.location.search).get('date_mode');
-            if (urlDateMode !== null) {
-                $('#filter-date-mode').val(urlDateMode);
-            }
+            // Pre-fill filter dari URL param
+            var urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('status') !== null)     $('#filter-status').val(urlParams.get('status'));
+            if (urlParams.get('start_date') !== null) $('#filter-start-date').val(urlParams.get('start_date'));
+            if (urlParams.get('end_date') !== null)   $('#filter-end-date').val(urlParams.get('end_date'));
 
             var baseURL      = "{{ route('inbound.orders.datatable') }}";
             var routeDestroy    = "{{ route('inbound.orders.destroy', ':id') }}";
@@ -182,7 +177,8 @@
                     data: function(d) {
                         d.status       = $('#filter-status').val();
                         d.warehouse_id = $('#filter-warehouse').val();
-                        d.date_mode    = $('#filter-date-mode').val();
+                        d.start_date   = $('#filter-start-date').val();
+                        d.end_date     = $('#filter-end-date').val();
                     },
                     type: 'GET'
                 },
@@ -362,16 +358,18 @@
             }
 
             // ── Refresh & Filter ─────────────────────────────────────────
+            var today = new Date().toISOString().slice(0, 10);
             $('.btnRefresh').on('click', function() {
                 $('#filter-status').val('inbound');
                 $('#filter-warehouse').val('');
-                $('#filter-date-mode').val('');
+                $('#filter-start-date').val(today);
+                $('#filter-end-date').val(today);
                 selectedIds = {};
                 updateBatchButton();
                 table.ajax.reload();
             });
 
-            $('#filter-status, #filter-warehouse, #filter-date-mode').on('change', function() {
+            $('#filter-status, #filter-warehouse, #filter-start-date, #filter-end-date').on('change', function() {
                 table.ajax.reload();
             });
 

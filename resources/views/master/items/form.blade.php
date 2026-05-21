@@ -11,7 +11,7 @@
         </div>
         <div class="row">
             <div class="col-md-12">
-                <div class="card {{ $typeForm == 'create' ? 'card-primary' : 'card-success' }}">
+                <div class="card">
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="font-weight-bold">
@@ -65,7 +65,7 @@
                                                     <input type="text" name="name"
                                                         class="form-control @error('name') is-invalid @enderror"
                                                         value="{{ old('name', $data->name ?? '') }}"
-                                                        placeholder="Nama lengkap sparepart" maxlength="200">
+                                                        placeholder="Nama sparepart" maxlength="200">
                                                     @error('name')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror
@@ -78,7 +78,7 @@
                                                     <input type="text" name="merk"
                                                         class="form-control @error('merk') is-invalid @enderror"
                                                         value="{{ old('merk', $data->merk ?? '') }}"
-                                                        placeholder="Merk / pabrikan sparepart" maxlength="100">
+                                                        placeholder="Merk sparepart" maxlength="100">
                                                     @error('merk')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror
@@ -88,14 +88,16 @@
                                             <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">Kategori <span class="text-danger">*</span></label>
                                                 <div class="col-sm-8">
-                                                    <select name="category_id" class="form-control @error('category_id') is-invalid @enderror">
-                                                        <option value="">-- Pilih Kategori --</option>
-                                                        @foreach ($categories as $cat)
-                                                            <option value="{{ $cat->id }}"
-                                                                {{ old('category_id', $data->category_id ?? '') == $cat->id ? 'selected' : '' }}>
-                                                                {{ $cat->name }}
-                                                            </option>
-                                                        @endforeach
+                                                    @php
+                                                        $selCatId   = old('category_id', $data->category_id ?? '');
+                                                        $selCatText = $selCatId ? (\App\Models\ItemCategory::find($selCatId)?->name ?? '') : '';
+                                                    @endphp
+                                                    <select name="category_id" id="select-category"
+                                                        class="form-control @error('category_id') is-invalid @enderror"
+                                                        style="width:100%">
+                                                        @if($selCatId)
+                                                            <option value="{{ $selCatId }}" selected>{{ $selCatText }}</option>
+                                                        @endif
                                                     </select>
                                                     @error('category_id')
                                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -106,14 +108,17 @@
                                             <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">Satuan <span class="text-danger">*</span></label>
                                                 <div class="col-sm-8">
-                                                    <select name="unit_id" class="form-control @error('unit_id') is-invalid @enderror">
-                                                        <option value="">-- Pilih Satuan --</option>
-                                                        @foreach ($units as $unit)
-                                                            <option value="{{ $unit->id }}"
-                                                                {{ old('unit_id', $data->unit_id ?? '') == $unit->id ? 'selected' : '' }}>
-                                                                {{ $unit->code }} - {{ $unit->name }}
-                                                            </option>
-                                                        @endforeach
+                                                    @php
+                                                        $selUnitId   = old('unit_id', $data->unit_id ?? '');
+                                                        $selUnit     = $selUnitId ? \App\Models\Unit::find($selUnitId) : null;
+                                                        $selUnitText = $selUnit ? ($selUnit->code . ' - ' . $selUnit->name) : '';
+                                                    @endphp
+                                                    <select name="unit_id" id="select-unit"
+                                                        class="form-control @error('unit_id') is-invalid @enderror"
+                                                        style="width:100%">
+                                                        @if($selUnitId)
+                                                            <option value="{{ $selUnitId }}" selected>{{ $selUnitText }}</option>
+                                                        @endif
                                                     </select>
                                                     @error('unit_id')
                                                         <div class="invalid-feedback">{{ $message }}</div>
@@ -188,26 +193,12 @@
                                         </div>
                                     </div>
 
-                                    {{-- Card: Dimensi & Barcode --}}
+                                    {{-- Card: Status --}}
                                     <div class="card card-secondary card-outline flex-grow-1 mb-0">
                                         <div class="card-header">
-                                            <h6 class="card-title mb-0"><i class="fas fa-weight mr-1"></i> Dimensi & Barcode</h6>
+                                            <h6 class="card-title mb-0"><i class="fas fa-toggle-on mr-1"></i> Status</h6>
                                         </div>
                                         <div class="card-body">
-
-                                            <div class="form-group row">
-                                                <label class="col-sm-6 col-form-label">Barcode</label>
-                                                <div class="col-sm-6">
-                                                    <input type="text" name="barcode"
-                                                        class="form-control @error('barcode') is-invalid @enderror"
-                                                        value="{{ old('barcode', $data->barcode ?? '') }}"
-                                                        placeholder="Nomor barcode" maxlength="100">
-                                                    <small class="text-muted">Opsional. Harus unik.</small>
-                                                    @error('barcode')
-                                                        <div class="invalid-feedback">{{ $message }}</div>
-                                                    @enderror
-                                                </div>
-                                            </div>
 
                                             <div class="form-group row">
                                                 <label class="col-sm-6 col-form-label">Status Aktif</label>
@@ -256,4 +247,47 @@
             </div>
         </div>
     </div>
+
 @endsection
+
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('adminlte/plugins/select2/css/select2.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('adminlte/plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css') }}">
+@endpush
+
+@push('scripts')
+    <script src="{{ asset('adminlte/plugins/select2/js/select2.full.min.js') }}"></script>
+    <script>
+        $(document).ready(function () {
+            $('#select-category').select2({
+                theme: 'bootstrap4',
+                placeholder: '-- Pilih Kategori --',
+                allowClear: true,
+                ajax: {
+                    url: '{{ route("master.categories.select2") }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) { return { q: params.term }; },
+                    processResults: function (data) { return { results: data.results }; },
+                    cache: true
+                },
+                minimumInputLength: 0
+            });
+
+            $('#select-unit').select2({
+                theme: 'bootstrap4',
+                placeholder: '-- Pilih Satuan --',
+                allowClear: true,
+                ajax: {
+                    url: '{{ route("master.units.select2") }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) { return { q: params.term }; },
+                    processResults: function (data) { return { results: data.results }; },
+                    cache: true
+                },
+                minimumInputLength: 0
+            });
+        });
+    </script>
+@endpush

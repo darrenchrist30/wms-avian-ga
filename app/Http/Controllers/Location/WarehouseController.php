@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Location;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cell;
+use App\Models\Rack;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,17 +24,31 @@ class WarehouseController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $rules = [
             'code'      => 'required|string|max:20|unique:warehouses,code',
             'name'      => 'required|string|max:100',
             'address'   => 'nullable|string|max:500',
             'pic'       => 'nullable|string|max:100',
             'phone'     => 'nullable|string|max:20',
             'is_active' => 'boolean',
-        ]);
+        ];
+
+        if ($request->boolean('generate_layout')) {
+            $rules += [
+                'rack_count'       => 'required|integer|min:1|max:100',
+                'rack_prefix'      => 'required|string|max:10|alpha_dash',
+                'rack_levels'      => 'required|integer|min:1|max:7',
+                'rack_columns'     => 'required|integer|min:1|max:10',
+                'rack_layout_cols' => 'required|integer|min:1|max:20',
+                'default_capacity' => 'required|integer|min:1|max:9999',
+            ];
+        }
+
+        $request->validate($rules);
+
         DB::beginTransaction();
         try {
-            Warehouse::create([
+            $warehouse = Warehouse::create([
                 'code'      => strtoupper($request->code),
                 'name'      => $request->name,
                 'address'   => $request->address,
@@ -40,12 +56,71 @@ class WarehouseController extends Controller
                 'phone'     => $request->phone,
                 'is_active' => $request->boolean('is_active', true),
             ]);
+
+            $rackCount = 0;
+            $cellCount = 0;
+
+            if ($request->boolean('generate_layout')) {
+                $rackTotal  = (int) $request->rack_count;
+                $prefix     = strtoupper(trim($request->rack_prefix));
+                $levels     = (int) $request->rack_levels;
+                $columns    = (int) $request->rack_columns;
+                $layoutCols = (int) $request->rack_layout_cols;
+                $capacity   = (int) $request->default_capacity;
+
+                for ($i = 1; $i <= $rackTotal; $i++) {
+                    $rackCode = $prefix . '-' . str_pad($i, 2, '0', STR_PAD_LEFT);
+                    $colIdx   = ($i - 1) % $layoutCols;
+                    $rowIdx   = (int) floor(($i - 1) / $layoutCols);
+
+                    $rack = Rack::create([
+                        'warehouse_id'  => $warehouse->id,
+                        'code'          => $rackCode,
+                        'name'          => null,
+                        'total_levels'  => $levels,
+                        'total_columns' => $columns,
+                        'pos_x'         => $colIdx * 2.5,
+                        'pos_z'         => $rowIdx * 3.5,
+                        'rotation_y'    => 0,
+                        'is_active'     => true,
+                    ]);
+
+                    for ($level = 1; $level <= $levels; $level++) {
+                        $letter = chr(64 + $level);
+                        for ($col = 1; $col <= $columns; $col++) {
+                            $cellCode = $columns > 1
+                                ? $rackCode . '-' . $letter . $col
+                                : $rackCode . '-' . $letter;
+
+                            Cell::create([
+                                'rack_id'       => $rack->id,
+                                'code'          => $cellCode,
+                                'level'         => $level,
+                                'column'        => $col,
+                                'capacity_max'  => $capacity,
+                                'capacity_used' => 0,
+                                'status'        => 'available',
+                                'is_active'     => true,
+                            ]);
+                            $cellCount++;
+                        }
+                    }
+                    $rackCount++;
+                }
+            }
+
             DB::commit();
-            return redirect()->route('location.warehouses.index')->with('success', 'Warehouse berhasil ditambahkan.');
+
+            $msg = 'Warehouse ' . strtoupper($request->code) . ' berhasil ditambahkan.';
+            if ($rackCount > 0) {
+                $msg .= " Layout otomatis: {$rackCount} rak dan {$cellCount} sel berhasil dibuat.";
+            }
+            return redirect()->route('location.warehouses.index')->with('success', $msg);
+
         } catch (\Exception $e) {
             DB::rollBack();
             report($e);
-            return back()->withInput()->with('error', 'Gagal menyimpan warehouse. Silakan coba lagi.');
+            return back()->withInput()->with('error', 'Gagal menyimpan warehouse: ' . $e->getMessage());
         }
     }
 

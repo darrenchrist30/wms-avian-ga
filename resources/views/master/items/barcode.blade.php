@@ -18,6 +18,12 @@
                         </div>
                     </div>
                     <div class="card-body text-center">
+                        @if(session('success'))
+                            <div class="alert alert-success alert-dismissible text-left">
+                                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                                <i class="fas fa-check-circle mr-1"></i> {{ session('success') }}
+                            </div>
+                        @endif
 
                         <div id="barcode-label" class="p-3 border rounded d-inline-block" style="min-width:300px;">
                             <div class="mb-1">

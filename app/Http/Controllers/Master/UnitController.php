@@ -97,6 +97,21 @@ class UnitController extends Controller
         }
     }
 
+    public function select2(Request $request)
+    {
+        $results = Unit::where('is_active', true)
+            ->when($request->filled('q'), fn($q) => $q->where(function ($q2) use ($request) {
+                $q2->where('name', 'like', '%' . $request->q . '%')
+                   ->orWhere('code', 'like', '%' . $request->q . '%');
+            }))
+            ->orderBy('name')
+            ->limit(50)
+            ->get()
+            ->map(fn($u) => ['id' => $u->id, 'text' => $u->code . ' - ' . $u->name]);
+
+        return response()->json(['results' => $results]);
+    }
+
     public function datatable(Request $request)
     {
         $query = Unit::withCount('items');
