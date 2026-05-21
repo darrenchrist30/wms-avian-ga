@@ -33,9 +33,9 @@ RUN chmod -R 775 storage bootstrap/cache
 EXPOSE 8000
 
 # Migrate + cache + serve at startup (needs DB env vars at runtime)
-CMD php artisan config:cache && \
+CMD php artisan storage:link --force 2>/dev/null || true && \
+    php artisan config:cache && \
     php artisan route:cache && \
     php artisan view:cache && \
-    php artisan storage:link --force && \
     php artisan migrate --force && \
     php artisan serve --host=0.0.0.0 --port=${PORT:-8000}

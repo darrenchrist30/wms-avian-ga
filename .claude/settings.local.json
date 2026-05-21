@@ -35,7 +35,13 @@
       "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/stock\")",
       "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/putaway\")",
       "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/warehouse3d\")",
-      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/reports\")"
+      "Bash(grep -rn \"\\\\$.*cell.*code\\\\|cell_code\\\\|cell\\\\.code\" \"C:/laragon/www/wms-avian-ga/resources/views/reports\")",
+      "WebFetch(domain:docs.railway.com)",
+      "Bash(del \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\database\\\\schema\\\\mysql-schema.sql\")",
+      "Bash(git add *)",
+      "Bash(git restore *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }
