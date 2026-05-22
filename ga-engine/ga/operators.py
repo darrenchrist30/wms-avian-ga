@@ -26,14 +26,19 @@ def category_compatible(item: ItemInput, cell: CellInput) -> bool:
     True when a cell is category-valid for the item.
 
     Same-SKU continuity is valid because the warehouse already stores that SKU
-    in the cell.
+    in the cell. Neutral cells (dominant_category_id=None) are always compatible
+    because they have no existing category commitment — GA can place any item
+    there and FC_CAT will score proximity to existing stock correctly.
     """
     if item.item_id in cell.existing_item_ids:
         return True
 
+    # Neutral/empty cells accept any item
+    if cell.dominant_category_id is None:
+        return True
+
     return (
         item.category_id is not None
-        and cell.dominant_category_id is not None
         and item.category_id == cell.dominant_category_id
     )
 
@@ -113,30 +118,22 @@ def initialize_population(
     cells:    List[CellInput],
 ) -> List[List[int]]:
     """
-    Buat populasi awal dengan dua strategi (Holland, 1975):
+    Random Initialization — seluruh populasi dibangkitkan secara acak (Holland, 1975).
 
-    a) 50% Random Initialization:
-       Setiap gen dipilih dari cell_id secara seragam acak.
-       Memastikan keberagaman (diversity) populasi.
+    Setiap kromosom diisi dengan memilih cell_id secara seragam acak dari
+    feasible_cell_pool per item (capacity-aware). Pendekatan ini memastikan
+    keberagaman (diversity) maksimal di populasi awal, sesuai standar GA umum.
 
-    b) 50% Greedy Initialization:
-       Item dengan qty besar diprioritaskan ke cell berkapasitas besar.
-       Menginjeksikan solusi yang sudah cukup baik sejak awal,
-       mempercepat konvergensi (Whitley, 1994).
+    Fallback ke semua cell jika tidak ada cell feasible (mencegah dead-end).
 
-    Referensi: Whitley, D. (1994). A genetic algorithm tutorial.
-               Statistics and Computing, 4(2), 65–85.
+    Referensi: Holland, J.H. (1975). Adaptation in Natural and Artificial Systems.
+               University of Michigan Press, Ann Arbor.
+               Goldberg, D.E. (1989). Genetic Algorithms in Search, Optimization,
+               and Machine Learning. Addison-Wesley, Boston.
     """
-    n_items  = len(items)
-    cell_ids = [c.cell_id for c in cells]
     population: List[List[int]] = []
 
-    half = pop_size // 2
-
-    # ── a) Random (capacity-aware) ────────────────────────────────────────
-    # Untuk setiap item, pilih hanya dari cell yang sisa kapasitasnya ≥ qty item.
-    # Fallback ke semua cell jika tidak ada yang feasible (mencegah dead-end).
-    for _ in range(half):
+    for _ in range(pop_size):
         chromosome: List[int] = []
 
         for item in items:
@@ -145,24 +142,6 @@ def initialize_population(
                 continue
 
             chromosome.append(random.choice(feasible_cell_pool(item, cells)))
-
-        population.append(chromosome)
-
-    # ── b) Greedy ──────────────────────────────────────────────────────────
-    sorted_cells  = sorted(cells, key=lambda c: c.capacity_remaining, reverse=True)
-    top_cell_ids  = [c.cell_id for c in sorted_cells[:max(1, len(sorted_cells) // 2)]]
-
-    for _ in range(pop_size - half):
-        chromosome: List[int] = []
-
-        for item in items:
-            if item.preferred_cell_id is not None:
-                chromosome.append(item.preferred_cell_id)
-                continue
-
-            preferred_pool = feasible_cell_pool(item, sorted_cells)
-            top_valid = [cid for cid in preferred_pool if cid in top_cell_ids]
-            chromosome.append(random.choice(top_valid if top_valid else preferred_pool))
 
         population.append(chromosome)
 

@@ -61,7 +61,8 @@
       "Bash(C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe -h kodama.proxy.rlwy.net -P 47488 -u root -pxMcQEIipRjunLPiyKQIcvyzrcdLpJbhZ railway -e \"SELECT COUNT\\(*\\) as total, COUNT\\(blok\\) as has_blok, SUM\\(CASE WHEN blok IS NULL OR blok='' THEN 1 ELSE 0 END\\) as no_blok, COUNT\\(DISTINCT kode\\) as uniq_kode FROM mspart WHERE isdel=0;\")",
       "Bash(Remove-Item \"app/Console/Commands/PromoteRefData.php\" -Force)",
       "Bash(Remove-Item \"app/Console/Commands/RevertRefData.php\" -Force)",
-      "Bash(git commit -m 'fix: prioritize R12-R15 hits in raycaster click handler *)"
+      "Bash(git commit -m 'fix: prioritize R12-R15 hits in raycaster click handler *)",
+      "Bash(railway logs *)"
     ]
   }
 }
