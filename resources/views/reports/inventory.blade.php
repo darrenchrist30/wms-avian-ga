@@ -42,9 +42,9 @@
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
-        <div class="small-box {{ $summary['near_expiry'] > 0 ? 'bg-warning' : 'bg-secondary' }} mb-0">
-            <div class="inner"><h4>{{ $summary['near_expiry'] }}</h4><p>Mendekati Kadaluarsa</p></div>
-            <div class="icon"><i class="fas fa-calendar-times"></i></div>
+        <div class="small-box {{ $summary['deadstock'] > 0 ? 'bg-warning' : 'bg-secondary' }} mb-0">
+            <div class="inner"><h4>{{ $summary['deadstock'] }}</h4><p>Deadstock</p></div>
+            <div class="icon"><i class="fas fa-archive"></i></div>
         </div>
     </div>
 </div>

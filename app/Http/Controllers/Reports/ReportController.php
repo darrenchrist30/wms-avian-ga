@@ -74,10 +74,14 @@ class ReportController extends Controller
             'total_skus'   => Stock::where('status', 'available')->distinct('item_id')->count('item_id'),
             'total_qty'    => Stock::where('status', 'available')->sum('quantity'),
             'below_min'    => $this->countBelowMin(),
-            'near_expiry'  => Stock::where('status', 'available')
-                                ->whereNotNull('expiry_date')
-                                ->whereDate('expiry_date', '<=', now()->addDays(30))
-                                ->distinct('item_id')->count('item_id'),
+            'deadstock'    => DB::table('stock_records as sr')
+                                ->where('sr.status', 'available')
+                                ->whereNotExists(function ($q) {
+                                    $q->from('stock_movements as sm')
+                                      ->whereColumn('sm.item_id', 'sr.item_id')
+                                      ->where('sm.created_at', '>=', now()->subMonths(6));
+                                })
+                                ->distinct('sr.item_id')->count('sr.item_id'),
         ];
 
         return view('reports.inventory', compact('stockByCategory', 'topItems', 'warehouseUtil', 'summary'));
