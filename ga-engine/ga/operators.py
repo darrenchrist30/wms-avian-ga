@@ -21,6 +21,30 @@ from typing import Dict, List, Optional, Tuple
 from schemas import CellInput, ItemInput
 
 
+# Maximum cells returned by feasible_cell_pool.
+# Warehouse dapat memiliki ribuan sel. Membatasi pool ke MAX_FEASIBLE_POOL
+# sel terdekat ke stok existing item memastikan GA dapat mengeksplorasi
+# kandidat terbaik dengan populasi terbatas (Holland, 1975).
+MAX_FEASIBLE_POOL = 150
+
+
+def _coord_dist(a: CellInput, b: CellInput) -> float:
+    """Jarak fisik antar dua sel berdasarkan koordinat blok/grup/kolom/baris."""
+    if (a.blok is not None and b.blok is not None and
+            a.grup is not None and b.grup is not None and
+            a.kolom is not None and b.kolom is not None and
+            a.baris is not None and b.baris is not None):
+        ga = ord(str(a.grup).upper()[0]) - ord('A') + 1
+        gb = ord(str(b.grup).upper()[0]) - ord('A') + 1
+        return (abs(a.blok - b.blok) * 10 + abs(ga - gb) * 3
+                + abs(a.kolom - b.kolom) * 2 + abs(a.baris - b.baris) * 0.5)
+    ra = a.rack_index if a.rack_index is not None else 9999
+    rb = b.rack_index if b.rack_index is not None else 9999
+    ia = a.cell_index if a.cell_index is not None else 9999
+    ib = b.cell_index if b.cell_index is not None else 9999
+    return abs(ra - rb) * 10 + abs(ia - ib)
+
+
 def category_compatible(item: ItemInput, cell: CellInput) -> bool:
     """
     True when a cell is category-valid for the item.
@@ -44,8 +68,14 @@ def category_compatible(item: ItemInput, cell: CellInput) -> bool:
 
 
 def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
-    # Capacity is modeled as normalized capacity points derived from
-    # quantity / item.max_stock in Laravel.
+    """
+    Kembalikan daftar cell_id yang layak untuk item ini.
+
+    Jika pool terlalu besar (>MAX_FEASIBLE_POOL), pool dipersempit ke sel-sel
+    terdekat ke stok existing item. Ini mencegah GA mengeksplorasi ribuan sel
+    secara acak sehingga sel-sel optimal (dekat stok existing) memiliki
+    probabilitas sampling yang cukup tinggi.
+    """
     feasible = [
         c for c in cells
         if c.capacity_remaining >= item.capacity_demand
@@ -61,13 +91,29 @@ def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
         return same_sku_cells
 
     category_valid = [
-        c.cell_id for c in feasible
+        c for c in feasible
         if category_compatible(item, c)
     ]
-    if category_valid:
-        return category_valid
+    if not category_valid:
+        category_valid = feasible
 
-    return [c.cell_id for c in feasible]
+    if len(category_valid) <= MAX_FEASIBLE_POOL:
+        return [c.cell_id for c in category_valid]
+
+    # Pool terlalu besar — persempit ke MAX_FEASIBLE_POOL sel terdekat
+    # ke stok existing item agar GA dapat mengeksplorasi area yang relevan.
+    existing = [c for c in cells if item.item_id in c.existing_item_ids]
+    if existing:
+        sorted_cv = sorted(
+            category_valid,
+            key=lambda c: min(_coord_dist(c, e) for e in existing),
+        )
+    else:
+        # Item baru tanpa stok existing — ambil sampel acak agar GA
+        # tetap menjelajahi seluruh ruang solusi secara merata.
+        sorted_cv = random.sample(category_valid, len(category_valid))
+
+    return [c.cell_id for c in sorted_cv[:MAX_FEASIBLE_POOL]]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
