@@ -1560,7 +1560,11 @@ renderer.domElement.addEventListener('click', function (e) {
     const hits = raycaster.intersectObjects(cellMeshes);
     if (!hits.length) return;
 
-    const ud = (hits.find(h => h.object.userData.isMspart) || hits[0]).object.userData;
+    // Rak vertikal (R12-R15) ada di dalam volume rak lain sehingga selalu tertutup.
+    // Kalau ada hit dari rak vertikal di antara semua interseksi, prioritaskan.
+    const VERT_CODES = new Set(['12','13','14','15']);
+    const vertHit = hits.find(h => VERT_CODES.has(String(h.object.userData.rackCode)));
+    const ud = (hits.find(h => h.object.userData.isMspart) || vertHit || hits[0]).object.userData;
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');
 
