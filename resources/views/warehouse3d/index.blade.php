@@ -926,6 +926,15 @@ function buildVerticalRack(rx, rz, rack) {
         scene.add(mesh);
         cellMeshes.push(mesh);
 
+        // Invisible hitbox 3× lebih lebar di X agar R12-R15 mudah diklik dari semua sudut kamera
+        const hbGeo = new THREE.BoxGeometry(CW * 3, CH, VW);
+        const hbMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        const hitbox = new THREE.Mesh(hbGeo, hbMat);
+        hitbox.position.set(rx, lvl * CH + CH / 2, rz);
+        hitbox.userData = { ...mesh.userData };
+        scene.add(hitbox);
+        cellMeshes.push(hitbox);
+
         const nItems = itemCountForCell(cell);
         if (nItems > 0) {
             const h      = hashCell(cell.code);
