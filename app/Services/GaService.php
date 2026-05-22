@@ -248,11 +248,13 @@ class GaService
             );
 
             // Priority 1: item already has stock in a cell → consolidate there
-            $existingCell = $cellCandidates
+            $existingCellsForItem = $cellCandidates
                 ->filter(fn(array $cell) =>
                     in_array((int) $detail->item_id, $cell['existing_item_ids'], true)
-                    && (int) $cell['capacity_remaining'] >= $capacityDemand
-                )
+                );
+
+            $existingCell = $existingCellsForItem
+                ->filter(fn(array $cell) => (int) $cell['capacity_remaining'] >= $capacityDemand)
                 ->sortBy(fn(array $cell) => sprintf(
                     '%05d-%05d',
                     (int) ($cell['rack_index'] ?? 9999),
@@ -265,7 +267,7 @@ class GaService
             $preferredCellId = null;
             if ($existingCell) {
                 $preferredCellId = $existingCell['cell_id'];
-            } elseif ($detail->item->home_cell_id) {
+            } elseif ($existingCellsForItem->isEmpty() && $detail->item->home_cell_id) {
                 $homeCell = $cellCandidates
                     ->first(fn(array $cell) =>
                         $cell['cell_id'] === $detail->item->home_cell_id

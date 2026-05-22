@@ -2,36 +2,45 @@
 @section('title', 'Co-Occurrence Sparepart')
 
 @section('content')
+@php
+    $isOperator = auth()->user()->isOperator();
+@endphp
+
 <div class="container-fluid pb-4">
 
-{{-- ── Header ── --}}
+{{-- Header --}}
 <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap" style="gap:8px;">
     <div>
         <h5 class="mb-0 font-weight-bold">
-            <i class="fas fa-project-diagram text-primary mr-2"></i>Analisis Co-Occurrence Sparepart
+            <i class="fas fa-project-diagram text-primary mr-2"></i>
+            {{ $isOperator ? 'Insight Put-Away' : 'Analisis Co-Occurrence Sparepart' }}
         </h5>
+        @if (! $isOperator)
         <small class="text-muted">
-            Pasangan sparepart yang sering datang bersamaan dalam satu inbound order —
+            Pasangan sparepart yang sering datang bersamaan dalam satu inbound order -
             digunakan GA sebagai komponen <strong>FC_AFF</strong> (bobot afinitas, maks 20 poin).
         </small>
+        @endif
     </div>
     <div class="text-right text-muted" style="font-size:11px;line-height:1.6;">
         <div>
             <i class="fas fa-history mr-1"></i>
             @if ($lastUpdated)
-                Diperbarui: <strong>{{ \Carbon\Carbon::parse($lastUpdated)->format('d M Y, H:i') }}</strong>
+                {{ $isOperator ? 'Update' : 'Diperbarui' }}:
+                <strong>{{ \Carbon\Carbon::parse($lastUpdated)->format('d M Y, H:i') }}</strong>
             @else
                 Belum ada data
             @endif
         </div>
         <div>
             <i class="fas fa-truck mr-1"></i>
-            Berdasarkan <strong>{{ number_format($ordersCompleted) }}</strong> inbound order selesai
+            <strong>{{ number_format($ordersCompleted) }}</strong> {{ $isOperator ? 'DO selesai' : 'inbound order selesai' }}
         </div>
     </div>
 </div>
 
-{{-- ── Metodologi Panel ── --}}
+@if (! $isOperator)
+{{-- Metodologi Panel --}}
 <div class="card mb-3" style="border-left:4px solid #007bff;">
     <div class="card-header py-2 d-flex justify-content-between align-items-center"
          data-toggle="collapse" data-target="#panelMetodologi" style="cursor:pointer;">
@@ -71,7 +80,7 @@
                                 affinity_score = co_count / max(co_count)
                             </div>
                             <p class="text-muted mb-0" style="font-size:12px;line-height:1.5;">
-                                Skor dinormalisasi ke rentang <strong>0.0 – 1.0</strong>.
+                                Skor dinormalisasi ke rentang <strong>0.0 - 1.0</strong>.
                                 Pasangan dengan co-occurrence tertinggi mendapat skor <strong>1.0</strong>;
                                 pasangan lain dihitung secara proporsional.
                                 Normalisasi diulang setiap kali ada order baru selesai.
@@ -100,32 +109,45 @@
         </div>
     </div>
 </div>
+@endif
 
-{{-- ── Summary Cards ── --}}
+{{-- Summary Cards --}}
 <div class="row mb-3">
-    <div class="col-6 col-md-4 mb-2">
+    <div class="col-6 col-md-{{ $isOperator ? '4' : '4' }} mb-2">
         <div class="small-box bg-info mb-0">
             <div class="inner">
                 <h4>{{ number_format($totalPairs) }}</h4>
-                <p>Total Pasangan Item</p>
+                <p>{{ $isOperator ? 'Pasangan Terkait' : 'Total Pasangan Item' }}</p>
             </div>
             <div class="icon"><i class="fas fa-link"></i></div>
         </div>
     </div>
-    <div class="col-6 col-md-4 mb-2">
-        <div class="small-box bg-success mb-0">
-            <div class="inner">
-                <h4>{{ number_format($avgScore, 4) }}</h4>
-                <p>Rata-rata Skor Afinitas</p>
+    @if ($isOperator)
+        <div class="col-6 col-md-4 mb-2">
+            <div class="small-box bg-success mb-0">
+                <div class="inner">
+                    <h4>{{ number_format($ordersCompleted) }}</h4>
+                    <p>DO Sumber Data</p>
+                </div>
+                <div class="icon"><i class="fas fa-truck-loading"></i></div>
             </div>
-            <div class="icon"><i class="fas fa-star"></i></div>
         </div>
-    </div>
+    @else
+        <div class="col-6 col-md-4 mb-2">
+            <div class="small-box bg-success mb-0">
+                <div class="inner">
+                    <h4>{{ number_format($avgScore, 4) }}</h4>
+                    <p>Rata-rata Skor Afinitas</p>
+                </div>
+                <div class="icon"><i class="fas fa-star"></i></div>
+            </div>
+        </div>
+    @endif
     <div class="col-6 col-md-4 mb-2">
         <div class="small-box bg-warning mb-0">
             <div class="inner">
                 <h4>{{ number_format($maxCount) }}</h4>
-                <p>Co-Occurrence Tertinggi</p>
+                <p>{{ $isOperator ? 'Frekuensi Tertinggi' : 'Co-Occurrence Tertinggi' }}</p>
             </div>
             <div class="icon"><i class="fas fa-fire"></i></div>
         </div>
@@ -133,15 +155,19 @@
 </div>
 
 @if ($totalPairs === 0)
-{{-- ── Empty State ── --}}
+{{-- Empty State --}}
 <div class="card mb-3">
     <div class="card-body text-center py-5">
         <i class="fas fa-project-diagram fa-4x mb-4 d-block text-muted" style="opacity:.3;"></i>
         <h5 class="font-weight-bold">Belum Ada Data Co-Occurrence</h5>
         <p class="text-muted mb-3">
-            Data afinitas dihitung otomatis setelah inbound order selesai diproses.<br>
-            Selesaikan minimal <strong>1 inbound order</strong> dengan 2 atau lebih jenis sparepart
-            untuk memulai analisis co-occurrence.
+            @if ($isOperator)
+                Data pasangan barang akan muncul setelah inbound selesai diproses.
+            @else
+                Data afinitas dihitung otomatis setelah inbound order selesai diproses.<br>
+                Selesaikan minimal <strong>1 inbound order</strong> dengan 2 atau lebih jenis sparepart
+                untuk memulai analisis co-occurrence.
+            @endif
         </p>
         <a href="{{ route('inbound.orders.index') }}" class="btn btn-outline-primary">
             <i class="fas fa-truck mr-1"></i>Lihat Inbound Order
@@ -150,12 +176,13 @@
 </div>
 @else
 
-{{-- ── Bar Chart Top 10 ── --}}
+@if (! $isOperator)
+{{-- Bar Chart Top 10 --}}
 <div class="card mb-3">
     <div class="card-header py-2">
         <span class="font-weight-bold">
             <i class="fas fa-chart-bar mr-1 text-primary"></i>
-            Top 10 Pasangan Sparepart — Co-Occurrence Tertinggi
+            Top 10 Pasangan Sparepart - Co-Occurrence Tertinggi
         </span>
     </div>
     <div class="card-body">
@@ -165,21 +192,22 @@
         <small class="text-muted">
             <i class="fas fa-info-circle mr-1"></i>
             Batang biru = jumlah co-occurrence (sumbu kiri).
-            Garis oranye = skor afinitas 0–1 (sumbu kanan).
-            Skor tertinggi selalu 1.0 — dinormalisasi relatif terhadap pasangan paling sering bersama.
+            Garis oranye = skor afinitas 0-1 (sumbu kanan).
+            Skor tertinggi selalu 1.0 - dinormalisasi relatif terhadap pasangan paling sering bersama.
         </small>
     </div>
 </div>
+@endif
 
 @endif
 
-{{-- ── DataTable ── --}}
+{{-- DataTable --}}
 <div class="card">
     <div class="card-header py-2">
         <div class="d-flex justify-content-between align-items-center flex-wrap" style="gap:6px;">
             <span class="font-weight-bold">
                 <i class="fas fa-table mr-1 text-primary"></i>
-                Daftar Pasangan Co-Occurrence
+                {{ $isOperator ? 'Barang yang Perlu Didekatkan' : 'Daftar Pasangan Co-Occurrence' }}
                 <span class="badge badge-primary ml-1">{{ $totalPairs }}</span>
             </span>
             <div class="d-flex align-items-center" style="gap:6px;">
@@ -201,35 +229,53 @@
                 <thead class="thead-light">
                     <tr>
                         <th class="text-center" width="40">#</th>
-                        <th>Sparepart A</th>
-                        <th>Sparepart B</th>
-                        <th class="text-center" width="130">Co-Occurrence</th>
-                        <th width="220">Skor Afinitas</th>
+                        <th>{{ $isOperator ? 'Sparepart 1' : 'Sparepart A' }}</th>
+                        <th>{{ $isOperator ? 'Sparepart 2' : 'Sparepart B' }}</th>
+                        <th class="text-center" width="130">{{ $isOperator ? 'Sering Bersama' : 'Co-Occurrence' }}</th>
+                        <th width="220">{{ $isOperator ? 'Prioritas Dekat' : 'Skor Afinitas' }}</th>
                     </tr>
                 </thead>
             </table>
         </div>
     </div>
     <div class="card-footer py-2">
-        <div class="d-flex flex-wrap align-items-center" style="gap:12px;">
-            <small class="text-muted font-weight-bold">Interpretasi skor:</small>
-            <small>
-                <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#28a745;"></span>
-                <strong style="color:#28a745;">≥ 0.70</strong> — Afinitas tinggi (sering bersama)
-            </small>
-            <small>
-                <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#fd7e14;"></span>
-                <strong style="color:#fd7e14;">0.40 – 0.69</strong> — Afinitas sedang
-            </small>
-            <small>
-                <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#6c757d;"></span>
-                <strong style="color:#6c757d;">&lt; 0.40</strong> — Afinitas rendah
-            </small>
-            <small class="text-muted ml-auto">
-                <i class="fas fa-lightbulb text-warning mr-1"></i>
-                Pasangan dengan skor tinggi diprioritaskan GA untuk cell berdekatan.
-            </small>
-        </div>
+        @if ($isOperator)
+            <div class="d-flex flex-wrap align-items-center" style="gap:12px;">
+                <small class="text-muted font-weight-bold">Arti warna:</small>
+                <small>
+                    <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#28a745;"></span>
+                    Hijau = dekat
+                </small>
+                <small>
+                    <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#fd7e14;"></span>
+                    Oranye = cukup dekat
+                </small>
+                <small>
+                    <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#6c757d;"></span>
+                    Abu-abu = rendah
+                </small>
+            </div>
+        @else
+            <div class="d-flex flex-wrap align-items-center" style="gap:12px;">
+                <small class="text-muted font-weight-bold">Interpretasi skor:</small>
+                <small>
+                    <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#28a745;"></span>
+                    <strong style="color:#28a745;">&ge; 0.70</strong> - Afinitas tinggi (sering bersama)
+                </small>
+                <small>
+                    <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#fd7e14;"></span>
+                    <strong style="color:#fd7e14;">0.40 - 0.69</strong> - Afinitas sedang
+                </small>
+                <small>
+                    <span class="d-inline-block mr-1" style="width:10px;height:10px;border-radius:2px;background:#6c757d;"></span>
+                    <strong style="color:#6c757d;">&lt; 0.40</strong> - Afinitas rendah
+                </small>
+                <small class="text-muted ml-auto">
+                    <i class="fas fa-lightbulb text-warning mr-1"></i>
+                    Pasangan dengan skor tinggi diprioritaskan GA untuk cell berdekatan.
+                </small>
+            </div>
+        @endif
     </div>
 </div>
 
@@ -241,14 +287,14 @@
 <script>
 $(document).ready(function () {
 
-    // Toggle icon for metodologi panel
-    $('#panelMetodologi').on('show.bs.collapse', function () {
-        $('#iconMetodologi').removeClass('fa-angle-right').addClass('fa-angle-down');
-    }).on('hide.bs.collapse', function () {
-        $('#iconMetodologi').removeClass('fa-angle-down').addClass('fa-angle-right');
-    });
+    if ($('#panelMetodologi').length) {
+        $('#panelMetodologi').on('show.bs.collapse', function () {
+            $('#iconMetodologi').removeClass('fa-angle-right').addClass('fa-angle-down');
+        }).on('hide.bs.collapse', function () {
+            $('#iconMetodologi').removeClass('fa-angle-down').addClass('fa-angle-right');
+        });
+    }
 
-    // ── DataTable ──────────────────────────────────────────────────────────
     var table = $('#datatable').DataTable({
         processing: true,
         serverSide: true,
@@ -275,8 +321,7 @@ $(document).ready(function () {
         table.ajax.reload();
     });
 
-    // ── Highcharts Bar+Line ────────────────────────────────────────────────
-    @if ($totalPairs > 0)
+    @if ($totalPairs > 0 && ! $isOperator)
     var top10 = @json($top10);
     var labels = top10.map(function(d){ return d.label; });
     var counts = top10.map(function(d){ return d.count; });
@@ -292,7 +337,7 @@ $(document).ready(function () {
         },
         yAxis: [
             { title: { text: 'Jumlah Co-Occurrence' }, min: 0, allowDecimals: false },
-            { title: { text: 'Skor Afinitas (0–1)' }, min: 0, max: 1, opposite: true }
+            { title: { text: 'Skor Afinitas (0-1)' }, min: 0, max: 1, opposite: true }
         ],
         tooltip: {
             shared: true,
