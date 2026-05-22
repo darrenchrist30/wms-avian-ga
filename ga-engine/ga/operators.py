@@ -118,13 +118,12 @@ def initialize_population(
     cells:    List[CellInput],
 ) -> List[List[int]]:
     """
-    Random Initialization — seluruh populasi dibangkitkan secara acak (Holland, 1975).
+    Random Initialization (Holland, 1975; Goldberg, 1989).
 
-    Setiap kromosom diisi dengan memilih cell_id secara seragam acak dari
-    feasible_cell_pool per item (capacity-aware). Pendekatan ini memastikan
-    keberagaman (diversity) maksimal di populasi awal, sesuai standar GA umum.
-
-    Fallback ke semua cell jika tidak ada cell feasible (mencegah dead-end).
+    Seluruh populasi dibangkitkan secara acak dari feasible_cell_pool per item.
+    Populasi yang cukup besar (150 kromosom) memastikan coverage ruang solusi
+    yang memadai sehingga sel-sel kandidat terbaik memiliki probabilitas tinggi
+    untuk tersampel sejak generasi pertama.
 
     Referensi: Holland, J.H. (1975). Adaptation in Natural and Artificial Systems.
                University of Michigan Press, Ann Arbor.
@@ -135,14 +134,11 @@ def initialize_population(
 
     for _ in range(pop_size):
         chromosome: List[int] = []
-
         for item in items:
             if item.preferred_cell_id is not None:
                 chromosome.append(item.preferred_cell_id)
                 continue
-
             chromosome.append(random.choice(feasible_cell_pool(item, cells)))
-
         population.append(chromosome)
 
     return population

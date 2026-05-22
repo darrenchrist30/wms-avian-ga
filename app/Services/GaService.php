@@ -345,15 +345,15 @@ class GaService
         // Parameter GA adaptif: makin sedikit item → konvergen lebih cepat → parameter lebih ringan.
         // Dengan early stopping, GA berhenti begitu tidak ada perbaikan k generasi berturut-turut,
         // sehingga parameter batas atas (max_generations) jarang dicapai untuk order kecil.
-        // Populasi kecil → butuh lebih banyak generasi untuk konvergen.
-        // Populasi besar → ruang solusi lebih terjelajah per generasi, cukup generasi lebih sedikit.
-        // Early stopping: berhenti jika tidak ada perbaikan selama 30–50 generasi (standar GA).
+        // Populasi tetap 150 untuk semua ukuran order — memastikan coverage ruang
+        // solusi yang memadai dengan inisialisasi acak murni (Holland, 1975).
+        // Early stopping: berhenti jika tidak ada perbaikan selama 30–50 generasi.
         $itemCount = count($items);
         [$population, $maxGenerations, $earlyStopping] = match (true) {
-            $itemCount <= 3  => [30,  500, 30],
-            $itemCount <= 6  => [50,  300, 35],
-            $itemCount <= 10 => [70,  200, 40],
-            default          => [100, 100, 50],
+            $itemCount <= 3  => [150, 500, 30],
+            $itemCount <= 6  => [150, 300, 35],
+            $itemCount <= 10 => [150, 200, 40],
+            default          => [150, 150, 50],
         };
 
         return [
