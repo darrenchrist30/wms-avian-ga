@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('items_ref')) {
+            return;
+        }
         Schema::create('items_ref', function (Blueprint $table) {
             $table->id();
             $table->string('kode', 150)->index();   // ERP item code (Qspart.kode)
