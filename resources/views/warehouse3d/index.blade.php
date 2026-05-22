@@ -357,7 +357,7 @@ const CD  = 1.8;   // cell depth  (Z)
 const WIDE_RACK_CODES     = new Set(['1','2','3','4','5','6','7','8','9','10','11']);
 // Rak vertikal 12–15 = perpendicular ke rak utama, memanjang di arah Z
 const VERTICAL_RACK_CODES = new Set(['12','13','14','15']);
-const VW = 32.0; // panjang Z rak vertikal (sama dengan span rak 1–11: Z=0 s/d Z=32)
+const VW = WW;   // panjang Z rak vertikal = WW (14m = 7 kolom × 2m, sama seperti R1-R11)
 
 // ── Mspart layout constants ────────────────────────────────────────────────
 // MSpart columns use the existing 7 wide rack bays. Grup is data context, not another X subdivision.
@@ -900,6 +900,26 @@ function buildVerticalRack(rx, rz, rack) {
     lbl.userData.scaleWide   = false;
     scene.add(lbl);
 
+    // Satu hitbox besar mencakup SELURUH tinggi rak — klik di mana saja pada rak ini terdeteksi
+    if (rack.cells.length > 0) {
+        const firstCell = rack.cells[0];
+        const fhGeo = new THREE.BoxGeometry(CW * 4, rh + 0.5, VW);
+        const fhMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+        const fhBox = new THREE.Mesh(fhGeo, fhMat);
+        fhBox.position.set(rx, (rh + 0.5) / 2, rz);
+        fhBox.userData = {
+            cellId:    firstCell.cell_id,
+            cellCode:  firstCell.display_code ?? firstCell.code,
+            status:    firstCell.status,
+            util:      firstCell.utilization || 0,
+            rackW:     CW,
+            columnKey: rack.rack_code,
+            rackCode:  rack.rack_code,
+        };
+        scene.add(fhBox);
+        cellMeshes.push(fhBox);
+    }
+
     // Cell panels (satu panel per level, memanjang di Z = VW)
     rack.cells.forEach(cell => {
         const lvl = (cell.level ?? 1) - 1;
@@ -907,7 +927,7 @@ function buildVerticalRack(rx, rz, rack) {
             color:       cellHex(cell),
             emissive:    new THREE.Color(cellEmissive(cell)),
             transparent: true,
-            opacity:     cellOpacity(cell),
+            opacity:     Math.max(0.28, cellOpacity(cell)), // min 0.28 agar rak terlihat
             side:        THREE.DoubleSide,
             depthWrite:  false,
         });
@@ -925,31 +945,6 @@ function buildVerticalRack(rx, rz, rack) {
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
-
-        // Invisible hitbox 3× lebih lebar di X agar R12-R15 mudah diklik dari semua sudut kamera
-        const hbGeo = new THREE.BoxGeometry(CW * 3, CH, VW);
-        const hbMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-        const hitbox = new THREE.Mesh(hbGeo, hbMat);
-        hitbox.position.set(rx, lvl * CH + CH / 2, rz);
-        hitbox.userData = { ...mesh.userData };
-        scene.add(hitbox);
-        cellMeshes.push(hitbox);
-
-        const nItems = itemCountForCell(cell);
-        if (nItems > 0) {
-            const h      = hashCell(cell.code);
-            const shelfY = lvl * CH + 0.066;
-            ITEM_LAYOUTS[nItems].forEach(([xOff, zOff], si) => {
-                const iType = (h + si * 7) % ITEM_GEOS.length;
-                const ih    = ITEM_H[iType];
-                const im    = new THREE.Mesh(ITEM_GEOS[iType], ITEM_MATS[iType]);
-                im.position.set(rx + xOff, shelfY + ih / 2, rz + zOff);
-                im.rotation.y = ((h * 13 + si * 97) % 628) / 100;
-                im.castShadow = true;
-                scene.add(im);
-                itemMeshes.push(im);
-            });
-        }
     });
 }
 
