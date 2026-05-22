@@ -349,7 +349,7 @@ $('#btnClearHighlight').on('click', function () { clearHighlight(); });
 @if($selectedWarehouse)
 // ── Constants ─────────────────────────────────────────────────────────────
 const CW  = 2.0;   // standard rack width (X)
-const WW  = 28.0;  // wide rack width — 28 m ÷ 7 kolom = 4.0 m/kolom (landscape rectangle)
+const WW  = 14.0;  // wide rack width — 14 m ÷ 7 kolom = 2.0 m/kolom
 const CH  = 1.4;   // cell height — kembali ke semula
 const CD  = 1.8;   // cell depth  (Z) — kembali ke semula
 
