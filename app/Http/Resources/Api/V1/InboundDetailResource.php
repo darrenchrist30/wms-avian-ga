@@ -16,7 +16,6 @@ class InboundDetailResource extends JsonResource
             'sku'               => $this->item?->sku,
             'erp_item_code'     => $this->item?->erp_item_code,
             'item_name'         => $this->item?->name,
-            'lpn'               => $this->lpn,
             'quantity_ordered'  => $this->quantity_ordered,
             'quantity_received' => $this->quantity_received,
             'status'            => $this->status,

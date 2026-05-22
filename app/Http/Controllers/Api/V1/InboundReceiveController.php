@@ -52,7 +52,7 @@ class InboundReceiveController extends Controller
             $isNew      = $result['is_new'];
             $statusCode = $isNew ? 201 : 200;
             $message    = $isNew
-                ? 'Inbound transaction berhasil dibuat. Menunggu proses GA oleh supervisor.'
+                ? 'Inbound transaction berhasil dibuat.'
                 : 'DO dengan nomor ini sudah pernah diterima sebelumnya. Data lama dikembalikan.';
 
             // Notifikasi ke Admin, Supervisor & Operator saat DO baru masuk dari ERP

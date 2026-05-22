@@ -28,7 +28,6 @@ class InboundTransactionResource extends JsonResource
             'processed_at'  => $this->processed_at?->toIso8601String(),
 
             // Referensi dokumen
-            'erp_reference'  => $this->erp_reference,
             'ref_doc_spk'    => $this->ref_doc_spk,
             'batch_header'   => $this->batch_header,
             'no_bukti_manual'=> $this->no_bukti_manual,
@@ -61,7 +60,7 @@ class InboundTransactionResource extends JsonResource
     private function statusLabel(): string
     {
         return match($this->status) {
-            'inbound'   => 'Diterima — Menunggu Proses GA',
+            'inbound'   => 'Diterima — Menunggu Put-Away',
             'put_away'  => 'Sedang Put-Away oleh Operator',
             'completed' => 'Selesai — Semua Item Tersimpan',
             default     => $this->status,
