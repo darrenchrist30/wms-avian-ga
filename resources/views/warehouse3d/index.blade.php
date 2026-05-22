@@ -353,10 +353,10 @@ const WW  = 14.0;  // wide rack width — 14 m ÷ 7 kolom = 2.0 m/kolom
 const CH  = 1.4;   // cell height — 2.0 m lebar ÷ 1.4 m tinggi ≈ 1.43:1 landscape
 const CD  = 1.8;   // cell depth  (Z)
 
-// Rak wide = rak utama 1–15 (tampak atas: batang horizontal panjang)
-const WIDE_RACK_CODES     = new Set(['1','2','3','4','5','6','7','8','9','10','11','12','13','14','15']);
-// Tidak ada rak vertikal khusus — R12-R15 dirender sama seperti R1-R11
-const VERTICAL_RACK_CODES = new Set([]);
+// Rak wide = rak utama 1–11 (tampak atas: batang horizontal panjang)
+const WIDE_RACK_CODES     = new Set(['1','2','3','4','5','6','7','8','9','10','11']);
+// Rak vertikal 12–15 = perpendicular ke rak utama, memanjang di arah Z
+const VERTICAL_RACK_CODES = new Set(['12','13','14','15']);
 const VW = 32.0; // panjang Z rak vertikal (sama dengan span rak 1–11: Z=0 s/d Z=32)
 
 // ── Mspart layout constants ────────────────────────────────────────────────
@@ -1560,7 +1560,10 @@ renderer.domElement.addEventListener('click', function (e) {
     const hits = raycaster.intersectObjects(cellMeshes);
     if (!hits.length) return;
 
-    const ud = (hits.find(h => h.object.userData.isMspart) || hits[0]).object.userData;
+    // R12-R15 cells may be behind other meshes — check all hits and prefer vertical rack
+    const VERT_CODES = new Set(['12','13','14','15']);
+    const vertHit = hits.find(h => VERT_CODES.has(String(h.object.userData.rackCode)));
+    const ud = (hits.find(h => h.object.userData.isMspart) || vertHit || hits[0]).object.userData;
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');
 
