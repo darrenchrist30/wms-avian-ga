@@ -370,6 +370,10 @@ class PyGadGeneticAlgorithmEngine:
             # match pull the item to a far rack. If any close physical fallback
             # exists, keep the search local. Only widen when local cells cannot
             # receive the item.
+            same_column_pool = self._same_column_expansion_pool(item, feasible, anchors)
+            if same_column_pool:
+                return self._unique_cell_ids(same_column_pool)
+
             nearby_all = self._sort_by_distance_then_capacity(feasible, anchors)
             nearby_compatible = self._sort_by_distance_then_capacity(compatible, anchors)
             nearby_neutral = self._sort_by_distance_then_capacity(neutral, anchors)
@@ -441,6 +445,60 @@ class PyGadGeneticAlgorithmEngine:
                 int(cell.cell_index if cell.cell_index is not None else 9999),
                 int(cell.cell_id),
             ),
+        )
+
+    def _same_column_expansion_pool(
+        self,
+        item,
+        cells: List[CellInput],
+        anchors: List[CellInput],
+    ) -> List[CellInput]:
+        """
+        Prefer the nearest free baris in the same blok-grup-kolom when an SKU's
+        exact existing cell is full. This models warehouse expansion more
+        naturally than moving to a nearby-but-different column.
+        """
+        pool: List[CellInput] = []
+
+        for cell in cells:
+            if not self._is_category_safe_expansion(item, cell):
+                continue
+
+            for anchor in anchors:
+                if (
+                    cell.blok == anchor.blok
+                    and str(cell.grup).upper() == str(anchor.grup).upper()
+                    and cell.kolom == anchor.kolom
+                    and cell.baris != anchor.baris
+                ):
+                    pool.append(cell)
+                    break
+
+        return sorted(
+            pool,
+            key=lambda cell: (
+                min(
+                    abs(int(cell.baris or 0) - int(anchor.baris or 0))
+                    for anchor in anchors
+                    if (
+                        cell.blok == anchor.blok
+                        and str(cell.grup).upper() == str(anchor.grup).upper()
+                        and cell.kolom == anchor.kolom
+                    )
+                ),
+                0 if cell.dominant_category_id == item.category_id else 1,
+                -int(cell.capacity_remaining),
+                int(cell.cell_id),
+            ),
+        )[:20]
+
+    @staticmethod
+    def _is_category_safe_expansion(item, cell: CellInput) -> bool:
+        return (
+            cell.dominant_category_id is None
+            or item.category_id is None
+            or cell.dominant_category_id == item.category_id
+            or item.item_id in cell.existing_item_ids
         )
 
     @staticmethod

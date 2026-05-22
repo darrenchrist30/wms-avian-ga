@@ -357,7 +357,7 @@ def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> f
         return (
             abs(cell_a.blok - cell_b.blok) * 10
             + abs(grup_a - grup_b) * 3
-            + abs(cell_a.kolom - cell_b.kolom)
+            + abs(cell_a.kolom - cell_b.kolom) * 2
             + abs(cell_a.baris - cell_b.baris) * 0.5
         )
 
