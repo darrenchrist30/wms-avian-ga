@@ -804,11 +804,11 @@ $('#btnProcessGA').on('click', function () {
 
         Swal.fire({
             title: 'GA Sedang Berjalan...',
-            html: '<div class="my-2"><i class="fas fa-dna fa-spin fa-2x text-primary"></i></div>'
-                + 'Mohon tunggu, proses optimasi sedang berlangsung.',
+            html: '<div class="my-3"><div class="spinner-border text-success" style="width:3rem;height:3rem;"></div></div>'
+                + '<div class="font-weight-bold">Memproses GA...</div>'
+                + '<small class="text-muted">Harap tunggu, GA sedang berjalan untuk order ini</small>',
             allowOutsideClick: false,
             showConfirmButton: false,
-            didOpen: () => Swal.showLoading()
         });
 
         $.ajax({
@@ -831,6 +831,8 @@ $('#btnProcessGA').on('click', function () {
                     }).then(result => {
                         if (result.isConfirmed) {
                             showNavLoader(() => window.location.href = putAwayUrl);
+                        } else {
+                            window.location.reload();
                         }
                     });
                 } else {

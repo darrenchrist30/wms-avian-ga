@@ -62,7 +62,10 @@
       "Bash(Remove-Item \"app/Console/Commands/PromoteRefData.php\" -Force)",
       "Bash(Remove-Item \"app/Console/Commands/RevertRefData.php\" -Force)",
       "Bash(git commit -m 'fix: prioritize R12-R15 hits in raycaster click handler *)",
-      "Bash(railway logs *)"
+      "Bash(railway logs *)",
+      "Bash(findstr \":8001\")",
+      "Bash(Get-Content \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\.env\")",
+      "Bash(Select-String \"APP_URL\")"
     ]
   }
 }
