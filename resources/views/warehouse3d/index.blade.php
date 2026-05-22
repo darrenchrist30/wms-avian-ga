@@ -366,6 +366,7 @@ const KOLOM_XS  = [6, 4, 2, 0, -2, -4, -6];
 const MSPART_CW = (WW / 7) - 0.08;
 const COLUMN_DETAIL_URL = '{{ route("warehouse3d.column-detail") }}';
 const GRUP_DETAIL_URL   = '{{ route("warehouse3d.grup-detail") }}';
+const AREA_DETAIL_URL   = '{{ route("warehouse3d.area-detail") }}';
 const DISPLAY_EXPANDED  = {{ request('expanded') ? 'true' : 'false' }};
 
 const ZONE_LABEL = { A: '#4fc3f7', B: '#ffb74d', C: '#ef9a9a' };
@@ -603,15 +604,22 @@ function buildSpecialArea(rx, rz, def, rack) {
     base.position.set(rx, baseH / 2, rz);
     scene.add(base);
 
-    // Slab cell tipis ditumpuk di atas platform (hanya jika noCells tidak aktif)
+    // Area khusus dihitung sebagai satu tempat, bukan rak bertingkat.
     const cGeo = new THREE.BoxGeometry(AW - 0.18, cellH, AD - 0.22);
     let topY = baseH;
-    if (!def.noCells) rack.cells.forEach(cell => {
+    if (rack.cells.length > 0) {
+        const firstCell = rack.cells[0];
+        const util = rack.cells.reduce((t, c) => t + Number(c.capacity_used || 0), 0);
+        const max  = rack.cells.reduce((t, c) => t + Number(c.capacity_max || 0), 0);
+        const areaCell = {
+            status: util <= 0 ? 'available' : (max > 0 && util >= max ? 'full' : 'partial'),
+            utilization: max > 0 ? Math.round(util / max * 100) : 0,
+        };
         const mat = new THREE.MeshLambertMaterial({
-            color:       cellHex(cell),
-            emissive:    new THREE.Color(cellEmissive(cell)),
+            color:       util > 0 ? cellHex(areaCell) : def.hex,
+            emissive:    new THREE.Color(cellEmissive(areaCell)),
             transparent: true,
-            opacity:     cellOpacity(cell),
+            opacity:     util > 0 ? Math.max(0.50, cellOpacity(areaCell)) : 0.46,
             side:        THREE.DoubleSide,
             depthWrite:  false,
         });
@@ -619,18 +627,21 @@ function buildSpecialArea(rx, rz, def, rack) {
         mesh.renderOrder = 1;
         mesh.position.set(rx, topY + cellH / 2, rz);
         mesh.userData = {
-            cellId:    cell.cell_id,
-            cellCode:  cell.display_code ?? cell.code,
-            status:    cell.status,
-            util:      cell.utilization,
-            rackW:     AW,
-            columnKey: rack.rack_code + '_lv' + (cell.level ?? 1),
-            rackCode:  rack.rack_code,
+            cellId:           firstCell.cell_id,
+            cellIds:          rack.cells.map(c => c.cell_id),
+            cellCode:         def.label,
+            status:           areaCell.status,
+            util:             areaCell.utilization,
+            rackW:            AW,
+            rackCode:         rack.rack_code,
+            specialAreaKey:   rack.rack_code,
+            specialAreaLabel: def.label,
+            isSpecialArea:    true,
         };
         scene.add(mesh);
         cellMeshes.push(mesh);
         topY += cellH + gap;
-    });
+    }
 
     // Label area — skip jika pasangan rak sudah punya label (noLabel)
     if (!def.noLabel) {
@@ -704,6 +715,8 @@ const ITEM_LAYOUTS = [
     [[-0.48, -0.28], [ 0.48, -0.28], [-0.48,  0.28], [ 0.48,  0.28]],              // 4 items
 ];
 
+const MSPART_GROUP_LEVEL = { A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8 };
+
 function itemCountForCell(cell) {
     if (cell.status === 'blocked') return 0;    // blocked → no items shown
     if (cell.utilization === 0)    return 0;    // empty   → no items
@@ -719,7 +732,6 @@ function itemCountForCell(cell) {
 // (yellow=partial, red=full, teal=empty). Detail per-baris muncul saat klik.
 function buildMspartCells(rx, rz, rackCode, cells) {
     const geo = new THREE.BoxGeometry(MSPART_CW, CH - 0.08, CD + 0.04);
-    const groupLevel = { A:1, B:2, C:3, D:4, E:5, F:6, G:7, H:8 };
     const columns = new Map();
 
     cells.forEach(cell => {
@@ -750,7 +762,7 @@ function buildMspartCells(rx, rz, rackCode, cells) {
         const cell = col.sample;
         const gx  = GRUP_X[cell.grup]   ?? 0;
         const kx  = KOLOM_XS[(cell.kolom ?? 1) - 1] ?? 0;
-        const lv  = (groupLevel[cell.grup] ?? 1) - 1;
+        const lv  = (MSPART_GROUP_LEVEL[cell.grup] ?? 1) - 1;
         const y   = lv * CH + CH / 2;
 
         // Aggregate status & utilization untuk 9 baris dalam kolom ini
@@ -821,7 +833,8 @@ const ZONE_LABEL_POS = {
 
 // ── Rak vertikal 12–15: perpendicular ke rak utama, memanjang di arah Z ──────
 function buildVerticalRack(rx, rz, rack) {
-    const rh   = rack.total_levels * CH;
+    const visualLevels = Math.max(Number(rack.total_levels || 0), 8);
+    const rh   = visualLevels * CH;
     const pOff = 0.045;
 
     // Posisi Z upright: dari rz-VW/2 ke rz+VW/2 setiap 2 m
@@ -866,7 +879,7 @@ function buildVerticalRack(rx, rz, rack) {
 
     // Load beam (X direction) di setiap upright Z, setiap level
     const bGeo = new THREE.BoxGeometry(CW + 0.10, 0.075, 0.060);
-    for (let lv = 0; lv <= rack.total_levels; lv++) {
+    for (let lv = 0; lv <= visualLevels; lv++) {
         uprightZs.forEach(pz => {
             const b = new THREE.Mesh(bGeo, beamMat);
             b.position.set(rx, lv * CH, pz);
@@ -886,7 +899,7 @@ function buildVerticalRack(rx, rz, rack) {
 
     // Shelf deck (spanning full VW in Z)
     const sfGeo = new THREE.BoxGeometry(CW - 0.10, 0.042, VW - 0.15);
-    for (let lv = 0; lv < rack.total_levels; lv++) {
+    for (let lv = 0; lv < visualLevels; lv++) {
         const sf = new THREE.Mesh(sfGeo, beamMat);
         sf.position.set(rx, lv * CH + 0.024, rz);
         scene.add(sf);
@@ -900,28 +913,22 @@ function buildVerticalRack(rx, rz, rack) {
     lbl.userData.scaleWide   = false;
     scene.add(lbl);
 
-    // Satu hitbox besar mencakup SELURUH tinggi rak — klik di mana saja pada rak ini terdeteksi
-    if (rack.cells.length > 0) {
-        const firstCell = rack.cells[0];
-        const fhGeo = new THREE.BoxGeometry(CW * 4, rh + 0.5, VW);
-        const fhMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
-        const fhBox = new THREE.Mesh(fhGeo, fhMat);
-        fhBox.position.set(rx, (rh + 0.5) / 2, rz);
-        fhBox.userData = {
-            cellId:    firstCell.cell_id,
-            cellCode:  firstCell.display_code ?? firstCell.code,
-            status:    firstCell.status,
-            util:      firstCell.utilization || 0,
-            rackW:     CW,
-            columnKey: rack.rack_code,
-            rackCode:  rack.rack_code,
-        };
-        scene.add(fhBox);
-        cellMeshes.push(fhBox);
-    }
-
     // Cell panels (satu panel per level, memanjang di Z = VW)
-    rack.cells.forEach(cell => {
+    const cellsByLevel = new Map(rack.cells.map(cell => [Number(cell.level || 1), cell]));
+    const sampleCell = rack.cells[0] || {};
+    const verticalCells = [];
+    for (let lvNo = 1; lvNo <= visualLevels; lvNo++) {
+        verticalCells.push(cellsByLevel.get(lvNo) || {
+            ...sampleCell,
+            cell_id: sampleCell.cell_id,
+            code: `${rack.rack_code}-${String.fromCharCode(64 + lvNo)}`,
+            display_code: `${rack.rack_code}-${String.fromCharCode(64 + lvNo)}`,
+            level: lvNo,
+            status: 'available',
+            utilization: 0,
+        });
+    }
+    verticalCells.forEach(cell => {
         const lvl = (cell.level ?? 1) - 1;
         const mat = new THREE.MeshLambertMaterial({
             color:       cellHex(cell),
@@ -940,7 +947,7 @@ function buildVerticalRack(rx, rz, rack) {
             status:    cell.status,
             util:      cell.utilization,
             rackW:     CW,
-            columnKey: rack.rack_code,
+            columnKey: rack.rack_code + '_lv' + (cell.level ?? 1),
             rackCode:  rack.rack_code,
         };
         scene.add(mesh);
@@ -959,7 +966,12 @@ function buildRack(rx, rz, rack) {
 
     const isWide = WIDE_RACK_CODES.has(rack.rack_code);
     const RW     = isWide ? WW : CW;
-    const rh     = rack.total_levels * CH;
+    const mspartCells  = rack.cells.filter(c => c.grup != null);
+    const regularCells = rack.cells.filter(c => c.grup == null);
+    const maxMspartLevel = mspartCells.reduce((max, c) => Math.max(max, MSPART_GROUP_LEVEL[c.grup] || 0), 0);
+    const maxRegularLevel = regularCells.reduce((max, c) => Math.max(max, Number(c.level || 0)), 0);
+    const visualLevels = Math.max(Number(rack.total_levels || 0), maxMspartLevel, maxRegularLevel, 1);
+    const rh     = visualLevels * CH;
     const pOff   = 0.045;
 
     // Hitung posisi X upright: 7 kolom untuk wide rack, 1 kolom untuk standar
@@ -1005,7 +1017,7 @@ function buildRack(rx, rz, rack) {
 
     // Load beam (orange, depan & belakang, setiap level)
     const bGeo = new THREE.BoxGeometry(RW + 0.10, 0.075, 0.060);
-    for (let lv = 0; lv <= rack.total_levels; lv++) {
+    for (let lv = 0; lv <= visualLevels; lv++) {
         [rz - CD / 2 + 0.058, rz + CD / 2 - 0.058].forEach(bz => {
             const b = new THREE.Mesh(bGeo, beamMat);
             b.position.set(rx, lv * CH, bz);
@@ -1015,7 +1027,7 @@ function buildRack(rx, rz, rack) {
 
     // Shelf deck (orange, tiap level)
     const sfGeo = new THREE.BoxGeometry(RW - 0.10, 0.042, CD - 0.15);
-    for (let lv = 0; lv < rack.total_levels; lv++) {
+    for (let lv = 0; lv < visualLevels; lv++) {
         const sf = new THREE.Mesh(sfGeo, beamMat);
         sf.position.set(rx, lv * CH + 0.024, rz);
         scene.add(sf);
@@ -1030,8 +1042,6 @@ function buildRack(rx, rz, rack) {
     scene.add(lbl);
 
     // ── Mspart cells (have blok/grup/kolom/baris): rendered as column panels ─
-    const mspartCells  = rack.cells.filter(c => c.grup != null);
-    const regularCells = rack.cells.filter(c => c.grup == null);
     if (mspartCells.length > 0) {
         buildMspartCells(rx, rz, rack.rack_code, mspartCells);
     }
@@ -1297,6 +1307,17 @@ function toNDC(e) {
     mouse.y = -((e.clientY - r.top)  / r.height)  * 2 + 1;
 }
 
+function pickInteractiveHit(hits) {
+    if (!hits.length) return null;
+
+    // R12-R15 are perpendicular and can visually overlap the MSpart rack panels.
+    // Prefer the actual level panel first.
+    return hits.find(h => VERTICAL_RACK_CODES.has(String(h.object.userData.rackCode)))
+        || hits.find(h => h.object.userData.isMspart)
+        || hits.find(h => h.object.userData.cellId)
+        || hits[0];
+}
+
 renderer.domElement.addEventListener('mousemove', function (e) {
     toNDC(e);
     raycaster.setFromCamera(mouse, camera);
@@ -1313,14 +1334,25 @@ renderer.domElement.addEventListener('mousemove', function (e) {
     hoveredMeshes = [];
 
     if (hits.length) {
-        const m  = (hits.find(h => h.object.userData.isMspart) || hits[0]).object;
+        const picked = pickInteractiveHit(hits);
+        if (!picked) return;
+        const m  = picked.object;
         const ud = m.userData;
         const hoverMat = new THREE.MeshLambertMaterial({
             color: 0xfbbf24, emissive: new THREE.Color(0x3d1500),
             transparent: true, opacity: 0.88, side: THREE.DoubleSide, depthWrite: false,
         });
 
-        if (ud.isMspart) {
+        if (ud.isSpecialArea) {
+            m.userData._savedMat = m.material;
+            m.material    = hoverMat;
+            m.renderOrder = 2;
+            hoveredMeshes = [m];
+            tooltip.innerHTML = `
+                <strong style="color:#fbbf24">${ud.specialAreaLabel || ud.cellCode}</strong><br>
+                Status: <span style="color:#94a3b8">${ud.status}</span><br>
+                <span style="color:#64748b;font-size:10px">Klik untuk detail area</span>`;
+        } else if (ud.isMspart) {
             // MSpart: hover the full blok-grup row across the existing K1-K7 shelf bays.
             const rowMeshes = cellMeshes.filter(cm => cm.userData.isMspart && cm.userData.rowKey === ud.rowKey);
             rowMeshes.forEach(cm => {
@@ -1549,20 +1581,80 @@ function showMspartRowDetail(blok, grup) {
     });
 }
 
+function showSpecialAreaDetail(rackCode, label) {
+    $('#modalCellCode').text(label || `Area ${rackCode}`);
+    $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
+    $('#cellModal').modal('show');
+
+    $.getJSON(AREA_DETAIL_URL, { rack_code: rackCode, label }, function (res) {
+        const a  = res.area;
+        const uc = a.utilization >= 80 ? 'danger' : a.utilization >= 40 ? 'warning' : 'success';
+        const rows = res.stocks.length === 0
+            ? '<tr><td colspan="5" class="text-center text-muted py-3">Tidak ada stok di area ini.</td></tr>'
+            : res.stocks.map((s, i) => `<tr>
+                <td class="text-center">${i + 1}</td>
+                <td><strong>${s.item_name}</strong><br><small class="text-muted">${s.sku}</small></td>
+                <td class="text-center font-weight-bold">${Number(s.quantity || 0).toLocaleString('id')} <small>${s.unit || ''}</small></td>
+                <td class="text-center"><small>${s.inbound_date || '-'}</small></td>
+                <td class="text-center"><small>${s.cell_code || '-'}</small></td>
+            </tr>`).join('');
+
+        $('#cellModalBody').html(`
+            <div class="row mx-0 border-bottom pb-3 pt-2">
+                <div class="col-md-4 mb-2">
+                    <small class="text-muted">Lokasi</small>
+                    <div class="font-weight-bold">${a.warehouse} &rsaquo; ${a.label}</div>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <small class="text-muted">Status</small>
+                    <div><span class="badge badge-${a.status === 'available' ? 'success' : a.status === 'full' ? 'danger' : 'warning'} px-2">${a.status}</span></div>
+                </div>
+                <div class="col-md-5 mb-2">
+                    <small class="text-muted">Kapasitas &mdash; ${a.utilization}% terpakai</small>
+                    <div class="progress mt-1" style="height:8px">
+                        <div class="progress-bar bg-${uc}" style="width:${Math.min(100, Number(a.utilization || 0))}%"></div>
+                    </div>
+                    <small class="text-muted">${Number(a.capacity_used || 0).toLocaleString('id')} / ${Number(a.capacity_max || 0).toLocaleString('id')}</small>
+                </div>
+            </div>
+            <div class="p-2">
+                <strong class="d-block mb-2"><i class="fas fa-boxes mr-1 text-primary"></i>Isi Stok Area</strong>
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="thead-light">
+                            <tr>
+                                <th class="text-center" width="35">#</th>
+                                <th>Item</th>
+                                <th class="text-center" width="90">Qty</th>
+                                <th class="text-center" width="105">Tgl Masuk</th>
+                                <th class="text-center" width="90">Ref</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+            </div>`);
+    }).fail(function () {
+        $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail area.</div>');
+    });
+}
+
 renderer.domElement.addEventListener('click', function (e) {
     toNDC(e);
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(cellMeshes);
     if (!hits.length) return;
 
-    // R12-R15 cells may be behind other meshes — check all hits and prefer vertical rack
-    const VERT_CODES = new Set(['12','13','14','15']);
-    const vertHit = hits.find(h => VERT_CODES.has(String(h.object.userData.rackCode)));
-    const ud = (hits.find(h => h.object.userData.isMspart) || vertHit || hits[0]).object.userData;
+    const picked = pickInteractiveHit(hits);
+    if (!picked) return;
+    const ud = picked.object.userData;
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');
 
-    if (ud.isMspart && ud.columnKey) {
+    if (ud.isSpecialArea) {
+        showSpecialAreaDetail(ud.rackCode, ud.specialAreaLabel || ud.cellCode);
+
+    } else if (ud.isMspart && ud.columnKey) {
         showMspartRowDetail(ud.blok, ud.grup);
 
     } else {

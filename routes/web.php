@@ -172,6 +172,7 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
     Route::prefix('warehouse-3d')->name('warehouse3d.')->group(function () {
         Route::get('/', [\App\Http\Controllers\Warehouse3DController::class, 'index'])->name('index');
         Route::get('data', [\App\Http\Controllers\Warehouse3DController::class, 'data'])->name('data');
+        Route::get('area', [\App\Http\Controllers\Warehouse3DController::class, 'areaDetail'])->name('area-detail');
         Route::get('cell/{cell}', [\App\Http\Controllers\Warehouse3DController::class, 'cellDetail'])->name('cell-detail');
         Route::get('cells-by-item', [\App\Http\Controllers\Warehouse3DController::class, 'cellsByItem'])->name('cells-by-item');
         Route::get('column', [\App\Http\Controllers\Warehouse3DController::class, 'columnDetail'])->name('column-detail');

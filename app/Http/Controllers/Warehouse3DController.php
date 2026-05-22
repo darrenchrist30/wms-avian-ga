@@ -115,7 +115,7 @@ class Warehouse3DController extends Controller
             ];
         };
 
-        $racks = $parentRacks->map(function ($rack) use ($subRacks, $mapCell) {
+        $racks = $parentRacks->map(function ($rack) use ($subRacks, $mapCell, $cellLoader, $stockLoader) {
                 // Kumpulkan sub-rack cells dari (blok, grup) yang sama dengan rack induk.
                 // Pakai base Collection bukan Eloquent Collection agar bisa di-merge dengan
                 // array hasil $mapCell tanpa error "Call to getKey() on array".
@@ -128,7 +128,24 @@ class Warehouse3DController extends Controller
                     }
                 }
 
-                $regularMapped = collect($rack->cells->map($mapCell)->all());
+                $regularCells = $rack->cells;
+
+                // R12-R20 are physical racks/areas in the 3D layout. In the current
+                // master data their cells exist but are inactive, so the normal
+                // active-cell loader returns an empty collection and the object has
+                // no clickable mesh. Load those cells as display-only fallback.
+                if (in_array((string) $rack->code, ['12', '13', '14', '15', '16', '17', '18', '19', '20'], true) && $regularCells->isEmpty()) {
+                    $regularCells = Cell::where('rack_id', $rack->id)
+                        ->with([
+                            'dominantCategory',
+                            'stocks' => $stockLoader,
+                        ])
+                        ->orderBy('level')
+                        ->orderBy('column')
+                        ->get();
+                }
+
+                $regularMapped = collect($regularCells->map($mapCell)->all());
                 $mspartMapped  = collect($mspartCells->map($mapCell)->all());
                 $allCells      = $regularMapped->merge($mspartMapped)->values();
 
@@ -339,6 +356,55 @@ class Warehouse3DController extends Controller
                 'baris_rak'     => $cell->grup ? $this->grupToRackRow(strtoupper($cell->grup)) : null,
                 'kolom'         => $cell->kolom,
                 'baris'         => $cell->baris,
+            ],
+            'stocks' => $stocks,
+        ]);
+    }
+
+    public function areaDetail(Request $request)
+    {
+        $rackCode = trim((string) $request->input('rack_code', ''));
+        $label    = trim((string) $request->input('label', ''));
+
+        if ($rackCode === '') {
+            return response()->json(['error' => 'rack_code wajib diisi.'], 422);
+        }
+
+        $rack = Rack::with([
+                'warehouse',
+                'cells' => fn ($q) => $q->orderBy('level')->orderBy('column'),
+                'cells.stocks' => fn ($q) => $q->where('status', 'available')
+                    ->where('quantity', '>', 0)
+                    ->with('item.unit')
+                    ->orderBy('inbound_date', 'asc'),
+            ])
+            ->where('code', $rackCode)
+            ->firstOrFail();
+
+        $cells = $rack->cells;
+        $capacityUsed = (int) $cells->sum('capacity_used');
+        $capacityMax  = (int) $cells->sum('capacity_max');
+        $utilization  = $capacityMax > 0 ? round($capacityUsed / $capacityMax * 100, 1) : 0;
+        $status       = $capacityUsed <= 0 ? 'available' : ($capacityUsed >= $capacityMax ? 'full' : 'partial');
+
+        $stocks = $cells->flatMap(fn ($cell) => $cell->stocks->map(fn ($stock) => [
+            'item_name'    => $stock->item?->name ?? '-',
+            'sku'          => $stock->item?->sku ?? '-',
+            'unit'         => $stock->item?->unit?->code ?? '',
+            'quantity'     => $stock->quantity,
+            'inbound_date' => $stock->inbound_date?->format('d M Y'),
+            'cell_code'    => $cell->code,
+        ]))->values();
+
+        return response()->json([
+            'area' => [
+                'rack_code'     => $rack->code,
+                'label'         => $label !== '' ? $label : ($rack->name ?: "Area {$rack->code}"),
+                'warehouse'     => $rack->warehouse?->name ?? '-',
+                'status'        => $status,
+                'capacity_used' => $capacityUsed,
+                'capacity_max'  => $capacityMax,
+                'utilization'   => $utilization,
             ],
             'stocks' => $stocks,
         ]);
