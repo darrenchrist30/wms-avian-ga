@@ -349,9 +349,9 @@ $('#btnClearHighlight').on('click', function () { clearHighlight(); });
 @if($selectedWarehouse)
 // ── Constants ─────────────────────────────────────────────────────────────
 const CW  = 2.0;   // standard rack width (X)
-const WW  = 14.0;  // wide rack width — 14 m ÷ 7 kolom = 2.0 m/kolom
-const CH  = 2.5;   // cell height — tiap level 2.5 m → 2.5:2 portrait rectangle
-const CD  = 2.5;   // cell depth  (Z) — lebih tebal agar rak tampak bervolume
+const WW  = 28.0;  // wide rack width — 28 m ÷ 7 kolom = 4.0 m/kolom (landscape rectangle)
+const CH  = 1.4;   // cell height — kembali ke semula
+const CD  = 1.8;   // cell depth  (Z) — kembali ke semula
 
 // Rak wide = rak utama 1–11 (tampak atas: batang horizontal panjang)
 const WIDE_RACK_CODES     = new Set(['1','2','3','4','5','6','7','8','9','10','11']);

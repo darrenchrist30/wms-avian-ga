@@ -43,7 +43,25 @@
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
       "Bash(ls \"C:\\\\laragon\\\\bin\\\\mysql\\\\\")",
-      "Read(//c/laragon/bin/**)"
+      "Read(//c/laragon/bin/**)",
+      "Bash(cmd /c \"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe -u root avian-wms-ga -e \\\\\"SHOW TABLES LIKE '%stock%'; SHOW TABLES LIKE '%part%'; SHOW TABLES LIKE '%mspart%';\\\\\"\")",
+      "Bash(cmd /c \"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe -u root avian-wms-ga -e \\\\\"SELECT COUNT\\(*\\) as local_stock_records FROM stock_records; SELECT COUNT\\(*\\) as local_items FROM items;\\\\\"\")",
+      "Bash(cmd /c \"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe -u root -e \\\\\"USE \\\\`avian-wms-ga\\\\`; SHOW TABLES;\\\\\" 2>&1\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe\" -u root -e \"SHOW DATABASES;\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe\" -u root -P 3307 -e \"SHOW DATABASES;\")",
+      "Bash(findstr \"DB_\")",
+      "Bash(cmd /c \"findstr DB_ C:\\\\laragon\\\\www\\\\wms-avian-ga\\\\.env\")",
+      "Bash(dir \"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe\")",
+      "Bash(dir \"C:\\\\Users\\\\TUF-GAMING\\\\Downloads\\\\StockSpart.sql\")",
+      "Bash(cmd /c \"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe -h kodama.proxy.rlwy.net -P 47488 -u root -pxMcQEIipRjunLPiyKQIcvyzrcdLpJbhZ railway < \\\\\"C:\\\\Users\\\\TUF-GAMING\\\\Downloads\\\\StockSpart.sql\\\\\"\")",
+      "Bash(php -l \"database/migrations/2026_05_22_000001_create_items_ref_table.php\")",
+      "Bash(php -l \"database/migrations/2026_05_22_000002_create_cells_ref_table.php\")",
+      "Bash(php -l \"database/seeders/RefDataSeeder.php\")",
+      "Bash(php -l \"app/Console/Commands/ImportRefData.php\")",
+      "Bash(C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.0.30-winx64\\\\bin\\\\mysql.exe -h kodama.proxy.rlwy.net -P 47488 -u root -pxMcQEIipRjunLPiyKQIcvyzrcdLpJbhZ railway -e \"SELECT COUNT\\(*\\) as total, COUNT\\(blok\\) as has_blok, SUM\\(CASE WHEN blok IS NULL OR blok='' THEN 1 ELSE 0 END\\) as no_blok, COUNT\\(DISTINCT kode\\) as uniq_kode FROM mspart WHERE isdel=0;\")",
+      "Bash(Remove-Item \"app/Console/Commands/PromoteRefData.php\" -Force)",
+      "Bash(Remove-Item \"app/Console/Commands/RevertRefData.php\" -Force)",
+      "Bash(git commit -m 'fix: prioritize R12-R15 hits in raycaster click handler *)"
     ]
   }
 }
