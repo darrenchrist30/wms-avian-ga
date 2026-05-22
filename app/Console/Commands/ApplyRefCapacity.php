@@ -31,6 +31,7 @@ class ApplyRefCapacity extends Command
             ->whereNotNull('kolom')->whereNotNull('baris')
             ->where('is_active', true)
             ->select('id', 'blok', 'grup', 'kolom', 'baris', 'capacity_max')
+            ->orderBy('id')
             ->each(function ($c) use (&$cellLookup) {
                 $key = "{$c->blok}-{$c->grup}-{$c->kolom}-{$c->baris}";
                 $cellLookup[$key] = $c;
