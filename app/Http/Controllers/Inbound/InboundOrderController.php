@@ -334,7 +334,7 @@ class InboundOrderController extends Controller
 
         // ── Fase 1: Validasi & siapkan semua order (sekuensial) ──────────────
         foreach ($request->order_ids as $orderId) {
-            $order = InboundOrder::with('items')->find($orderId);
+            $order = InboundOrder::with('items.item')->find($orderId);
 
             if (!$order) {
                 $results[] = ['id' => $orderId, 'do_number' => '?', 'status' => 'error', 'message' => 'Order tidak ditemukan.'];
@@ -391,6 +391,10 @@ class InboundOrderController extends Controller
                     'message'       => 'GA selesai & otomatis diterima. Fitness: ' . round($recommendation->fitness_score, 1) . '/100.',
                     'fitness_score' => round($recommendation->fitness_score, 2),
                     'putaway_url'   => route('putaway.queue'),
+                    'items'         => $order->items->map(fn($d) => [
+                        'name' => $d->item?->name ?? $d->item?->sku ?? '-',
+                        'qty'  => $d->quantity_ordered,
+                    ])->values()->toArray(),
                 ];
             }
         }

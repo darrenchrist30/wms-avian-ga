@@ -319,9 +319,18 @@
                     var fitnessCell = isOperator ? '' :
                         '<td class="text-center">' + (r.fitness_score ? '<strong>' + r.fitness_score + '</strong>/100' : '-') + '</td>';
 
+                    var itemsHtml = '';
+                    if (r.items && r.items.length > 0) {
+                        itemsHtml = '<ul class="mb-0 pl-3" style="font-size:11px;color:#555;">';
+                        r.items.forEach(function(it) {
+                            itemsHtml += '<li>' + it.name + ' <span class="badge badge-light border">' + it.qty + ' pcs</span></li>';
+                        });
+                        itemsHtml += '</ul>';
+                    }
+
                     rows += '<tr>' +
                         '<td>' + (i + 1) + '</td>' +
-                        '<td><code>' + r.do_number + '</code><br><small class="text-muted">' + r.message + '</small></td>' +
+                        '<td><code>' + r.do_number + '</code><br><small class="text-muted">' + r.message + '</small>' + itemsHtml + '</td>' +
                         fitnessCell +
                         '<td class="text-center">' + statusBadge + '</td>' +
                         '</tr>';

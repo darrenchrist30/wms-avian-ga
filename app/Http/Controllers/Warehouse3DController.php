@@ -19,10 +19,10 @@ class Warehouse3DController extends Controller
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 
-        // Default: gudang pertama; jika ada highlight_cell_id, auto-pilih warehouse-nya
+        // Default: gudang sparepart; fallback ke gudang pertama
         $selectedWarehouse = $warehouseId
             ? $warehouses->find($warehouseId)
-            : $warehouses->first();
+            : ($warehouses->first(fn($w) => stripos($w->name, 'sparepart') !== false) ?? $warehouses->first());
 
         if ($highlightCellId && !$warehouseId) {
             $hCell = Cell::with('rack')->find($highlightCellId);
