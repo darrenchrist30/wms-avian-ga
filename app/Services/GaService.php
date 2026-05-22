@@ -368,7 +368,7 @@ class GaService
                 'crossover_rate'   => 0.8,
                 'elitism'          => 3,
                 'early_stopping'   => $earlyStopping,
-                'seed'             => (int) env('GA_SEED', 20260515),
+                'seed'             => env('GA_SEED') !== null && env('GA_SEED') !== '' ? (int) env('GA_SEED') : null,
                 'engine_driver'    => strtolower((string) config('services.ga_engine.driver', 'custom')),
             ],
         ];
