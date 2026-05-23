@@ -111,12 +111,7 @@
         </a>
         @endif
 
-        {{-- PRINT --}}
-        <button class="btn btn-sm btn-outline-secondary" onclick="window.print()" title="Print halaman ini">
-            <i class="fas fa-print mr-1"></i>Print
-        </button>
-
-        <a href="{{ route('inbound.orders.index') }}" class="btn btn-sm btn-light border">
+<a href="{{ route('inbound.orders.index') }}" class="btn btn-sm btn-light border">
             <i class="fas fa-arrow-left mr-1"></i>Kembali
         </a>
     </div>
@@ -152,23 +147,20 @@
      3. INFO HEADER
 ══════════════════════════════════════════════════════ --}}
 <div class="card mb-3">
-    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <div class="card-header py-2">
         <span class="font-weight-bold">
             <i class="fas fa-info-circle mr-1 text-primary"></i>
             Informasi Delivery Order
-        </span>
-        <span class="badge badge-{{ $sCls }} px-3 py-1" style="font-size:12px;">
-            <i class="{{ $sIcon }} mr-1"></i>{{ $sLabel }}
         </span>
     </div>
     <div class="card-body py-3">
         <div class="row">
             <div class="col-6 col-md-3 info-block mb-3">
-                <small>No. Surat Jalan (DO)</small>
+                <small>No. Delivery Order</small>
                 <div class="val">{{ $order->do_number }}</div>
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
-                <small>Tgl Surat Jalan</small>
+                <small>Tgl Delivery Order</small>
                 <div class="val">{{ $order->do_date?->format('d M Y') ?? '-' }}</div>
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
@@ -180,17 +172,11 @@
                 <div class="val">{{ $order->receivedBy->name ?? '—' }}</div>
             </div>
             <div class="col-6 col-md-3 info-block mb-3">
-                <small>Gudang Tujuan</small>
+                <small>Gudang</small>
                 <div class="val">
                     <i class="fas fa-warehouse text-secondary mr-1"></i>
                     {{ $order->warehouse->name ?? '-' }}
                 </div>
-            </div>
-
-
-            <div class="col-6 col-md-2 info-block mb-3">
-                <small>No. DO</small>
-                <div class="val">{{ $order->do_number }}</div>
             </div>
 
             @if ($order->ref_doc_spk)
@@ -233,7 +219,7 @@
 </div>
 
 {{-- ══════════════════════════════════════════════════════
-     4. SUMMARY STATS (cards kecil)
+    4. SUMMARY STATS (cards kecil)
 ══════════════════════════════════════════════════════ --}}
 <div class="row mb-3">
     <div class="col-6 col-md-3 mb-2">
@@ -275,7 +261,7 @@
 </div>
 
 {{-- ══════════════════════════════════════════════════════
-     5. TABEL ITEM
+    5. TABEL ITEM
 ══════════════════════════════════════════════════════ --}}
 <div class="card mb-3">
     <div class="card-header py-2 d-flex justify-content-between align-items-center">
@@ -284,11 +270,6 @@
             Detail Item
             <span class="badge badge-primary ml-1">{{ $totalItems }}</span>
         </span>
-        @if ($order->status === 'inbound')
-        <span class="badge badge-warning px-2 py-1">
-            <i class="fas fa-clock mr-1"></i>Menunggu Proses GA
-        </span>
-        @endif
     </div>
     <div class="card-body p-0">
         @if ($order->items->isEmpty())
@@ -366,7 +347,7 @@
                             @if ($itm->quantity_received == 0)
                                 <span class="text-muted">—</span>
                             @elseif ($diff == 0)
-                                <span class="badge badge-success diff-badge">Sesuai</span>
+                                <span class="text-muted">0</span>
                             @elseif ($diff > 0)
                                 <span class="badge badge-info diff-badge">+{{ number_format($diff) }}</span>
                             @else
@@ -425,10 +406,11 @@
     [$gaCl, $gaLbl, $gaIco] = $gaStatusCfg[$latestGa->status] ?? ['secondary', '—', 'fas fa-circle'];
 
     $fcDefs = [
-        'fc_cap_score'   => ['FC_CAP',   'Kapasitas Cell',            35, '#3b82f6'],
-        'fc_cat_score'   => ['FC_CAT',   'Kesesuaian Kategori',  25, '#10b981'],
+        'fc_cap_score'   => ['FC_CAP',   'Kapasitas Cell',            30, '#3b82f6'],
+        'fc_cat_score'   => ['FC_CAT',   'Kesesuaian Kategori',       25, '#10b981'],
         'fc_aff_score'   => ['FC_AFF',   'Afinitas Co-occurrence',    20, '#f59e0b'],
-        'fc_split_score' => ['FC_SPLIT', 'Anti-Split + Jarak Lokasi', 20, '#8b5cf6'],
+        'fc_split_score' => ['FC_SPLIT', 'Anti-Split + Jarak Lokasi', 15, '#8b5cf6'],
+        'fc_mov_score'   => ['FC_MOV',   'Slotting FSN (Fast/Slow)',  10, '#e11d48'],
     ];
 
     $avgFc = [];
@@ -523,10 +505,11 @@
                         <i class="fas fa-function mr-1"></i>Formula Fitness Function:
                     </div>
                     <div style="font-size:12px;font-family:monospace;color:#374151;line-height:2;">
-                        <span style="color:#3b82f6;font-weight:700;">FC_CAP</span>(35) +
+                        <span style="color:#3b82f6;font-weight:700;">FC_CAP</span>(30) +
                         <span style="color:#10b981;font-weight:700;">FC_CAT</span>(25) +
                         <span style="color:#f59e0b;font-weight:700;">FC_AFF</span>(20) +
-                        <span style="color:#8b5cf6;font-weight:700;">FC_SPLIT</span>(20) = maks <strong>100</strong>
+                        <span style="color:#8b5cf6;font-weight:700;">FC_SPLIT</span>(15) +
+                        <span style="color:#e11d48;font-weight:700;">FC_MOV</span>(10) = maks <strong>100</strong>
                     </div>
                     <div style="font-size:10px;color:#9ca3af;margin-top:3px;">
                         Nilai rata-rata fitness seluruh gen dalam kromosom terbaik (generasi {{ $latestGa->generations_run ?? '—' }})
@@ -557,7 +540,7 @@
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#3b82f6;font-weight:700;">CAP</span><br>
-                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/35</small>
+                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/30</small>
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#10b981;font-weight:700;">CAT</span><br>
@@ -569,7 +552,11 @@
                         </th>
                         <th class="text-center" width="72">
                             <span style="color:#8b5cf6;font-weight:700;">SPL</span><br>
-                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/20</small>
+                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/15</small>
+                        </th>
+                        <th class="text-center" width="72">
+                            <span style="color:#e11d48;font-weight:700;">MOV</span><br>
+                            <small style="font-size:9px;color:#9ca3af;font-weight:400;">/10</small>
                         </th>
                     </tr>
                 </thead>
@@ -579,16 +566,32 @@
                         $gf      = round((float) $det->gene_fitness, 1);
                         $gfColor = $gf >= 75 ? '#10b981' : ($gf >= 50 ? '#f59e0b' : '#ef4444');
                         $gfBg    = $gf >= 75 ? '#f0fdf4' : ($gf >= 50 ? '#fffbeb' : '#fef2f2');
-                        $capPct  = min(100, round((float) $det->fc_cap_score   / 40 * 100));
-                        $catPct  = min(100, round((float) $det->fc_cat_score   / 30 * 100));
+                        $capPct  = min(100, round((float) $det->fc_cap_score   / 30 * 100));
+                        $catPct  = min(100, round((float) $det->fc_cat_score   / 25 * 100));
                         $affPct  = min(100, round((float) $det->fc_aff_score   / 20 * 100));
-                        $splPct  = min(100, round((float) $det->fc_split_score / 10 * 100));
+                        $splPct  = min(100, round((float) $det->fc_split_score / 15 * 100));
+                        $movPct  = min(100, round((float) $det->fc_mov_score   / 10 * 100));
+                        $movType = $det->inboundOrderItem->item->movement_type ?? null;
+                        $movBadge = match($movType) {
+                            'fast_moving' => ['label' => 'Fast', 'color' => '#dc2626', 'icon' => 'fa-bolt'],
+                            'slow_moving' => ['label' => 'Slow', 'color' => '#2563eb', 'icon' => 'fa-clock'],
+                            'non_moving'  => ['label' => 'Non',  'color' => '#6b7280', 'icon' => 'fa-archive'],
+                            default       => null,
+                        };
                     @endphp
                     <tr>
                         <td class="text-center text-muted">{{ $di + 1 }}</td>
                         <td>
                             <div style="font-weight:600;color:#1f2937;font-size:13px;">{{ $det->inboundOrderItem->item->name ?? '—' }}</div>
-                            <code style="font-size:10px;color:#6b7280;">{{ $det->inboundOrderItem->item->sku ?? '' }}</code>
+                            <div class="d-flex align-items-center" style="gap:4px;margin-top:2px;">
+                                <code style="font-size:10px;color:#6b7280;">{{ $det->inboundOrderItem->item->sku ?? '' }}</code>
+                                @if ($movBadge)
+                                <span style="font-size:9px;padding:1px 5px;border-radius:3px;background:{{ $movBadge['color'] }};color:#fff;font-weight:600;">
+                                    <i class="fas {{ $movBadge['icon'] }}" style="font-size:8px;"></i>
+                                    {{ $movBadge['label'] }}
+                                </span>
+                                @endif
+                            </div>
                         </td>
                         <td class="text-center"><strong>{{ number_format($det->quantity) }}</strong></td>
                         <td class="text-center">
@@ -643,6 +646,14 @@
                                 <div style="height:5px;width:{{ $splPct }}%;background:#8b5cf6;border-radius:3px;"></div>
                             </div>
                         </td>
+
+                        {{-- FC_MOV --}}
+                        <td class="text-center">
+                            <div style="font-weight:600;">{{ number_format((float)$det->fc_mov_score, 1) }}</div>
+                            <div style="height:5px;background:#e9ecef;border-radius:3px;margin-top:2px;">
+                                <div style="height:5px;width:{{ $movPct }}%;background:#e11d48;border-radius:3px;"></div>
+                            </div>
+                        </td>
                     </tr>
                     @endforeach
                 </tbody>
@@ -652,10 +663,11 @@
             <i class="fas fa-circle" style="color:#10b981;"></i> ≥ 75 Sangat Baik &ensp;
             <i class="fas fa-circle" style="color:#f59e0b;"></i> 50–74 Cukup Baik &ensp;
             <i class="fas fa-circle" style="color:#ef4444;"></i> &lt; 50 Perlu Evaluasi &ensp;
-            <span class="ml-2"><strong style="color:#3b82f6;">CAP</strong>=Kapasitas &ensp;
-            <strong style="color:#10b981;">CAT</strong>=Kategori &ensp;
-            <strong style="color:#f59e0b;">AFF</strong>=Afinitas &ensp;
-            <strong style="color:#8b5cf6;">SPL</strong>=Anti-Split</span>
+            <span class="ml-2"><strong style="color:#3b82f6;">CAP</strong>=Kapasitas(30) &ensp;
+            <strong style="color:#10b981;">CAT</strong>=Kategori(25) &ensp;
+            <strong style="color:#f59e0b;">AFF</strong>=Afinitas(20) &ensp;
+            <strong style="color:#8b5cf6;">SPL</strong>=Anti-Split(15) &ensp;
+            <strong style="color:#e11d48;">MOV</strong>=Slotting FSN(10)</span>
         </div>
         @endif
 
@@ -796,7 +808,7 @@ $('#btnProcessGA').on('click', function () {
             + '<small class="text-muted">Proses bisa memakan waktu 10–120 detik.</small>',
         icon: 'question',
         showCancelButton: true,
-        confirmButtonColor: '#007bff',
+        confirmButtonColor: '#0d8564',
         confirmButtonText: '<i class="fas fa-dna mr-1"></i>Ya, Jalankan!',
         cancelButtonText: 'Batal'
     }).then(result => {

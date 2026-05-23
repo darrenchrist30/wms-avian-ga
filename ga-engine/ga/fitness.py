@@ -76,11 +76,7 @@ def build_item_cell_map(cells_dict: Dict[int, CellInput]) -> Dict[int, set[int]]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Pemetaan movement_type → kode zona
-# ─────────────────────────────────────────────────────────────────────────────
-
-# ─────────────────────────────────────────────────────────────────────────────
-# FC_CAP — Fitness Kapasitas (maks 35)
+# FC_CAP — Fitness Kapasitas (maks 30)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def fc_capacity(
@@ -90,7 +86,7 @@ def fc_capacity(
     cells_dict: Dict[int, CellInput],
 ) -> float:
     """
-    FC_CAP (maks 35 poin):
+    FC_CAP (maks 30 poin):
 
     Mengukur apakah total capacity points yang dialokasikan ke satu cell
     tidak melebihi sisa kapasitasnya. Capacity points berasal dari proxy:
@@ -98,14 +94,14 @@ def fc_capacity(
 
     Rumus:
         demand = total capacity_demand item ke cell yang sama
-        Jika demand ≤ capacity_remaining  → fc_cap = 35 (feasible)
-        Jika demand > capacity_remaining  → fc_cap = 35 × (capacity_remaining / demand)
+        Jika demand ≤ capacity_remaining  → fc_cap = 30 (feasible)
+        Jika demand > capacity_remaining  → fc_cap = 30 × (capacity_remaining / demand)
                                                         [penalti proporsional, Goldberg 1989]
 
-    Semakin penuh cell namun masih dalam batas = nilai tetap 35.
+    Semakin penuh cell namun masih dalam batas = nilai tetap 30.
     Semakin besar overflow = nilai semakin mendekati 0.
 
-    Bobot diturunkan dari 40 → 35 untuk memberi ruang FC_SPLIT distance penalty.
+    Bobot diturunkan dari 35 → 30 untuk mengakomodasi FC_MOV (slotting FSN).
     """
     cell_id = chromosome[gene_idx]
     cell    = cells_dict.get(cell_id)
@@ -119,10 +115,10 @@ def fc_capacity(
     )
 
     if demand <= cell.capacity_remaining:
-        return 35.0
+        return 30.0
 
     ratio = cell.capacity_remaining / demand if demand > 0 else 0.0
-    return round(max(0.0, 35.0 * ratio), 6)
+    return round(max(0.0, 30.0 * ratio), 6)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -377,7 +373,9 @@ def fc_split(
     cells_dict: Dict[int, CellInput],
 ) -> float:
     """
-    FC_SPLIT (maks 20 poin) = FC_SPLIT_COUNT (maks 10) + FC_SPLIT_DISTANCE (maks 10):
+    FC_SPLIT (maks 15 poin) = FC_SPLIT_COUNT (maks 7.5) + FC_SPLIT_DISTANCE (maks 7.5):
+
+    Bobot diturunkan dari 20 → 15 untuk mengakomodasi FC_MOV.
 
     FC_SPLIT_COUNT — menghukum jumlah lokasi untuk SKU yang sama.
         1 lokasi  → 10 (tidak ada split)
@@ -409,21 +407,20 @@ def fc_split(
 
     existing_cells = item_cells.get(item.item_id, set())
 
-    # ── FC_SPLIT_COUNT ────────────────────────────────────────────────────────
+    # ── FC_SPLIT_COUNT (maks 7.5) ─────────────────────────────────────────────
     all_cell_ids   = recommended_cells | existing_cells
     location_count = len(all_cell_ids)
 
     if location_count <= 1:
-        split_count_score = 10.0
+        split_count_score = 7.5
     else:
-        split_count_score = max(0.0, round(10.0 / location_count, 6))
+        split_count_score = max(0.0, round(7.5 / location_count, 6))
 
-    # ── FC_SPLIT_DISTANCE ─────────────────────────────────────────────────────
+    # ── FC_SPLIT_DISTANCE (maks 7.5) ──────────────────────────────────────────
     reference_ids = all_cell_ids - {current_cell_id}
 
     if not reference_ids:
-        # Hanya satu lokasi — tidak ada split, skor sempurna.
-        distance_score = 10.0
+        distance_score = 7.5
     else:
         distances = [
             cell_distance(current_cell, cells_dict.get(ref_id))
@@ -432,15 +429,61 @@ def fc_split(
         min_dist = min(distances) if distances else 9999.0
 
         if min_dist <= 1:
-            distance_score = 10.0
+            distance_score = 7.5
         elif min_dist <= 5:
-            distance_score = 7.0
+            distance_score = 5.0
         elif min_dist <= 10:
-            distance_score = 4.0
+            distance_score = 3.0
         else:
             distance_score = 0.0
 
     return round(split_count_score + distance_score, 6)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FC_MOV — Fitness Movement Type / Slotting FSN (maks 10)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fc_movement(item: ItemInput, cell: CellInput) -> float:
+    """
+    FC_MOV (maks 10 poin):
+
+    Menerapkan prinsip slotting FSN (Fast-Slow-Non moving): item fast-moving
+    ditempatkan di zona dekat pintu masuk/akses (blok kecil) agar operator
+    cepat mengambilnya; item slow-moving di zona belakang.
+
+    Proksi jarak dari pintu = nilai blok (blok 1 = paling dekat pintu).
+    Cell tanpa koordinat blok (non-mspart) mendapat skor netral (5.0).
+
+    Referensi:
+        Frazelle, E.H. (2002). World-Class Warehousing and Material Handling.
+        McGraw-Hill. pp. 54-58 (ABC/FSN slotting).
+    """
+    blok = cell.blok
+    mov  = item.movement_type
+
+    if blok is None or mov is None:
+        return 10.0  # neutral: no movement data → full score, 4 aturan utama yg menentukan
+
+    if mov == 'fast_moving':
+        # Reward dekat pintu (blok rendah)
+        if blok <= 1:   return 10.0
+        if blok <= 2:   return 8.0
+        if blok <= 3:   return 5.0
+        return 2.0
+
+    if mov == 'slow_moving':
+        # Reward jauh dari pintu (blok tinggi), bebaskan area depan untuk fast
+        if blok >= 4:   return 10.0
+        if blok >= 3:   return 8.0
+        if blok >= 2:   return 6.0
+        return 3.0
+
+    # non_moving — paling jauh
+    if blok >= 5:   return 10.0
+    if blok >= 4:   return 7.0
+    if blok >= 3:   return 4.0
+    return 1.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -457,11 +500,12 @@ def evaluate_chromosome(
     Hitung fitness keseluruhan kromosom dan breakdown FC per gen.
 
     Fitness kromosom = rata-rata gene_fitness semua gen.
-    Gene_fitness_i   = FC_CAP_i + FC_CAT_i + FC_AFF_i + FC_SPLIT_i  (maks 35+25+20+20 = 100)
+    Gene_fitness_i   = FC_CAP_i + FC_CAT_i + FC_AFF_i + FC_SPLIT_i + FC_MOV_i
+                       (maks 30+25+20+15+10 = 100)
 
     Returns:
         total_fitness  : float, rata-rata fitness (0-100)
-        gene_details   : list[dict] dengan fc_cap, fc_cat, fc_aff, fc_split, gene_fitness
+        gene_details   : list[dict] dengan fc_cap, fc_cat, fc_aff, fc_split, fc_mov, gene_fitness
     """
     n = len(chromosome)
     if n == 0:
@@ -475,21 +519,23 @@ def evaluate_chromosome(
         cell = cells_dict.get(chromosome[i])
         if cell is None:
             gene_details.append(
-                {"fc_cap": 0.0, "fc_cat": 0.0, "fc_aff": 0.0, "fc_split": 0.0, "gene_fitness": 0.0}
+                {"fc_cap": 0.0, "fc_cat": 0.0, "fc_aff": 0.0, "fc_split": 0.0, "fc_mov": 0.0, "gene_fitness": 0.0}
             )
             continue
 
         cap   = fc_capacity(i, chromosome, items, cells_dict)
         cat   = fc_category(items[i], cell, item_cells, cells_dict)
-        aff = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks, item_cells)
+        aff   = fc_affinity(i, chromosome, items, cells_dict, aff_map, item_racks, item_cells)
         split = fc_split(i, chromosome, items, item_cells, cells_dict)
+        mov   = fc_movement(items[i], cell)
 
-        gene_fit = cap + cat + aff + split   # maks 35+25+20+20 = 100
+        gene_fit = cap + cat + aff + split + mov   # maks 30+25+20+15+10 = 100
         gene_details.append({
             "fc_cap":       round(cap,   4),
             "fc_cat":       round(cat,   4),
             "fc_aff":       round(aff,   4),
             "fc_split":     round(split, 4),
+            "fc_mov":       round(mov,   4),
             "gene_fitness": round(gene_fit, 4),
         })
 

@@ -751,7 +751,7 @@
         <div class="row mb-3">
             @if ($inboundHariIni > 0)
                 <div class="col-6 col-md-3 mb-2">
-                    <a href="{{ route('inbound.orders.index', ['status' => 'draft']) }}"
+                    <a href="{{ route('inbound.orders.index', ['status' => 'inbound', 'start_date' => today()->toDateString(), 'end_date' => today()->toDateString()]) }}"
                         class="d-block text-decoration-none">
                         <div class="card border-0 shadow-sm h-100"
                             style="border-left:4px solid #e53e3e!important;border-radius:10px;cursor:pointer;transition:transform .15s"

@@ -182,6 +182,7 @@ class GeneticAlgorithmEngine:
                 fc_cat           =gd["fc_cat"],
                 fc_aff           =gd["fc_aff"],
                 fc_split         =gd["fc_split"],
+                fc_mov           =gd["fc_mov"],
             )
             for i, (item, gd) in enumerate(zip(self.items, gene_details))
         ]

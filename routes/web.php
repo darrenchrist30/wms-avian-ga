@@ -96,6 +96,7 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
     */
     Route::prefix('inbound')->name('inbound.')->group(function () {
         Route::get('orders/datatable', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'datatable'])->name('orders.datatable');
+        Route::get('orders/search-items', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'searchItems'])->name('orders.search-items');
         Route::resource('orders', \App\Http\Controllers\Inbound\InboundOrderController::class);
         Route::post('orders/{order}/sync-erp', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'syncFromErp'])
             ->name('orders.sync-erp');
@@ -103,6 +104,8 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
             ->name('orders.process-ga')->middleware('role:admin,supervisor,operator');
         Route::post('orders/batch-ga', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'batchProcessGA'])
             ->name('orders.batch-ga')->middleware('role:admin,supervisor,operator');
+        Route::get('orders/{order}/pdf', [\App\Http\Controllers\Inbound\InboundOrderController::class, 'downloadPdf'])
+            ->name('orders.pdf');
     });
 
     /*

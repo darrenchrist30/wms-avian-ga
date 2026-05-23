@@ -111,6 +111,7 @@ class InboundReceiveService
             // Buat header transaksi inbound
             $inbound = InboundOrder::create([
                 'warehouse_id'  => $warehouse->id,
+                'received_by'   => auth()->id(),
                 'do_number'     => $data['do_number'],
                 'do_date'       => $data['do_date'],
                 'notes'         => $data['notes'] ?? null,

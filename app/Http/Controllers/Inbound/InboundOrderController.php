@@ -32,6 +32,29 @@ class InboundOrderController extends Controller
         return view('inbound.orders.index', compact('warehouses'));
     }
 
+    // GET /inbound/orders/search-items?q=...  — Select2 AJAX
+    public function searchItems(Request $request)
+    {
+        $q = trim($request->get('q', ''));
+
+        $items = Item::where('is_active', true)
+            ->when($q, fn($query) => $query->where(function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                      ->orWhere('sku',  'like', "%{$q}%");
+            }))
+            ->with('unit')
+            ->orderBy('name')
+            ->get();
+
+        return response()->json([
+            'results' => $items->map(fn($item) => [
+                'id'   => $item->id,
+                'text' => '[' . $item->sku . '] ' . $item->name,
+                'unit' => $item->unit->code ?? '',
+            ]),
+        ]);
+    }
+
     public function datatable(Request $request)
     {
         $query = InboundOrder::with(['warehouse', 'receivedBy'])
@@ -77,7 +100,11 @@ class InboundOrderController extends Controller
             })
             ->addColumn('action', function ($row) {
                 $showUrl = route('inbound.orders.show', $row->id);
+                $pdfUrl  = route('inbound.orders.pdf', $row->id);
                 $html    = '<a href="' . $showUrl . '" class="btn btn-xs btn-info" title="Detail"><i class="fas fa-eye"></i></a> ';
+                if ($row->status === 'completed') {
+                    $html .= '<a href="' . $pdfUrl . '" target="_blank" class="btn btn-xs btn-secondary" title="Print PDF"><i class="fas fa-print"></i></a> ';
+                }
                 if ($row->status === 'inbound') {
                     $editUrl = route('inbound.orders.edit', $row->id);
                     $html   .= '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a> ';
@@ -91,12 +118,10 @@ class InboundOrderController extends Controller
 
     public function create()
     {
-        $items      = Item::where('is_active', true)->with('unit')->orderBy('name')->get();
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
         return view('inbound.orders.form', [
             'typeForm'   => 'create',
             'data'       => null,
-            'items'      => $items,
             'warehouses' => $warehouses,
         ]);
     }
@@ -112,6 +137,7 @@ class InboundOrderController extends Controller
             'items'                     => 'required|array|min:1',
             'items.*.item_id'           => 'required|exists:items,id',
             'items.*.quantity_ordered'  => 'required|integer|min:1',
+            'items.*.quantity_received' => 'nullable|integer|min:0',
             'items.*.lpn'               => 'nullable|string|max:100',
             'items.*.notes'             => 'nullable|string|max:255',
         ]);
@@ -130,12 +156,13 @@ class InboundOrderController extends Controller
             ]);
 
             foreach ($request->items as $row) {
+                $qtyReceived = (int) ($row['quantity_received'] ?? 0);
                 InboundOrderItem::create([
                     'inbound_order_id'  => $order->id,
                     'item_id'           => $row['item_id'],
                     'lpn'               => $row['lpn'] ?? null,
                     'quantity_ordered'  => $row['quantity_ordered'],
-                    'quantity_received' => 0,
+                    'quantity_received' => $qtyReceived,
                     'status'            => 'pending',
                     'notes'             => $row['notes'] ?? null,
                 ]);
@@ -177,12 +204,10 @@ class InboundOrderController extends Controller
             return redirect()->route('inbound.orders.show', $id)
                 ->with('error', 'Hanya order berstatus Inbound yang dapat diedit.');
         }
-        $items      = Item::where('is_active', true)->with('unit')->orderBy('name')->get();
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
         return view('inbound.orders.form', [
             'typeForm'   => 'edit',
             'data'       => $order,
-            'items'      => $items,
             'warehouses' => $warehouses,
         ]);
     }
@@ -203,6 +228,7 @@ class InboundOrderController extends Controller
             'items'                     => 'required|array|min:1',
             'items.*.item_id'           => 'required|exists:items,id',
             'items.*.quantity_ordered'  => 'required|integer|min:1',
+            'items.*.quantity_received' => 'nullable|integer|min:0',
             'items.*.lpn'               => 'nullable|string|max:100',
             'items.*.notes'             => 'nullable|string|max:255',
         ]);
@@ -224,7 +250,7 @@ class InboundOrderController extends Controller
                     'item_id'           => $row['item_id'],
                     'lpn'               => $row['lpn'] ?? null,
                     'quantity_ordered'  => $row['quantity_ordered'],
-                    'quantity_received' => 0,
+                    'quantity_received' => (int) ($row['quantity_received'] ?? 0),
                     'status'            => 'pending',
                     'notes'             => $row['notes'] ?? null,
                 ]);
@@ -426,5 +452,27 @@ class InboundOrderController extends Controller
     public function syncFromErp(Request $request, $order)
     {
         return response()->json(['status' => 'info', 'message' => 'Fitur sync ERP belum diimplementasi.']);
+    }
+
+    public function downloadPdf($id)
+    {
+        $order = InboundOrder::with([
+            'warehouse',
+            'receivedBy',
+            'items.item.unit',
+            'items.item.category',
+            'gaRecommendations' => fn($q) => $q->latest()->limit(1),
+            'gaRecommendations.details.cell',
+            'gaRecommendations.details.inboundOrderItem.item',
+        ])->findOrFail($id);
+
+        $latestGa   = $order->gaRecommendations->first();
+        $logoPath   = 'file://' . public_path('images/avian-logo-normal.png');
+        $footerPath = 'file://' . public_path('images/avian-footer.png');
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('inbound.orders.pdf', compact('order', 'latestGa', 'logoPath', 'footerPath'))
+            ->setPaper('a4', 'portrait');
+
+        return $pdf->stream('DO-' . $order->do_number . '.pdf');
     }
 }

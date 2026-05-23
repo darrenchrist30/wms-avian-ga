@@ -64,18 +64,24 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-sm-12 col-md-3">
+                                <div class="col-sm-12 col-md-2">
                                     <div class="form-group">
                                         <label class="small font-weight-bold mb-1">Start Date</label>
                                         <input type="date" class="form-control form-control-sm" id="filter-start-date"
                                             value="{{ date('Y-m-d') }}">
                                     </div>
                                 </div>
-                                <div class="col-sm-12 col-md-3">
+                                <div class="col-sm-12 col-md-2">
                                     <div class="form-group">
                                         <label class="small font-weight-bold mb-1">End Date</label>
                                         <input type="date" class="form-control form-control-sm" id="filter-end-date"
                                             value="{{ date('Y-m-d') }}">
+                                    </div>
+                                </div>
+                                <div class="col-sm-12 col-md-2 d-flex align-items-center" style="padding-top:8px;">
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="chkShowAll">
+                                        <label class="custom-control-label font-weight-bold small" for="chkShowAll">Show All</label>
                                     </div>
                                 </div>
                             </div>
@@ -175,6 +181,7 @@
                 ajax: {
                     url: baseURL,
                     data: function(d) {
+                        if ($('#chkShowAll').is(':checked')) return;
                         d.status       = $('#filter-status').val();
                         d.warehouse_id = $('#filter-warehouse').val();
                         d.start_date   = $('#filter-start-date').val();
@@ -368,13 +375,19 @@
 
             // ── Refresh & Filter ─────────────────────────────────────────
             var today = new Date().toISOString().slice(0, 10);
+
             $('.btnRefresh').on('click', function() {
-                $('#filter-status').val('inbound');
+                $('#chkShowAll').prop('checked', false);
+                $('#filter-status').val('');
                 $('#filter-warehouse').val('');
                 $('#filter-start-date').val(today);
                 $('#filter-end-date').val(today);
                 selectedIds = {};
                 updateBatchButton();
+                table.ajax.reload();
+            });
+
+            $('#chkShowAll').on('change', function() {
                 table.ajax.reload();
             });
 

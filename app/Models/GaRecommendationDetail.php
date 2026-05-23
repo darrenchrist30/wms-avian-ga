@@ -16,6 +16,7 @@ class GaRecommendationDetail extends Model
         'fc_cat_score',
         'fc_aff_score',
         'fc_split_score',
+        'fc_mov_score',
     ];
 
     protected $casts = [
@@ -24,6 +25,7 @@ class GaRecommendationDetail extends Model
         'fc_cat_score'   => 'float',
         'fc_aff_score'   => 'float',
         'fc_split_score' => 'float',
+        'fc_mov_score'   => 'float',
     ];
 
     public function gaRecommendation()

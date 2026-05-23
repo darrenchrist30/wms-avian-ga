@@ -55,7 +55,7 @@ class PyGadGeneticAlgorithmEngine:
       - greedy + random initial population
       - uniform crossover with category repair
       - capacity-aware random reset mutation with category repair
-      - warehouse fitness function (FC_CAP + FC_CAT + FC_AFF + FC_SPLIT)
+      - warehouse fitness function (FC_CAP + FC_CAT + FC_AFF + FC_SPLIT + FC_MOV)
       - response shape consumed by Laravel
     """
 
@@ -142,6 +142,7 @@ class PyGadGeneticAlgorithmEngine:
                 fc_cat=gd["fc_cat"],
                 fc_aff=gd["fc_aff"],
                 fc_split=gd["fc_split"],
+                fc_mov=gd["fc_mov"],
             )
             for i, (item, gd) in enumerate(zip(self.items, gene_details))
         ]

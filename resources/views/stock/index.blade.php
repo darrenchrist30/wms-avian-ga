@@ -124,15 +124,16 @@ $(function () {
         serverSide: true,
         ajax: {
             url: '{{ route("stock.index") }}',
+            type: 'GET',
             data: function (d) {
-                d.category_id    = $('#filterCategory').val();
-                d.warehouse_id   = $('#filterWarehouse').val();
-                d.status_filter  = $('#filterStatus').val();
+                d.category_id   = $('#filterCategory').val();
+                d.warehouse_id  = $('#filterWarehouse').val();
+                d.status_filter = $('#filterStatus').val();
             }
         },
         columns: [
             { data: 'DT_RowIndex',       orderable: false, searchable: false, className: 'text-center text-muted' },
-            { data: 'item_info',         orderable: false, searchable: true  },
+            { data: 'item_info',         orderable: false, searchable: false },
             { data: 'category_badge',    orderable: false, searchable: false, className: 'text-center' },
             { data: 'qty_display',       orderable: false, searchable: false, className: 'text-center' },
             { data: 'min_reorder',       orderable: false, searchable: false, className: 'text-center' },
@@ -142,10 +143,25 @@ $(function () {
         ],
         order: [],
         pageLength: 25,
-        language: { url: '/vendor/datatables/i18n/id.json' },
+        dom: "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
+             "<'row'<'col-sm-12'tr>>" +
+             "<'row'<'col-sm-5'i><'col-sm-7'p>>",
+        language: {
+            processing:   '<i class="fas fa-spinner fa-spin mr-1"></i> Memuat data...',
+            search:       'Cari:',
+            lengthMenu:   'Tampil _MENU_ data',
+            info:         'Menampilkan _START_–_END_ dari _TOTAL_ item',
+            infoEmpty:    'Tidak ada data',
+            infoFiltered: '(difilter dari _MAX_ total)',
+            zeroRecords:  'Tidak ada data yang cocok',
+            paginate: { first:'Awal', last:'Akhir', next:'&rsaquo;', previous:'&lsaquo;' },
+        },
     });
 
-    $('#filterCategory, #filterWarehouse, #filterStatus').on('change', () => table.ajax.reload());
+    $('#filterCategory, #filterWarehouse, #filterStatus').on('change', function () {
+        table.ajax.reload();
+    });
+
     $('#btnReset').on('click', function () {
         $('#filterCategory, #filterWarehouse, #filterStatus').val('');
         table.ajax.reload();

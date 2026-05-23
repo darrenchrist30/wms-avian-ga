@@ -2,6 +2,26 @@
 
 @section('title', $typeForm == 'create' ? 'Tambah Inbound Order' : 'Edit Inbound Order')
 
+@push('styles')
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css">
+<style>
+    .select2-container--bootstrap4 .select2-selection--single {
+        height: calc(1.5em + .5rem + 2px) !important;
+        font-size: .875rem !important;
+        padding: .25rem .5rem !important;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
+        line-height: 1.5 !important;
+        padding-left: 0 !important;
+    }
+    .select2-container--bootstrap4 .select2-selection--single .select2-selection__arrow {
+        height: calc(1.5em + .5rem + 2px) !important;
+    }
+    .select2-container { width: 100% !important; }
+</style>
+@endpush
+
 @section('content')
     <div class="container-fluid">
         <div class="row">
@@ -123,8 +143,6 @@
                                                     @enderror
                                                 </div>
                                             </div>
-
-
                                         </div>
                                     </div>
 
@@ -160,7 +178,6 @@
                                                 <tr>
                                                     <th width="35" class="text-center">#</th>
                                                     <th>Item / Sparepart</th>
-
                                                     <th width="110" class="text-center">Qty Order <span class="text-danger">*</span></th>
                                                     <th width="110" class="text-center">Qty Terima</th>
                                                     <th>Catatan Item</th>
@@ -174,15 +191,13 @@
                                                             <td class="text-center row-num">{{ $idx + 1 }}</td>
                                                             <td>
                                                                 <select name="items[{{ $idx }}][item_id]"
-                                                                    class="form-control form-control-sm select-item @error('items.' . $idx . '.item_id') is-invalid @enderror">
-                                                                    <option value="">-- Pilih Item --</option>
-                                                                    @foreach ($items as $item)
-                                                                        <option value="{{ $item->id }}"
-                                                                            data-unit="{{ $item->unit->code ?? '' }}"
-                                                                            {{ $oi->item_id == $item->id ? 'selected' : '' }}>
-                                                                            [{{ $item->sku }}] {{ $item->name }}
+                                                                    class="form-control form-control-sm select-item-ajax @error('items.' . $idx . '.item_id') is-invalid @enderror">
+                                                                    @if ($oi->item)
+                                                                        <option value="{{ $oi->item->id }}" selected
+                                                                            data-unit="{{ $oi->item->unit->code ?? '' }}">
+                                                                            [{{ $oi->item->sku }}] {{ $oi->item->name }}
                                                                         </option>
-                                                                    @endforeach
+                                                                    @endif
                                                                 </select>
                                                             </td>
                                                             <td>
@@ -208,22 +223,13 @@
                                                         </tr>
                                                     @endforeach
                                                 @else
-                                                    {{-- one blank row for create --}}
                                                     <tr>
                                                         <td class="text-center row-num">1</td>
                                                         <td>
                                                             <select name="items[0][item_id]"
-                                                                class="form-control form-control-sm select-item">
-                                                                <option value="">-- Pilih Item --</option>
-                                                                @foreach ($items as $item)
-                                                                    <option value="{{ $item->id }}"
-                                                                        data-unit="{{ $item->unit->code ?? '' }}">
-                                                                        [{{ $item->sku }}] {{ $item->name }}
-                                                                    </option>
-                                                                @endforeach
+                                                                class="form-control form-control-sm select-item-ajax">
                                                             </select>
                                                         </td>
-
                                                         <td><input type="number" name="items[0][quantity_ordered]" class="form-control form-control-sm text-center" value="1" min="1"></td>
                                                         <td><input type="number" name="items[0][quantity_received]" class="form-control form-control-sm text-center" value="0" min="0"></td>
                                                         <td><input type="text" name="items[0][notes]" class="form-control form-control-sm"></td>
@@ -265,21 +271,13 @@
         </div>
     </div>
 
-    {{-- Hidden template row --}}
+    {{-- Template row (tanpa option — diisi Select2 saat init) --}}
     <template id="row-template">
         <tr>
             <td class="text-center row-num"></td>
             <td>
-                <select name="items[__IDX__][item_id]" class="form-control form-control-sm select-item">
-                    <option value="">-- Pilih Item --</option>
-                    @foreach ($items as $item)
-                        <option value="{{ $item->id }}" data-unit="{{ $item->unit->code ?? '' }}">
-                            [{{ $item->sku }}] {{ $item->name }}
-                        </option>
-                    @endforeach
-                </select>
+                <select name="items[__IDX__][item_id]" class="form-control form-control-sm select-item-ajax"></select>
             </td>
-
             <td><input type="number" name="items[__IDX__][quantity_ordered]" class="form-control form-control-sm text-center" value="1" min="1"></td>
             <td><input type="number" name="items[__IDX__][quantity_received]" class="form-control form-control-sm text-center" value="0" min="0"></td>
             <td><input type="text" name="items[__IDX__][notes]" class="form-control form-control-sm"></td>
@@ -291,24 +289,54 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    var rowIndex = $('#item-rows tr').length;
+    var SEARCH_URL = '{{ route('inbound.orders.search-items') }}';
+    var rowIndex   = $('#item-rows tr').length;
+
+    function initSelect2(el) {
+        $(el).select2({
+            theme: 'bootstrap4',
+            placeholder: '-- Ketik SKU / nama item --',
+            allowClear: true,
+            minimumInputLength: 0,
+            ajax: {
+                url: SEARCH_URL,
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term || '' };
+                },
+                processResults: function (data) {
+                    return { results: data.results };
+                },
+                cache: true,
+            },
+        });
+    }
+
+    // Init semua select yang sudah ada di DOM (create 1 row + edit rows)
+    $('.select-item-ajax').each(function () {
+        initSelect2(this);
+    });
 
     function reNumberRows() {
-        $('#item-rows tr').each(function(i) {
+        $('#item-rows tr').each(function (i) {
             $(this).find('.row-num').text(i + 1);
         });
     }
 
-    $('#btnAddRow').on('click', function() {
+    $('#btnAddRow').on('click', function () {
         var template = document.getElementById('row-template').innerHTML;
-        var html = template.replace(/__IDX__/g, rowIndex);
-        $('#item-rows').append(html);
+        var html     = template.replace(/__IDX__/g, rowIndex);
+        var $row     = $(html);
+        $('#item-rows').append($row);
+        initSelect2($row.find('.select-item-ajax')[0]);
         rowIndex++;
         reNumberRows();
     });
 
-    $(document).on('click', '.btnRemoveRow', function() {
+    $(document).on('click', '.btnRemoveRow', function () {
         if ($('#item-rows tr').length <= 1) {
             Swal.fire('Peringatan', 'Minimal harus ada 1 item.', 'warning');
             return;

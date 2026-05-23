@@ -1543,7 +1543,7 @@
                                 <li class="nav-item">
                                     <a href="{{ route('stock.transfer-scan') }}"
                                         class="nav-link {{ request()->routeIs('stock.transfer-scan') ? 'active' : '' }}">
-                                        <i class="fas fa-qrcode nav-icon" style="font-size:12px;color:#22c55e;"></i>
+                                        <i class="fas fa-qrcode nav-icon" style="font-size:12px;"></i>
                                         <p>Scan Transfer</p>
                                     </a>
                                 </li>
@@ -1558,7 +1558,7 @@
                                     <a href="{{ route('stock.low-stock') }}"
                                         class="nav-link {{ request()->routeIs('stock.low-stock') ? 'active' : '' }}">
                                         <i class="fas fa-exclamation-triangle nav-icon"
-                                            style="font-size:12px;color:#f97316;"></i>
+                                            style="font-size:12px;"></i>
                                         <p>Stok Kritis</p>
                                     </a>
                                 </li>

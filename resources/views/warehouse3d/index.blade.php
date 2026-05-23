@@ -1440,7 +1440,8 @@ function showMspartColumnDetail(blok, grup, kolom) {
             : res.levels.map(lv => {
                 const sc = lv.status === 'full' ? 'danger' : lv.status === 'partial' ? 'warning' : 'success';
                 const barisCode = `${res.blok}-${res.grup}-${res.kolom}-${lv.baris}`;
-                const capText = `${Number(lv.capacity_used || 0).toLocaleString('id')} / ${Number(lv.capacity_max || 0).toLocaleString('id')} poin`;
+                const capUsedDisplay = Math.min(lv.capacity_used || 0, lv.capacity_max || 0);
+                const capText = `${Number(capUsedDisplay).toLocaleString('id')} / ${Number(lv.capacity_max || 0).toLocaleString('id')} poin`;
                 const itemHtml = !lv.stocks.length
                     ? '<small class="text-muted">- kosong -</small>'
                     : lv.stocks.map(s => `<div><strong>${s.item_name}</strong> &nbsp;<small class="text-muted">${s.sku}</small> &nbsp;<span class="font-weight-bold text-success">${s.quantity.toLocaleString('id')} ${s.unit}</span><small class="text-muted ml-1">(masuk: ${s.inbound_date||'-'})</small></div>`).join('');

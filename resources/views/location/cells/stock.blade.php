@@ -42,9 +42,12 @@
                             <div class="col-md-2">
                                 <small class="text-muted">Kapasitas</small>
                                 <div>
-                                    <span class="font-weight-bold">{{ $cell->capacity_used }}</span>
+                                    @php
+                                        $displayUsed = min($cell->capacity_used, $cell->capacity_max);
+                                        $pct = $cell->capacity_max > 0 ? min(100, round(($cell->capacity_used / $cell->capacity_max) * 100)) : 0;
+                                    @endphp
+                                    <span class="font-weight-bold">{{ $displayUsed }}</span>
                                     <span class="text-muted">/ {{ $cell->capacity_max }}</span>
-                                    @php $pct = $cell->capacity_max > 0 ? round(($cell->capacity_used / $cell->capacity_max) * 100) : 0; @endphp
                                     <span class="badge badge-{{ $pct >= 100 ? 'danger' : ($pct >= 75 ? 'warning' : 'success') }} ml-1">
                                         {{ $pct }}%
                                     </span>

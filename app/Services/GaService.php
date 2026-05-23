@@ -686,7 +686,7 @@ class GaService
             ->map(function ($group) {
                 $first = $group->first();
 
-                foreach (['gene_fitness', 'fc_cap', 'fc_cat', 'fc_aff', 'fc_split'] as $scoreKey) {
+                foreach (['gene_fitness', 'fc_cap', 'fc_cat', 'fc_aff', 'fc_split', 'fc_mov'] as $scoreKey) {
                     if ($group->contains(fn($gene) => isset($gene[$scoreKey]))) {
                         $first[$scoreKey] = round($group->avg(fn($gene) => $gene[$scoreKey] ?? 0), 4);
                     }
@@ -709,6 +709,7 @@ class GaService
                 'fc_cat_score'           => $gene['fc_cat']        ?? null,
                 'fc_aff_score'           => $gene['fc_aff']        ?? null,
                 'fc_split_score'         => $gene['fc_split']      ?? null,
+                'fc_mov_score'           => $gene['fc_mov']        ?? null,
             ]);
 
         }
@@ -785,10 +786,11 @@ class GaService
                 'cell_id'           => $cell['cell_id'],
                 'quantity'          => $item['quantity'],
                 'gene_fitness'      => 70.0,
-                'fc_cap'            => 28.0,
+                'fc_cap'            => 24.0,
                 'fc_cat'            => 21.0,
                 'fc_aff'            => 14.0,
-                'fc_split'          => 7.0,
+                'fc_split'          => 6.0,
+                'fc_mov'            => 5.0,
             ];
         }
 

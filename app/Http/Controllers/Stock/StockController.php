@@ -90,11 +90,18 @@ class StockController extends Controller
             ->when($request->filled('warehouse_id'),
                 fn($q) => $q->where('sr.warehouse_id', $request->warehouse_id))
             ->when($request->filled('status_filter'), function ($q) use ($request) {
-                match ($request->status_filter) {
-                    'critical' => $q->havingRaw('SUM(sr.quantity) <= items.min_stock AND items.min_stock > 0'),
-                    'reorder'  => $q->havingRaw('SUM(sr.quantity) > items.min_stock AND SUM(sr.quantity) <= items.reorder_point AND items.reorder_point > 0'),
-                    default    => null,
-                };
+                if ($request->status_filter === 'critical') {
+                    $q->havingRaw('SUM(sr.quantity) <= items.min_stock AND items.min_stock > 0');
+                } elseif ($request->status_filter === 'reorder') {
+                    $q->havingRaw('SUM(sr.quantity) > items.min_stock AND SUM(sr.quantity) <= items.reorder_point AND items.reorder_point > 0');
+                }
+            })
+            ->when($request->input('search.value'), function ($q) use ($request) {
+                $term = $request->input('search.value');
+                $q->where(function ($q2) use ($term) {
+                    $q2->where('items.name', 'like', "%{$term}%")
+                       ->orWhere('items.sku',  'like', "%{$term}%");
+                });
             });
 
         return DataTables::of($query)

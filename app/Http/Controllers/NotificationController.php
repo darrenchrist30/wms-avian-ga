@@ -25,13 +25,17 @@ class NotificationController extends Controller
                 'message'    => $n->data['message']    ?? '',
                 'url'        => $this->normalizeNotificationUrl($n->data['url'] ?? '#'),
                 'is_read'    => !is_null($n->read_at),
-                'created_at' => $n->created_at->diffForHumans(),
+                'created_at' => \Carbon\Carbon::createFromFormat(
+                                    'Y-m-d H:i:s',
+                                    $n->getRawOriginal('created_at'),
+                                    'Asia/Jakarta'
+                                )->diffForHumans(),
             ]);
 
         $unreadCount = $user->unreadNotifications()->count();
 
         // Sidebar badge counts — pending action per menu
-        $sidebarCounts = $this->getSidebarCounts($user);
+        $sidebarCounts = $this->getSidebarCounts();
 
         return response()->json([
             'notifications'  => $notifications,
@@ -40,7 +44,7 @@ class NotificationController extends Controller
         ]);
     }
 
-    private function getSidebarCounts($user): array
+    private function getSidebarCounts(): array
     {
         $counts = [];
 
