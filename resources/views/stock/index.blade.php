@@ -10,7 +10,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-boxes text-primary mr-2"></i>Stok Saat Ini
         </h5>
-        <small class="text-muted">Posisi barang real-time hasil put-away — per item, seluruh gudang</small>
+        {{-- <small class="text-muted">Posisi barang real-time hasil put-away — per item, seluruh gudang</small> --}}
     </div>
     <div class="d-flex" style="gap:6px;">
         <a href="{{ route('stock.transfer-scan') }}" class="btn btn-sm btn-success">
@@ -100,8 +100,8 @@
                         <th>SKU / Nama Item</th>
                         <th width="130">Kategori</th>
                         <th class="text-center" width="130">Total Qty</th>
-                        <th class="text-center" width="130">Min / Reorder</th>
-                        <th class="text-center" width="110">Lokasi</th>
+                        <th class="text-center" width="130">Min / Max</th>
+                        <th class="text-center" width="160">Lokasi</th>
                         <th class="text-center" width="110">FIFO Terlama</th>
                         <th class="text-center" width="80">Aksi</th>
                     </tr>
@@ -133,7 +133,7 @@ $(function () {
         },
         columns: [
             { data: 'DT_RowIndex',       orderable: false, searchable: false, className: 'text-center text-muted' },
-            { data: 'item_info',         orderable: false, searchable: false },
+            { data: 'item_info',         name: 'item_info', orderable: false, searchable: true },
             { data: 'category_badge',    orderable: false, searchable: false, className: 'text-center' },
             { data: 'qty_display',       orderable: false, searchable: false, className: 'text-center' },
             { data: 'min_reorder',       orderable: false, searchable: false, className: 'text-center' },
@@ -143,6 +143,11 @@ $(function () {
         ],
         order: [],
         pageLength: 25,
+        error: function (xhr) {
+            if (xhr.status === 401 || xhr.status === 419) { window.location.href = '{{ route("login") }}'; return; }
+            var msg = xhr.status === 500 ? 'Terjadi error server saat memuat data stok.' : 'Gagal memuat data stok.';
+            Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#dc3545' });
+        },
         dom: "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
              "<'row'<'col-sm-12'tr>>" +
              "<'row'<'col-sm-5'i><'col-sm-7'p>>",

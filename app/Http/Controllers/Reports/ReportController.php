@@ -111,10 +111,35 @@ class ReportController extends Controller
             ->get()
             ->keyBy('month');
 
-        // Distribusi status
+        // Distribusi status (dengan label yang bersih)
         $statusDist = DB::table('inbound_transactions')
             ->selectRaw('status, COUNT(*) as total')
             ->groupBy('status')
+            ->get()
+            ->map(function ($row) {
+                $row->label = ucwords(str_replace('_', ' ', $row->status));
+                return $row;
+            });
+
+        // Rata-rata waktu proses DO (jam) per bulan — hanya order completed
+        $avgProcessingTime = DB::table('inbound_transactions')
+            ->selectRaw('MONTH(updated_at) as month, ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) as avg_hours')
+            ->whereYear('created_at', $year)
+            ->where('status', 'completed')
+            ->groupByRaw('MONTH(updated_at)')
+            ->orderByRaw('MONTH(updated_at)')
+            ->get()
+            ->keyBy('month');
+
+        // Top 5 SKU terbanyak diterima (dari inbound_details)
+        $topSkus = DB::table('inbound_details as id')
+            ->join('inbound_transactions as it', 'it.id', '=', 'id.inbound_order_id')
+            ->join('items', 'items.id', '=', 'id.item_id')
+            ->selectRaw('items.sku, items.name, SUM(id.quantity_received) as total_qty')
+            ->whereYear('it.created_at', $year)
+            ->groupBy('items.id', 'items.sku', 'items.name')
+            ->orderByDesc('total_qty')
+            ->limit(5)
             ->get();
 
         // Available years
@@ -133,29 +158,33 @@ class ReportController extends Controller
         ];
 
         // Build 12-month arrays for chart
-        $months       = range(1, 12);
-        $chartOrders  = [];
-        $chartQty     = [];
+        $months              = range(1, 12);
+        $chartOrders         = [];
+        $chartQty            = [];
+        $chartAvgProcessing  = [];
         foreach ($months as $m) {
-            $chartOrders[] = $monthlyQty[$m]->order_count ?? 0;
-            $chartQty[]    = $monthlyQty[$m]->total_qty ?? 0;
+            $chartOrders[]        = $monthlyQty[$m]->order_count ?? 0;
+            $chartQty[]           = $monthlyQty[$m]->total_qty ?? 0;
+            $chartAvgProcessing[] = isset($avgProcessingTime[$m]) ? (float) $avgProcessingTime[$m]->avg_hours : null;
         }
 
         return view('reports.inbound', compact(
             'summary', 'statusDist',
-            'chartOrders', 'chartQty', 'year', 'years'
+            'chartOrders', 'chartQty', 'chartAvgProcessing',
+            'topSkus', 'year', 'years'
         ));
     }
 
     // ─── 3. Laporan Put-Away ─────────────────────────────────────────────────
     public function putaway(Request $request)
     {
-        $year = $request->input('year', now()->year);
-        $dateFrom = $request->input('date_from', now()->subDay()->toDateString());
-        $dateTo = $request->input('date_to', $dateFrom);
+        $year       = $request->input('year', now()->year);
+        $dateFrom   = $request->input('date_from') ?: null;
+        $dateTo     = $request->input('date_to')   ?: $dateFrom;
         $operatorId = $request->input('operator_id');
+        $hasFilter  = $dateFrom && $dateTo;
 
-        // Put-away per bulan (dari stock_records yang masuk)
+        // Put-away per bulan — selalu per tahun (tren overview, tidak ikut filter tanggal)
         $monthlyPutAway = DB::table('stock_records')
             ->selectRaw('MONTH(created_at) as month, COUNT(*) as records, SUM(quantity) as total_qty')
             ->whereYear('created_at', $year)
@@ -165,7 +194,7 @@ class ReportController extends Controller
             ->get()
             ->keyBy('month');
 
-        // GA recommendation stats
+        // GA recommendation stats — selalu per tahun
         $gaStats = DB::table('ga_recommendations')
             ->selectRaw('
                 COUNT(*) as total,
@@ -178,7 +207,7 @@ class ReportController extends Controller
             ->whereYear('created_at', $year)
             ->first();
 
-        // Put-away per kategori item
+        // Put-away per kategori item — selalu per tahun
         $byCategory = DB::table('stock_records as sr')
             ->join('items', 'items.id', '=', 'sr.item_id')
             ->leftJoin('item_categories as cat', 'cat.id', '=', 'items.category_id')
@@ -219,10 +248,10 @@ class ReportController extends Controller
             ->leftJoin('units as u', 'u.id', '=', 'i.unit_id')
             ->join('cells as c', 'c.id', '=', 'pac.cell_id')
             ->leftJoin('users as usr', 'usr.id', '=', 'pac.user_id')
-            ->whereBetween('pac.confirmed_at', [
+            ->when($hasFilter, fn($q) => $q->whereBetween('pac.confirmed_at', [
                 $dateFrom . ' 00:00:00',
                 $dateTo . ' 23:59:59',
-            ])
+            ]))
             ->when($operatorId, fn($q) => $q->where('pac.user_id', $operatorId));
 
         $traceSummary = (clone $traceBase)

@@ -58,11 +58,19 @@ class StockController extends Controller
 
     private function indexDatatable(Request $request)
     {
-        // Aggregate dari stock_records, join ke items
-        $query = DB::table('stock_records as sr')
-            ->join('items', 'items.id', '=', 'sr.item_id')
+        // Mulai dari items agar item tanpa stok pun tetap muncul (stok = 0)
+        $query = DB::table('items')
             ->leftJoin('item_categories as cat', 'cat.id', '=', 'items.category_id')
             ->leftJoin('units', 'units.id', '=', 'items.unit_id')
+            ->leftJoin(DB::raw('(SELECT sr.item_id, sr.warehouse_id, SUM(sr.quantity) as qty,
+                                        COUNT(DISTINCT sr.cell_id) as loc_count,
+                                        MIN(sr.inbound_date) as fifo_date,
+                                        GROUP_CONCAT(DISTINCT c.code ORDER BY c.code SEPARATOR "|") as cell_codes
+                                 FROM stock_records sr
+                                 LEFT JOIN cells c ON c.id = sr.cell_id
+                                 WHERE sr.status = "available"
+                                 GROUP BY sr.item_id, sr.warehouse_id) as stk'),
+                'stk.item_id', '=', 'items.id')
             ->select([
                 'items.id',
                 'items.name',
@@ -73,39 +81,38 @@ class StockController extends Controller
                 'cat.name as category_name',
                 'cat.color_code',
                 'units.code as unit_code',
-                DB::raw('SUM(sr.quantity) as total_qty'),
-                DB::raw('COUNT(DISTINCT sr.cell_id) as locations_count'),
-                DB::raw('MIN(sr.inbound_date) as fifo_date'),
+                DB::raw('COALESCE(SUM(stk.qty), 0) as total_qty'),
+                DB::raw('COALESCE(SUM(stk.loc_count), 0) as locations_count'),
+                DB::raw('MIN(stk.fifo_date) as fifo_date'),
+                DB::raw("GROUP_CONCAT(DISTINCT stk.cell_codes ORDER BY stk.cell_codes SEPARATOR '|') as cell_codes"),
             ])
-            ->where('sr.status', 'available')
             ->where('items.is_active', true)
             ->groupBy(
                 'items.id','items.name','items.sku','items.erp_item_code',
                 'items.min_stock','items.reorder_point',
                 'cat.name','cat.color_code','units.code'
             )
-            ->havingRaw('SUM(sr.quantity) > 0')
             ->when($request->filled('category_id'),
                 fn($q) => $q->where('items.category_id', $request->category_id))
             ->when($request->filled('warehouse_id'),
-                fn($q) => $q->where('sr.warehouse_id', $request->warehouse_id))
+                fn($q) => $q->where('stk.warehouse_id', $request->warehouse_id))
             ->when($request->filled('status_filter'), function ($q) use ($request) {
                 if ($request->status_filter === 'critical') {
-                    $q->havingRaw('SUM(sr.quantity) <= items.min_stock AND items.min_stock > 0');
+                    $q->havingRaw('COALESCE(SUM(stk.qty), 0) <= items.min_stock AND items.min_stock > 0');
                 } elseif ($request->status_filter === 'reorder') {
-                    $q->havingRaw('SUM(sr.quantity) > items.min_stock AND SUM(sr.quantity) <= items.reorder_point AND items.reorder_point > 0');
+                    $q->havingRaw('COALESCE(SUM(stk.qty), 0) > items.min_stock AND COALESCE(SUM(stk.qty), 0) <= items.reorder_point AND items.reorder_point > 0');
                 }
             })
-            ->when($request->input('search.value'), function ($q) use ($request) {
-                $term = $request->input('search.value');
-                $q->where(function ($q2) use ($term) {
-                    $q2->where('items.name', 'like', "%{$term}%")
-                       ->orWhere('items.sku',  'like', "%{$term}%");
-                });
-            });
+            ;
 
         return DataTables::of($query)
             ->addIndexColumn()
+            ->filterColumn('item_info', function ($query, $keyword) {
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('items.name', 'like', "%{$keyword}%")
+                      ->orWhere('items.sku',  'like', "%{$keyword}%");
+                });
+            })
             ->addColumn('item_info', function ($row) {
                 $erp = ($row->erp_item_code && $row->erp_item_code !== $row->sku)
                     ? '<br><small class="text-muted">ERP: ' . e($row->erp_item_code) . '</small>'
@@ -124,7 +131,11 @@ class StockController extends Controller
                 $min    = (int) $row->min_stock;
                 $reorder= (int) $row->reorder_point;
                 $unit   = e($row->unit_code ?? '');
-                $badge  = '';
+                if ($qty === 0) {
+                    return '<span class="badge badge-danger">0</span>'
+                         . '<small class="text-muted ml-1">' . $unit . '</small>';
+                }
+                $badge = '';
                 if ($min > 0 && $qty <= $min) {
                     $badge = '<span class="badge badge-danger ml-1">Kritis</span>';
                 } elseif ($reorder > 0 && $qty <= $reorder) {
@@ -135,17 +146,21 @@ class StockController extends Controller
                     <small class="text-muted ml-1">' . $unit . '</small>' . $badge;
             })
             ->addColumn('min_reorder', function ($row) {
-                $min    = $row->min_stock    ? number_format($row->min_stock)    : '—';
-                $reorder= $row->reorder_point? number_format($row->reorder_point): '—';
+                $min = $row->min_stock ? number_format($row->min_stock) : '—';
+                $max = $row->max_stock ? number_format($row->max_stock) : '—';
                 return '<small class="text-muted">Min: <strong>' . $min . '</strong></small><br>
-                         <small class="text-muted">Reorder: <strong>' . $reorder . '</strong></small>';
+                         <small class="text-muted">Max: <strong>' . $max . '</strong></small>';
             })
             ->addColumn('locations_display', function ($row) {
-                $n = (int) $row->locations_count;
-                if ($n === 0) return '<span class="text-muted">—</span>';
-                return '<span class="badge badge-light border text-dark">
-                            <i class="fas fa-map-marker-alt mr-1 text-primary"></i>' . $n . ' cell
-                        </span>';
+                if (!$row->cell_codes) return '<span class="text-muted">—</span>';
+                $codes = explode('|', $row->cell_codes);
+                $html  = '';
+                foreach ($codes as $code) {
+                    $html .= '<span class="badge badge-light border text-dark mr-1 mb-1" style="white-space:nowrap;">'
+                           . '<i class="fas fa-map-marker-alt text-primary mr-1"></i>'
+                           . e($code) . '</span>';
+                }
+                return $html;
             })
             ->addColumn('fifo_display', function ($row) {
                 if (!$row->fifo_date) return '<span class="text-muted">—</span>';
@@ -187,15 +202,16 @@ class StockController extends Controller
 
         // Status stok vs parameter item
         $minStock     = (int) $item->min_stock;
+        $maxStock     = (int) $item->max_stock;
         $reorderPoint = (int) $item->reorder_point;
         $stockStatus  = 'ok';
-        if ($totalQty === 0)                            $stockStatus = 'empty';
-        elseif ($minStock > 0 && $totalQty <= $minStock)    $stockStatus = 'critical';
-        elseif ($reorderPoint > 0 && $totalQty <= $reorderPoint) $stockStatus = 'reorder';
+        if ($totalQty === 0)                                      $stockStatus = 'empty';
+        elseif ($minStock > 0 && $totalQty <= $minStock)          $stockStatus = 'critical';
+        elseif ($reorderPoint > 0 && $totalQty <= $reorderPoint)  $stockStatus = 'reorder';
 
         return view('stock.show', compact(
             'item', 'stocks', 'totalQty', 'cellCount',
-            'oldestFifo', 'stockStatus', 'minStock', 'reorderPoint'
+            'oldestFifo', 'stockStatus', 'minStock', 'maxStock'
         ));
     }
 

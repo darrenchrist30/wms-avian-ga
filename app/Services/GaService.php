@@ -308,6 +308,41 @@ class GaService
             );
         }
 
+        // Auto-split items whose capacity_demand exceeds every available cell.
+        // e.g. qty=10, max_stock=8 → 125 poin > cell max 100 → split: chunk(8)+chunk(2).
+        // Each chunk shares the same inbound_detail_id; GA places them independently
+        // and fc_split penalises the resulting multi-cell placement automatically.
+        $maxCellCapacity = collect($cells)->max(fn($c) => (int) $c['capacity_remaining']) ?: CellCapacityService::DEFAULT_CAPACITY_MAX;
+        $expandedItems   = [];
+
+        foreach ($items as $item) {
+            $demand = (int) $item['capacity_demand'];
+
+            if ($demand <= $maxCellCapacity) {
+                $expandedItems[] = $item;
+                continue;
+            }
+
+            // Demand exceeds any single cell — split into same-size chunks that fit.
+            $itemModel    = \App\Models\Item::select('max_stock')->find($item['item_id']);
+            $maxStock     = max(1, (int) ($itemModel?->max_stock ?: CellCapacityService::SCALE));
+            $unitsPerChunk = max(1, (int) floor($maxCellCapacity * $maxStock / CellCapacityService::SCALE));
+
+            $remaining = (int) $item['quantity'];
+            while ($remaining > 0) {
+                $chunkQty    = min($remaining, $unitsPerChunk);
+                $chunkDemand = max(1, (int) ceil($chunkQty * CellCapacityService::SCALE / $maxStock));
+                $expandedItems[] = array_merge($item, [
+                    'quantity'        => $chunkQty,
+                    'capacity_demand' => $chunkDemand,
+                ]);
+                $remaining -= $chunkQty;
+            }
+        }
+
+        $items = $expandedItems;
+
+        // Final feasibility check — each chunk must now fit in at least one cell.
         foreach ($items as $item) {
             $hasFeasibleCell = collect($cells)->contains(fn(array $cell) =>
                 (int) $cell['capacity_remaining'] >= (int) $item['capacity_demand']

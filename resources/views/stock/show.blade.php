@@ -4,10 +4,10 @@
 @section('content')
 @php
     $statusCfg = [
-        'ok'       => ['success', 'Stok Aman',    'fas fa-check-circle'],
-        'reorder'  => ['warning', 'Perlu Reorder','fas fa-exclamation-circle'],
-        'critical' => ['danger',  'Stok Kritis',  'fas fa-exclamation-triangle'],
-        'empty'    => ['secondary','Stok Habis',  'fas fa-times-circle'],
+        'ok'       => ['#16a34a', 'Stok Aman',     'fas fa-check-circle'],
+        'reorder'  => ['#b45309', 'Perlu Reorder', 'fas fa-exclamation-circle'],
+        'critical' => ['#dc2626', 'Stok Kritis',   'fas fa-exclamation-triangle'],
+        'empty'    => ['#6b7280', 'Stok Habis',    'fas fa-times-circle'],
     ];
     [$sCls, $sLabel, $sIcon] = $statusCfg[$stockStatus];
     $canTransferStock = auth()->user()->isAdmin()
@@ -38,11 +38,11 @@
 
 {{-- Item Info Card --}}
 <div class="card mb-3">
-    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+    <div class="card-header py-2">
         <span class="font-weight-bold">
             <i class="fas fa-box mr-1 text-primary"></i>Informasi Item
         </span>
-        <span class="badge badge-{{ $sCls }} px-3 py-1" style="font-size:12px;">
+        <span class="ml-3" style="font-size:12px; font-weight:600; color:{{ $sCls }};">
             <i class="{{ $sIcon }} mr-1"></i>{{ $sLabel }}
         </span>
     </div>
@@ -72,17 +72,11 @@
                 <div class="font-weight-bold mt-1">{{ $item->unit?->code ?? '—' }}</div>
             </div>
             <div class="col-6 col-md-2 mb-2">
-                <small class="text-muted text-uppercase" style="font-size:10.5px;letter-spacing:.5px;">Min / Reorder</small>
+                <small class="text-muted text-uppercase" style="font-size:10.5px;letter-spacing:.5px;">Min / Max Stok</small>
                 <div class="mt-1">
                     <span class="text-danger font-weight-bold">{{ number_format($minStock) }}</span>
                     <span class="text-muted"> / </span>
-                    <span class="text-warning font-weight-bold">{{ number_format($reorderPoint) }}</span>
-                </div>
-            </div>
-            <div class="col-6 col-md-2 mb-2">
-                <small class="text-muted text-uppercase" style="font-size:10.5px;letter-spacing:.5px;">FIFO Terlama Masuk</small>
-                <div class="font-weight-bold mt-1">
-                    {{ $oldestFifo ? $oldestFifo->format('d M Y') : '—' }}
+                    <span class="font-weight-bold">{{ number_format($maxStock) }}</span>
                 </div>
             </div>
         </div>
@@ -91,16 +85,16 @@
 
 {{-- Summary mini cards --}}
 <div class="row mb-3">
-    <div class="col-4 mb-2">
-        <div class="small-box bg-{{ $sCls }} mb-0">
+    <div class="col-6 mb-2">
+        <div class="small-box mb-0" style="background-color:{{ $sCls }}; color:#fff;">
             <div class="inner">
-                <h4>{{ number_format($totalQty) }}</h4>
+                <h4 style="color:#fff;">{{ number_format($totalQty) }}</h4>
                 <p>Total Qty Tersedia</p>
             </div>
             <div class="icon"><i class="fas fa-cubes"></i></div>
         </div>
     </div>
-    <div class="col-4 mb-2">
+    <div class="col-6 mb-2">
         <div class="small-box mb-0 {{ $cellCount > 1 ? 'bg-warning' : 'bg-info' }}">
             <div class="inner">
                 <h4>{{ $cellCount }}</h4>
@@ -114,15 +108,6 @@
             <div class="icon"><i class="fas fa-map-marker-alt"></i></div>
         </div>
     </div>
-    <div class="col-4 mb-2">
-        <div class="small-box bg-secondary mb-0">
-            <div class="inner">
-                <h4>{{ $stocks->count() }}</h4>
-                <p>Batch / LPN Aktif</p>
-            </div>
-            <div class="icon"><i class="fas fa-layer-group"></i></div>
-        </div>
-    </div>
 </div>
 
 {{-- Lokasi Stok per Cell (FIFO Order) --}}
@@ -131,18 +116,13 @@
         <span class="font-weight-bold">
             <i class="fas fa-map-marker-alt mr-1 text-primary"></i>
             Posisi Stok per Cell
-            <span class="badge badge-primary ml-1">FIFO</span>
             @if($cellCount > 1)
                 <span class="badge badge-warning ml-1 text-dark">
                     <i class="fas fa-exclamation-triangle mr-1"></i>Split Location: {{ $cellCount }} lokasi
                 </span>
-            @else
-                <span class="badge badge-success ml-1">
-                    <i class="fas fa-check-circle mr-1"></i>Tidak Split
-                </span>
             @endif
         </span>
-        <small class="text-muted">Urut dari tanggal masuk paling lama → yang harus diambil pertama</small>
+        {{-- <small class="text-muted">Urut dari tanggal masuk paling lama → yang harus diambil pertama</small> --}}
     </div>
     <div class="card-body p-0">
         @if($stocks->isEmpty())
@@ -155,14 +135,13 @@
             <table class="table table-sm table-bordered table-hover mb-0">
                 <thead class="thead-light">
                     <tr>
-                        <th class="text-center" width="40">FIFO</th>
+                        <th class="text-center" width="50">FIFO</th>
                         <th width="120">Cell</th>
-                        <th width="100">Rak</th>
-                        <th width="100">Gudang</th>
-                        <th class="text-center" width="90">Qty</th>
-                        <th width="120">LPN</th>
-                        <th width="110">Tgl Masuk</th>
-                        <th width="110">Tgl Expired</th>
+                        <th width="80">Rak</th>
+                        <th>Gudang</th>
+                        <th class="text-center" width="70">Qty</th>
+                        <th class="text-center" width="110">Tgl Masuk</th>
+                        <th class="text-center" width="110">Tidak Gerak</th>
                         <th class="text-center" width="90">Status</th>
                         @if($canTransferStock)
                         <th class="text-center" width="80">Aksi</th>
@@ -172,54 +151,35 @@
                 <tbody>
                     @foreach($stocks as $i => $s)
                     @php
-                        $isNearExpiry = $s->expiry_date && $s->expiry_date->diffInDays(now(), false) >= -30 && $s->expiry_date->isFuture();
-                        $isExpired    = $s->expiry_date && $s->expiry_date->isPast();
-                        $rowClass     = $isExpired ? 'table-danger' : ($isNearExpiry ? 'table-warning' : ($i === 0 ? 'table-success' : ''));
+                        $deadDays = $s->inbound_date ? (int) now()->diffInDays($s->inbound_date) : null;
                     @endphp
-                    <tr class="{{ $rowClass }}">
-                        <td class="text-center">
-                            @if($i === 0)
-                                <span class="badge badge-success" title="Ambil ini duluan (FIFO)">
-                                    <i class="fas fa-star"></i> 1st
-                                </span>
-                            @else
-                                <span class="text-muted">{{ $i + 1 }}</span>
-                            @endif
-                        </td>
+                    <tr>
+                        <td class="text-center text-muted">{{ $i + 1 }}</td>
                         <td>
-                            <strong>{{ $s->cell?->code ?? '—' }}</strong>
-                            @if($s->cell?->label)
-                                <br><small class="text-muted">{{ $s->cell->label }}</small>
-                            @endif
+                            <strong>{{ $s->cell?->physical_code ?? '—' }}</strong>
                             @if($s->cell_id)
                                 <br>
                                 <button class="btn btn-xs btn-outline-info mt-1 btn-view3d"
                                     data-cell-id="{{ $s->cell_id }}"
-                                    data-cell-code="{{ $s->cell?->code }}"
+                                    data-cell-code="{{ $s->cell?->physical_code }}"
                                     title="Lihat detail cell di visualisasi 3D">
                                     <i class="fas fa-cube mr-1"></i>3D
                                 </button>
                             @endif
                         </td>
                         <td>{{ $s->cell?->rack?->code ?? '—' }}</td>
-                        <td><small>{{ $s->warehouse?->name ?? '—' }}</small></td>
+                        <td>{{ $s->warehouse?->name ?? '—' }}</td>
                         <td class="text-center font-weight-bold">{{ number_format($s->quantity) }}</td>
-                        <td><code class="small">{{ $s->lpn ?? '—' }}</code></td>
-                        <td>
-                            <small>{{ $s->inbound_date?->format('d M Y') ?? '—' }}</small>
-                        </td>
-                        <td>
-                            @if($s->expiry_date)
-                                <small class="{{ $isExpired ? 'text-danger font-weight-bold' : ($isNearExpiry ? 'text-warning font-weight-bold' : '') }}">
-                                    {{ $s->expiry_date->format('d M Y') }}
-                                    @if($isExpired)
-                                        <i class="fas fa-exclamation-circle ml-1"></i>
-                                    @elseif($isNearExpiry)
-                                        <i class="fas fa-clock ml-1"></i>
-                                    @endif
-                                </small>
-                            @else
+                        <td class="text-center">{{ $s->inbound_date?->format('d M Y') ?? '—' }}</td>
+                        <td class="text-center">
+                            @if($deadDays === null)
                                 <span class="text-muted">—</span>
+                            @elseif($deadDays > 90)
+                                <span class="text-danger font-weight-bold">{{ $deadDays }} hari</span>
+                            @elseif($deadDays > 30)
+                                <span class="text-warning font-weight-bold">{{ $deadDays }} hari</span>
+                            @else
+                                <span class="text-muted">{{ $deadDays }} hari</span>
                             @endif
                         </td>
                         <td class="text-center">
@@ -257,9 +217,9 @@
                         <td colspan="4" class="text-right pr-2">Total:</td>
                         <td class="text-center">{{ number_format($totalQty) }}</td>
                         @if($canTransferStock)
-                        <td colspan="5"></td>
-                        @else
                         <td colspan="4"></td>
+                        @else
+                        <td colspan="3"></td>
                         @endif
                     </tr>
                 </tfoot>

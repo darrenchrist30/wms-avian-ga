@@ -247,9 +247,9 @@
                 <i class="fas fa-stream mr-2 text-warning"></i>
                 Put-Away Queue
             </h4>
-            <p class="text-muted mb-0 mt-1">
+            {{-- <p class="text-muted mb-0 mt-1">
                 Semua item dari {{ $totalOrders }} DO — <strong>diurutkan berdasarkan rute lokasi</strong> (Blok → Grup → Kolom → Baris).
-            </p>
+            </p> --}}
             @php
                 $today = now()->toDateString();
             @endphp

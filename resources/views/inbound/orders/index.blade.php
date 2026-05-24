@@ -68,14 +68,14 @@
                                     <div class="form-group">
                                         <label class="small font-weight-bold mb-1">Start Date</label>
                                         <input type="date" class="form-control form-control-sm" id="filter-start-date"
-                                            value="{{ date('Y-m-d') }}">
+                                            value="">
                                     </div>
                                 </div>
                                 <div class="col-sm-12 col-md-2">
                                     <div class="form-group">
                                         <label class="small font-weight-bold mb-1">End Date</label>
                                         <input type="date" class="form-control form-control-sm" id="filter-end-date"
-                                            value="{{ date('Y-m-d') }}">
+                                            value="">
                                     </div>
                                 </div>
                                 <div class="col-sm-12 col-md-2 d-flex align-items-center" style="padding-top:8px;">
@@ -380,8 +380,8 @@
                 $('#chkShowAll').prop('checked', false);
                 $('#filter-status').val('');
                 $('#filter-warehouse').val('');
-                $('#filter-start-date').val(today);
-                $('#filter-end-date').val(today);
+                $('#filter-start-date').val('');
+                $('#filter-end-date').val('');
                 selectedIds = {};
                 updateBatchButton();
                 table.ajax.reload();

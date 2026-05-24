@@ -90,11 +90,11 @@
             <input type="hidden" name="year" value="{{ $year }}">
             <div class="col-md-3 col-6 mb-2">
                 <label class="small text-muted mb-1">Dari Tanggal</label>
-                <input type="date" name="date_from" value="{{ $dateFrom }}" class="form-control form-control-sm">
+                <input type="date" name="date_from" value="{{ $dateFrom ?? '' }}" class="form-control form-control-sm">
             </div>
             <div class="col-md-3 col-6 mb-2">
                 <label class="small text-muted mb-1">Sampai Tanggal</label>
-                <input type="date" name="date_to" value="{{ $dateTo }}" class="form-control form-control-sm">
+                <input type="date" name="date_to" value="{{ $dateTo ?? '' }}" class="form-control form-control-sm">
             </div>
             <div class="col-md-3 col-12 mb-2">
                 <label class="small text-muted mb-1">Operator</label>
@@ -108,9 +108,14 @@
                 </select>
             </div>
             <div class="col-md-3 col-12 mb-2">
-                <button class="btn btn-sm btn-success btn-block">
-                    <i class="fas fa-search mr-1"></i>Tampilkan
-                </button>
+                <div class="d-flex" style="gap:6px;">
+                    <button class="btn btn-sm btn-success flex-grow-1">
+                        <i class="fas fa-search mr-1"></i>Tampilkan
+                    </button>
+                    <a href="{{ route('reports.putaway') }}" class="btn btn-sm btn-outline-secondary" title="Reset filter">
+                        <i class="fas fa-times"></i>
+                    </a>
+                </div>
             </div>
         </form>
 

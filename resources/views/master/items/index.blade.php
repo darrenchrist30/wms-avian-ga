@@ -78,6 +78,7 @@
                                     <th width="80">Satuan</th>
                                     <th width="80" class="text-center">Min Order</th>
                                     <th width="80" class="text-center">Max Order</th>
+                                    <th width="80" class="text-center">Stok</th>
                                     <th width="80" class="text-center">Status</th>
                                 </tr>
                             </thead>
@@ -191,13 +192,8 @@
                     },
                     type: 'GET',
                     error: function(xhr) {
-                        var message = 'Data sparepart gagal dimuat.';
-                        if (xhr.status === 401 || xhr.status === 419) {
-                            message = 'Sesi login berakhir. Silakan login ulang.';
-                        } else if (xhr.status === 500) {
-                            message = 'Terjadi error server saat memuat data sparepart.';
-                        }
-
+                        if (xhr.status === 401 || xhr.status === 419) { window.location.href = '{{ route("login") }}'; return; }
+                        var message = xhr.status === 500 ? 'Terjadi error server saat memuat data sparepart.' : 'Data sparepart gagal dimuat.';
                         Swal.fire({
                             icon: 'error',
                             title: 'DataTable Error',
@@ -248,6 +244,13 @@
                         data: 'max_stock',
                         name: 'max_stock',
                         orderable: true,
+                        searchable: false,
+                        className: 'text-center'
+                    },
+                    {
+                        data: 'stok_badge',
+                        name: 'stok_badge',
+                        orderable: false,
                         searchable: false,
                         className: 'text-center'
                     },

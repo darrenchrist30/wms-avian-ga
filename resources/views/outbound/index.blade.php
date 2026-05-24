@@ -10,7 +10,7 @@
                 <i class="fas fa-sign-out-alt mr-2 text-danger"></i>
                 Outbound — Pengambilan Barang
             </h4>
-            <p class="text-muted mb-0">Riwayat pengambilan barang dari gudang menggunakan metode FIFO.</p>
+            {{-- <p class="text-muted mb-0">Riwayat pengambilan barang dari gudang menggunakan metode FIFO.</p> --}}
         </div>
     </div>
 
@@ -113,6 +113,10 @@ $(document).ready(function () {
                     message = 'Terjadi error server saat memuat data outbound.';
                 }
 
+                if (xhr.status === 401 || xhr.status === 419) {
+                    window.location.href = '{{ route("login") }}';
+                    return;
+                }
                 if (window.Swal) {
                     Swal.fire({
                         icon: 'error',

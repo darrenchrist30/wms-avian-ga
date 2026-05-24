@@ -68,7 +68,7 @@
     <div class="col-md-7 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-fire mr-1"></i>Top 10 Item Paling Aktif â€” {{ $year }}</strong>
+                <strong><i class="fas fa-fire mr-1"></i>Top 10 Item Paling Aktif {{ $year }}</strong>
             </div>
             <div class="card-body">
                 @if($topActive->isEmpty())

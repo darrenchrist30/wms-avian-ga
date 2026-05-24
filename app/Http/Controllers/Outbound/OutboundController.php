@@ -72,7 +72,9 @@ class OutboundController extends Controller
     public function create()
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']);
-        return view('outbound.create', compact('warehouses'));
+        $defaultWarehouseId = $warehouses->firstWhere('code', 'WH-001')?->id
+            ?? $warehouses->first(fn($w) => stripos($w->name, 'sparepart') !== false)?->id;
+        return view('outbound.create', compact('warehouses', 'defaultWarehouseId'));
     }
 
     /** Find item by barcode or SKU (for POS scanner). */

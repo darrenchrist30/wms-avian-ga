@@ -1493,8 +1493,9 @@ function showMspartColumnDetail(blok, grup, kolom) {
                     </table>
                 </div>
             </div>`);
-    }).fail(function () {
-        $('#cellModalBody').html('<div class="text-center text-danger py-3">Gagal memuat detail kolom.</div>');
+    }).fail(function (xhr) {
+        const msg = xhr.responseJSON?.error || 'Gagal memuat detail kolom.';
+        $('#cellModalBody').html('<div class="text-center text-danger py-3">' + msg + '</div>');
     });
 }
 

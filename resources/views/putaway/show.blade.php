@@ -308,7 +308,6 @@
                     $cellCapInfo[$cid]['total_qty'] += $gd->quantity;
                 }
             }
-            $hasOverflow = collect($cellCapInfo)->contains(fn($c) => $c['total_qty'] > $c['remaining']);
             $doneCount = $order->items->where('status', 'put_away')->count();
             $totalCount = $order->items->count();
             $totalQtyAll = $order->items->sum('quantity_received');
@@ -556,52 +555,31 @@
                             <div class="d-flex flex-wrap" style="gap:10px">
                                 @foreach ($cellCapInfo as $cid => $cap)
                                     @php
-                                        $isCapOver = $cap['total_qty'] > $cap['remaining'];
-                                        $fillPct =
-                                            $cap['max'] > 0
-                                                ? min(100, round(($cap['total_qty'] / $cap['max']) * 100))
-                                                : 0;
                                         $usedPct =
                                             $cap['max'] > 0
-                                                ? min(
-                                                    100,
-                                                    round((($cap['max'] - $cap['remaining']) / $cap['max']) * 100),
-                                                )
+                                                ? min(100, round((($cap['max'] - $cap['remaining']) / $cap['max']) * 100))
+                                                : 0;
+                                        $fillPct =
+                                            $cap['max'] > 0
+                                                ? min(100 - $usedPct, round(($cap['total_qty'] / $cap['max']) * 100))
                                                 : 0;
                                     @endphp
-                                    <div class="cell-use-card {{ $isCapOver ? 'cu-over' : 'cu-ok' }}">
+                                    <div class="cell-use-card cu-ok">
                                         <div class="d-flex justify-content-between align-items-center mb-1">
                                             <span class="font-weight-bold" style="font-size:14px">
                                                 {{ $cap['code'] }}
                                             </span>
-                                            @if ($isCapOver)
-                                                <span class="badge badge-danger" style="font-size:9px">PENUH</span>
-                                            @else
-                                                <span class="badge badge-success" style="font-size:9px">OK</span>
-                                            @endif
+                                            <span class="badge badge-success" style="font-size:9px">OK</span>
                                         </div>
-                                        <div class="text-muted mb-1">Rack {{ $cap['rack'] }}
-                                        </div>
+                                        <div class="text-muted mb-1">Rack {{ $cap['rack'] }}</div>
                                         <div class="d-flex justify-content-between" style="font-size:11px">
-                                            <span>{{ $cap['item_count'] }} item · {{ $cap['total_qty'] }} unit
-                                                order</span>
-                                            <span
-                                                class="{{ $isCapOver ? 'text-danger font-weight-bold' : 'text-muted' }}">
-                                                Sisa: {{ $cap['remaining'] }}/{{ $cap['max'] }}
-                                            </span>
+                                            <span>{{ $cap['item_count'] }} item · {{ $cap['total_qty'] }} unit order</span>
+                                            <span class="text-muted">Sisa: {{ $cap['remaining'] }}/{{ $cap['max'] }}</span>
                                         </div>
                                         <div class="cap-bar-wrap mt-1">
-                                            <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%">
-                                            </div>
-                                            <div class="cap-bar-fill {{ $isCapOver ? 'bg-danger' : 'bg-info' }}"
-                                                style="width:{{ min(100 - $usedPct, $fillPct) }}%; margin-top:-5px"></div>
+                                            <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>
+                                            <div class="cap-bar-fill bg-info" style="width:{{ $fillPct }}%; margin-top:-5px"></div>
                                         </div>
-                                        @if ($isCapOver)
-                                            <div class="text-danger mt-1" style="font-size:10px">
-                                                <i class="fas fa-exclamation-circle"></i>
-                                                Kelebihan {{ $cap['total_qty'] - $cap['remaining'] }} unit
-                                            </div>
-                                        @endif
                                     </div>
                                 @endforeach
                             </div>
@@ -611,35 +589,6 @@
             </div>
         @endif
 
-        {{-- ══════════════════════════════════════════════════════
-     ALERT OVERFLOW
-══════════════════════════════════════════════════════ --}}
-        @if ($hasOverflow && $order->status !== 'completed')
-            <div class="row mb-3">
-                <div class="col-md-12">
-                    <div class="alert alert-warning mb-0 py-2">
-                        <i class="fas fa-exclamation-triangle mr-1"></i>
-                        <strong>Perhatian — Kapasitas Cell Tidak Mencukupi!</strong>
-                        GA merekomendasikan cell yang tidak muat semua item.
-                        Klik <strong>"Ganti Cell"</strong> pada baris berwarna kuning.
-                        <ul class="mb-0 mt-1">
-                            @foreach ($cellCapInfo as $cap)
-                                @if ($cap['total_qty'] > $cap['remaining'])
-                                    <li>
-                                        Cell <strong>{{ $cap['code'] }}</strong>:
-                                        dibutuhkan <strong>{{ $cap['total_qty'] }}</strong> unit,
-                                        tersedia <strong>{{ $cap['remaining'] }}/{{ $cap['max'] }}</strong> unit
-                                        <span class="badge badge-danger ml-1">
-                                            Kelebihan {{ $cap['total_qty'] - $cap['remaining'] }} unit
-                                        </span>
-                                    </li>
-                                @endif
-                            @endforeach
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        @endif
 
         {{-- ══════════════════════════════════════════════════════
      TABEL UTAMA — PROSES PUT-AWAY
@@ -747,9 +696,7 @@
 
                                             $isRowDone = $isDone || $alreadyConfirmedThisGa;
 
-                                            $capInfo = $gd && $gd->cell_id ? $cellCapInfo[$gd->cell_id] ?? null : null;
-
-                                            $isOver = !$isRowDone && $capInfo && $gd->quantity > $capInfo['remaining'];
+                                            $isOver = false;
 
                                             $capRemain = $gd?->cell?->physical_capacity_remaining ?? 0;
                                             $capMax = $gd?->cell?->physical_capacity_max ?? 0;
@@ -766,7 +713,7 @@
                                                     : 0;
                                         @endphp
 
-                                        <tr class="{{ $isRowDone ? 'row-done' : ($isOver ? 'row-overflow' : 'row-pending') }}"
+                                        <tr class="{{ $isRowDone ? 'row-done' : 'row-pending' }}"
                                             id="row-ga-{{ $gd->id }}" data-detail-id="{{ $detail->id }}"
                                             data-ga-detail-id="{{ $gd->id }}" data-cell-id="{{ $gd->cell_id }}"
                                             data-qty="{{ $gd->quantity }}">
@@ -811,18 +758,13 @@
 
                                             <td class="align-middle">
                                                 {{-- GA mode (default) --}}
-                                                <div class="send-to-ga-wrap"
-                                                    class="send-to-cell {{ $isRowDone ? 'done' : ($isOver ? 'overflow' : '') }}">
-                                                    <div class="send-to-cell {{ $isRowDone ? 'done' : ($isOver ? 'overflow' : '') }}">
+                                                <div class="send-to-ga-wrap">
+                                                    <div class="send-to-cell {{ $isRowDone ? 'done' : '' }}">
                                                         <div class="d-flex justify-content-between align-items-center">
                                                             <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}">
                                                                 {{ $gd->cell?->physical_code ?? '-' }}
                                                             </span>
-                                                            @if ($isRowDone)
-                                                                {{-- status sudah ditampilkan di kolom Status --}}
-                                                            @elseif($isOver)
-                                                                <span class="badge badge-warning text-dark">Capacity Risk</span>
-                                                            @elseif(!auth()->user()->isOperator())
+                                                            @if (!$isRowDone && !auth()->user()->isOperator())
                                                                 <span class="badge badge-primary">GA Suggest</span>
                                                             @endif
                                                         </div>
@@ -835,7 +777,7 @@
                                                         </div>
                                                         <div class="cap-bar-wrap mt-1">
                                                             <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>
-                                                            <div class="cap-bar-fill {{ $isOver ? 'bg-danger' : 'bg-info' }}"
+                                                            <div class="cap-bar-fill bg-info"
                                                                 style="width:{{ $addPct }}%; margin-top:-5px"></div>
                                                         </div>
                                                     </div>

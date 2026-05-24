@@ -115,10 +115,7 @@ class PyGadGeneticAlgorithmEngine:
             keep_elitism=max(0, min(p.elitism, p.population)),
             random_seed=p.seed,
             stop_criteria=[f"saturate_{p.early_stopping}"],
-            # Keep warnings visible so single-element gene_space entries (locked
-            # genes) and other diagnostic messages are not silently swallowed
-            # during skripsi experiments.
-            suppress_warnings=False,
+            suppress_warnings=True,
         )
         ga_instance.run()
 

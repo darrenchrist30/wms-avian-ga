@@ -234,54 +234,71 @@ class Warehouse3DController extends Controller
             return response()->json(['error' => 'blok, grup, kolom wajib diisi.'], 422);
         }
 
-        $cells = Cell::where('blok', $blok)
-            ->where('grup', $grup)
-            ->where('kolom', $kolom)
-            ->where('is_active', true)
-            ->orderBy('baris')
-            ->with([
-                'stocks' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)->with('item.unit')->orderBy('inbound_date'),
-            ])
-            ->get();
+        try {
+            $cells = Cell::where('blok', $blok)
+                ->where('grup', $grup)
+                ->where('kolom', $kolom)
+                ->where('is_active', true)
+                ->orderBy('baris')
+                ->with([
+                    'stocks' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)->with('item.unit')->orderBy('inbound_date'),
+                ])
+                ->get();
 
-        $levels = $cells->map(function ($cell) {
-            $stocks  = $cell->stocks;
-            $capUsed = (int) $cell->capacity_used;
-            $capMax  = (int) ($cell->capacity_max ?: 20);
-            $status  = $cell->status ?: ($capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial'));
+            $levels = $cells->map(function ($cell) {
+                $stocks  = $cell->stocks;
+                $capUsed = (int) $cell->capacity_used;
+                $capMax  = (int) ($cell->capacity_max ?: 100);
+                $status  = $cell->status ?: ($capUsed <= 0 ? 'available' : ($capUsed >= $capMax ? 'full' : 'partial'));
 
-            return [
-                'cell_id'      => $cell->id,
-                'code'         => $cell->code,
-                'display_code' => $cell->physical_code,
-                'baris'        => $cell->baris,
-                'status'       => $status,
-                'capacity_used'=> $capUsed,
-                'capacity_max' => $capMax,
-                'stocks'       => $stocks->map(fn($s) => [
-                    'item_name'    => $s->item?->name ?? '-',
-                    'sku'          => $s->item?->sku ?? '-',
-                    'unit'         => $s->item?->unit?->code ?? '',
-                    'quantity'     => $s->quantity,
-                    'inbound_date' => $s->inbound_date?->format('d M Y'),
-                ])->values(),
-            ];
-        })->values();
+                return [
+                    'cell_id'      => $cell->id,
+                    'code'         => $cell->code,
+                    'display_code' => $cell->physical_code,
+                    'baris'        => $cell->baris,
+                    'status'       => $status,
+                    'capacity_used'=> $capUsed,
+                    'capacity_max' => $capMax,
+                    'stocks'       => $stocks->map(fn($s) => [
+                        'item_name'    => $s->item?->name ?? '-',
+                        'sku'          => $s->item?->sku ?? '-',
+                        'unit'         => $s->item?->unit?->code ?? '',
+                        'quantity'     => $s->quantity,
+                        'inbound_date' => $this->safeDateFormat($s->getRawOriginal('inbound_date')),
+                    ])->values(),
+                ];
+            })->values();
 
-        return response()->json([
-            'blok'      => $blok,
-            'grup'      => $grup,
-            'baris_rak' => $barisRak,
-            'kolom'     => $kolom,
-            'label'     => "Blok {$blok} – Grup {$grup} – Kolom {$kolom}",
-            'levels'    => $levels,
-        ]);
+            return response()->json([
+                'blok'      => $blok,
+                'grup'      => $grup,
+                'baris_rak' => $barisRak,
+                'kolom'     => $kolom,
+                'label'     => "Blok {$blok} – Grup {$grup} – Kolom {$kolom}",
+                'levels'    => $levels,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('[Warehouse3D] columnDetail error', ['error' => $e->getMessage(), 'blok' => $blok, 'grup' => $grup, 'kolom' => $kolom]);
+            return response()->json(['error' => 'Gagal memuat data: ' . $e->getMessage()], 500);
+        }
     }
 
     private function grupToRackRow(string $grup): ?int
     {
         $map = array_flip(range('A', 'H'));
         return isset($map[$grup]) ? $map[$grup] + 1 : null;
+    }
+
+    private function safeDateFormat(?string $raw): ?string
+    {
+        if (!$raw || $raw === '0000-00-00' || $raw === '0000-00-00 00:00:00') {
+            return null;
+        }
+        try {
+            return \Carbon\Carbon::parse($raw)->format('d M Y');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     // ─── Cell list berisi item (untuk highlight pencarian SKU) ──────────────

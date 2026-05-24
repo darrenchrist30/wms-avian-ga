@@ -273,7 +273,7 @@ class ItemController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = Item::with(['category', 'unit'])->withCount('stocks');
+        $query = Item::with(['category', 'unit'])->withSum('stocks', 'quantity');
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -284,6 +284,12 @@ class ItemController extends Controller
 
         return DataTables::of($query)
             ->addIndexColumn()
+            ->filterColumn('name', function ($query, $keyword) {
+                $query->where(function ($q) use ($keyword) {
+                    $q->where('name', 'like', "%{$keyword}%")
+                      ->orWhere('sku', 'like', "%{$keyword}%");
+                });
+            })
             ->addColumn('nama_info', function ($row) {
                 $html = '<div class="font-weight-bold">' . e($row->name) . '</div>';
                 $html .= '<small class="text-muted">' . e($row->sku) . '</small>';
@@ -295,6 +301,12 @@ class ItemController extends Controller
                     return '<span class="badge" style="background:' . ($row->category->color_code ?? '#6c757d') . ';color:#fff;">' . e($row->category->name) . '</span>';
                 }
                 return '<span class="text-muted">-</span>';
+            })
+            ->addColumn('stok_badge', function ($row) {
+                $qty = (int) ($row->stocks_sum_quantity ?? 0);
+                return $qty === 0
+                    ? '<span class="badge badge-danger">0</span>'
+                    : $qty;
             })
             ->addColumn('status_badge', function ($row) {
                 return $row->is_active
@@ -309,7 +321,7 @@ class ItemController extends Controller
                 $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->name) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
                 return $html;
             })
-            ->rawColumns(['nama_info', 'category_badge', 'status_badge', 'action'])
+            ->rawColumns(['nama_info', 'category_badge', 'stok_badge', 'status_badge', 'action'])
             ->make(true);
     }
 }

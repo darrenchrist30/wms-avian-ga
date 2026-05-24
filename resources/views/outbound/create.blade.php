@@ -197,7 +197,7 @@
                         <select id="warehouseSelect" class="form-control">
                             <option value="">-- Pilih Gudang --</option>
                             @foreach ($warehouses as $wh)
-                                <option value="{{ $wh->id }}">{{ $wh->name }} ({{ $wh->code }})</option>
+                                <option value="{{ $wh->id }}" {{ $wh->id == $defaultWarehouseId ? 'selected' : '' }}>{{ $wh->name }} ({{ $wh->code }})</option>
                             @endforeach
                         </select>
                     @endif

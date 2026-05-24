@@ -1508,20 +1508,11 @@
                         {{-- ═══ 4. OUTBOUND ═══ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">OUTBOUND</li>
 
-                        <li class="nav-item {{ request()->is('outbound*') ? 'menu-open' : '' }}">
-                            <a href="#" class="nav-link {{ request()->is('outbound*') ? 'active' : '' }}">
-                                <i class="nav-icon fas fa-sign-out-alt" style="color:#6b7280;"></i>
-                                <p>Pengambilan Barang <i class="right fas fa-angle-left"></i></p>
+                        <li class="nav-item">
+                            <a href="{{ route('outbound.create') }}" class="nav-link {{ request()->routeIs('outbound.create') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-barcode" style="color:#6b7280;"></i>
+                                <p>Pengambilan Barang</p>
                             </a>
-                            <ul class="nav nav-treeview">
-                                <li class="nav-item">
-                                    <a href="{{ route('outbound.index') }}"
-                                        class="nav-link {{ request()->routeIs('outbound.index') ? 'active' : '' }}">
-                                        <i class="fas fa-history nav-icon" style="font-size:12px;"></i>
-                                        <p>Riwayat Outbound</p>
-                                    </a>
-                                </li>
-                            </ul>
                         </li>
 
                         {{-- ═══ 5. INVENTORI & STOK ═══ --}}
@@ -1575,7 +1566,7 @@
 
 
                         {{-- ═══════════════════════════════
-                             5. VISUALISASI 3D
+                            5. VISUALISASI 3D
                         ═══════════════════════════════ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">VISUALISASI
                         </li>

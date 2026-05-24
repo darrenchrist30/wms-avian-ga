@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-truck-loading text-success mr-2"></i>Laporan Penerimaan Barang
         </h5>
-        <small class=”text-muted”>Analisis penerimaan inbound &mdash; tren dan status DO</small>
+        {{-- <small class=”text-muted”>Analisis penerimaan inbound &mdash; tren dan status DO</small> --}}
     </div>
     <div class="d-flex align-items-center" style="gap:6px;">
         {{-- Filter Tahun --}}
@@ -84,6 +84,36 @@
     </div>
 </div>
 
+<div class="row">
+    {{-- Rata-rata Waktu Proses DO --}}
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <strong><i class="fas fa-stopwatch mr-1"></i>Rata-rata Waktu Proses DO (Jam) {{ $year }}</strong>
+            </div>
+            <div class="card-body">
+                <div id="chartAvgProcessing" style="height:260px;"></div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Top 5 SKU Terbanyak Diterima --}}
+    <div class="col-md-6 mb-3">
+        <div class="card h-100">
+            <div class="card-header py-2">
+                <strong><i class="fas fa-trophy mr-1"></i>Top 5 SKU Terbanyak Diterima {{ $year }}</strong>
+            </div>
+            <div class="card-body">
+                @if($topSkus->isEmpty())
+                    <div class="text-center text-muted py-4">Belum ada data.</div>
+                @else
+                    <div id="chartTopSkus" style="height:260px;"></div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
 
 </div>
 @endsection
@@ -139,10 +169,68 @@ $(function () {
             name: 'DO',
             data: [
                 @foreach($statusDist as $s)
-                { name: '{{ ucfirst($s->status) }}', y: {{ $s->total }},
+                { name: '{{ $s->label }}', y: {{ $s->total }},
                   color: statusColors['{{ $s->status }}'] || '#007bff' },
                 @endforeach
             ]
+        }],
+        credits: { enabled: false }
+    });
+    @endif
+
+    // Rata-rata Waktu Proses DO
+    Highcharts.chart('chartAvgProcessing', {
+        chart: { type: 'column', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
+        title: { text: null },
+        xAxis: { categories: monthNames },
+        yAxis: {
+            title: { text: 'Jam' },
+            min: 0,
+            labels: { format: '{value} jam' }
+        },
+        tooltip: {
+            formatter: function () {
+                if (this.y === null || this.y === undefined) return '<b>' + this.x + '</b><br>Tidak ada data';
+                return '<b>' + this.x + '</b><br>Rata-rata: <b>' + this.y + ' jam</b>';
+            }
+        },
+        plotOptions: {
+            column: { borderRadius: 3, color: '#17a2b8', dataLabels: { enabled: true, format: '{y}' } }
+        },
+        series: [{
+            name: 'Avg Waktu Proses',
+            data: {!! json_encode($chartAvgProcessing) !!}
+        }],
+        credits: { enabled: false }
+    });
+
+    @if(!$topSkus->isEmpty())
+    // Top 5 SKU
+    Highcharts.chart('chartTopSkus', {
+        chart: { type: 'bar', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
+        title: { text: null },
+        xAxis: {
+            categories: {!! json_encode($topSkus->map(fn($s) => $s->sku . ' — ' . (mb_strlen($s->name) > 25 ? mb_substr($s->name, 0, 25) . '…' : $s->name))->values()) !!},
+            labels: { style: { fontSize: '11px' } }
+        },
+        yAxis: { title: { text: 'Total Qty Diterima' }, min: 0 },
+        tooltip: {
+            formatter: function () {
+                return '<b>' + this.point.category + '</b><br>Qty: <b>' + Highcharts.numberFormat(this.y, 0) + '</b>';
+            }
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 3,
+                colorByPoint: true,
+                colors: ['#007bff','#28a745','#ffc107','#17a2b8','#6f42c1'],
+                dataLabels: { enabled: true, format: '{y}' }
+            }
+        },
+        legend: { enabled: false },
+        series: [{
+            name: 'Qty Diterima',
+            data: {!! json_encode($topSkus->pluck('total_qty')->map(fn($v) => (int)$v)->values()) !!}
         }],
         credits: { enabled: false }
     });
