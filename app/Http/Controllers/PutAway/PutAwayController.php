@@ -102,6 +102,7 @@ class PutAwayController extends Controller
         ])
         ->whereHas('gaRecommendation', $activeOrderScope)
         ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
+        ->whereDoesntHave('putAwayConfirmations')
         ->get()
         ->sortBy(function ($d) {
             $cell = $d->cell;

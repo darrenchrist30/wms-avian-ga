@@ -242,6 +242,7 @@ class Warehouse3DController extends Controller
                 ->orderBy('baris')
                 ->with([
                     'stocks' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)->with('item.unit')->orderBy('inbound_date'),
+                    'dominantCategory',
                 ])
                 ->get();
 
@@ -269,13 +270,23 @@ class Warehouse3DController extends Controller
                 ];
             })->values();
 
+            // Kategori dominan kolom = kategori terbanyak dari sel yang punya dominant_category
+            $catCounts = $cells->filter(fn($c) => $c->dominantCategory)
+                ->groupBy(fn($c) => $c->dominant_category_id)
+                ->map->count();
+            $dominantCatId   = $catCounts->isEmpty() ? null : $catCounts->sortDesc()->keys()->first();
+            $dominantCatName = $dominantCatId
+                ? $cells->first(fn($c) => $c->dominant_category_id === $dominantCatId)?->dominantCategory?->name
+                : null;
+
             return response()->json([
-                'blok'      => $blok,
-                'grup'      => $grup,
-                'baris_rak' => $barisRak,
-                'kolom'     => $kolom,
-                'label'     => "Blok {$blok} – Grup {$grup} – Kolom {$kolom}",
-                'levels'    => $levels,
+                'blok'           => $blok,
+                'grup'           => $grup,
+                'baris_rak'      => $barisRak,
+                'kolom'          => $kolom,
+                'label'          => "Blok {$blok} – Grup {$grup} – Kolom {$kolom}",
+                'dominant_category' => $dominantCatName,
+                'levels'         => $levels,
             ]);
         } catch (\Throwable $e) {
             \Log::error('[Warehouse3D] columnDetail error', ['error' => $e->getMessage(), 'blok' => $blok, 'grup' => $grup, 'kolom' => $kolom]);

@@ -196,7 +196,7 @@
                     { data: 'do_number',     name: 'do_number' },
                     { data: 'do_date',       name: 'do_date',       className: 'text-center' },
                     { data: 'warehouse.name',name: 'warehouse.name',defaultContent: '-' },
-                    { data: 'items_count',   name: 'items_count',   orderable: false, className: 'text-center' },
+                    { data: 'items_count',   name: 'items_count',   orderable: false, searchable: false, className: 'text-center' },
                     { data: 'status_badge',  name: 'status',        orderable: false, searchable: false, className: 'text-center' },
                 ]
             });

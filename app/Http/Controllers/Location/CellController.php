@@ -157,7 +157,56 @@ class CellController extends Controller
             ->first();
 
         if (!$cell) {
-            return response()->json(['found' => false, 'message' => "Cell \"$code\" tidak ditemukan."]);
+            // Cell ditemukan tapi nonaktif → beri pesan spesifik
+            $inactive = Cell::where(function ($q) use ($code) {
+                $q->where('code', $code)->orWhere('qr_code', $code)->orWhere('label', $code);
+            })->where('is_active', false)->first();
+            if ($inactive) {
+                return response()->json(['found' => false, 'message' => "Cell \"{$code}\" tidak aktif dan tidak bisa digunakan."]);
+            }
+
+            // Kode kolom: blok-GRUP-kolom (e.g. "1-A-1") → tampilkan pilihan baris
+            if (preg_match('/^(\d+)-([A-Za-z])-(\d+)$/', $code, $m)) {
+                $columnCells = Cell::where('blok', $m[1])
+                    ->where('grup', strtoupper($m[2]))
+                    ->where('kolom', $m[3])
+                    ->where('is_active', true)
+                    ->orderBy('baris')
+                    ->get();
+
+                if ($columnCells->isNotEmpty()) {
+                    return response()->json([
+                        'found'        => false,
+                        'column_found' => true,
+                        'column_code'  => $code,
+                        'column_cells' => $columnCells->map(fn($c) => [
+                            'id'                 => $c->id,
+                            'code'               => $c->physical_code,
+                            'baris'              => $c->baris,
+                            'status'             => $c->status,
+                            'capacity_remaining' => max(0, $c->capacity_max - $c->physical_capacity_used),
+                            'capacity_max'       => $c->capacity_max,
+                        ]),
+                    ]);
+                }
+            }
+
+            // Kode 2-segmen blok-GRUP (e.g. "1-F") — berikan contoh format yang benar
+            if (preg_match('/^(\d+)-([A-Za-z])$/', $code, $m)) {
+                $exists = Cell::where('blok', $m[1])
+                    ->where('grup', strtoupper($m[2]))
+                    ->where('is_active', true)
+                    ->exists();
+
+                if ($exists) {
+                    return response()->json([
+                        'found'   => false,
+                        'message' => "Kode \"{$code}\" terlalu singkat. Tambahkan nomor kolom, contoh: {$code}-1",
+                    ]);
+                }
+            }
+
+            return response()->json(['found' => false, 'message' => "Cell \"{$code}\" tidak ditemukan."]);
         }
 
         // Stok aktual dari stock_records (FIFO)
@@ -241,6 +290,49 @@ class CellController extends Controller
         return view('location.cells.bulk-qr', compact('cells', 'rack'));
     }
 
+    // ─── Print QR Label per Kolom (blok-grup-kolom) ─────────────────────────────
+    public function columnQrLabel(Request $request)
+    {
+        $rackId      = $request->input('rack_id');
+        $warehouseId = $request->input('warehouse_id');
+
+        $query = Cell::with('rack.warehouse')
+            ->where('is_active', true)
+            ->whereNotNull('blok')
+            ->whereNotNull('grup')
+            ->whereNotNull('kolom')
+            ->orderBy('blok')
+            ->orderByRaw('UPPER(grup)')
+            ->orderBy('kolom')
+            ->orderBy('baris');
+
+        $rack = null;
+        if ($columnCode = $request->input('column')) {
+            // Satu kolom spesifik dari tombol QR di DataTable
+            $parts = explode('-', $columnCode);
+            if (count($parts) === 3) {
+                $query->where('blok', $parts[0])
+                      ->whereRaw('UPPER(grup) = ?', [strtoupper($parts[1])])
+                      ->where('kolom', $parts[2]);
+            }
+        } elseif ($rackId) {
+            $rack = Rack::with('warehouse')->find($rackId);
+            $query->where('rack_id', $rackId);
+        } elseif ($warehouseId) {
+            $query->whereHas('rack', fn($q) => $q->where('warehouse_id', $warehouseId));
+        }
+
+        $cells = $query->get();
+
+        if ($cells->isEmpty()) {
+            return back()->with('error', 'Tidak ada cell dengan kode kolom (format blok-grup-kolom-baris) yang ditemukan. Coba pilih rak seperti "1F", "1G", dst yang berisi sel berformat tersebut.');
+        }
+
+        $columns = $cells->groupBy(fn($c) => $c->blok . '-' . strtoupper($c->grup) . '-' . $c->kolom);
+
+        return view('location.cells.column-qr', compact('columns', 'rack'));
+    }
+
     // ─── Print QR Label untuk Cell ───────────────────────────────────────────────
     public function qrLabel(Cell $cell)
     {
@@ -287,6 +379,9 @@ class CellController extends Controller
 
         return DataTables::of($query)
             ->addIndexColumn()
+            ->addColumn('column_code', fn($row) => ($row->blok !== null && $row->grup !== null && $row->kolom !== null)
+                ? $row->blok . '-' . strtoupper($row->grup) . '-' . $row->kolom
+                : null)
             ->addColumn('level_label', fn($row) => chr(64 + $row->level))
             ->addColumn('lokasi', function ($row) {
                 $wh   = $row->rack->warehouse->name ?? '-';

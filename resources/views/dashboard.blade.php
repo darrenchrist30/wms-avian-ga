@@ -14,7 +14,7 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 4px 14px rgba(0, 0, 0, .15);
-            margin-bottom: 20px;
+            height: 100%;
             transition: transform .2s;
         }
 
@@ -23,7 +23,8 @@
         }
 
         a.kpi-link {
-            display: block;
+            display: flex;
+            height: 100%;
             text-decoration: none;
             color: inherit;
         }
@@ -31,6 +32,10 @@
         a.kpi-link:hover {
             text-decoration: none;
             color: inherit;
+        }
+
+        a.kpi-link > .kpi-card {
+            flex: 1;
         }
 
         .kpi-card .kpi-icon {
@@ -930,8 +935,8 @@
      ROW 1 — 8 KPI UTAMA
 ══════════════════════════════════════════════════════ --}}
     <p class="section-title"><i class="fas fa-tachometer-alt mr-1"></i> Ringkasan Utama</p>
-    <div class="row">
-        <div class="col-6 col-md-3">
+    <div class="row align-items-stretch">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('master.items.index') }}" class="kpi-link">
                 <div class="kpi-card kpi-green">
                     <i class="fas fa-boxes kpi-icon"></i>
@@ -941,7 +946,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('location.cells.index') }}" class="kpi-link">
                 <div class="kpi-card kpi-blue">
                     <i class="fas fa-layer-group kpi-icon"></i>
@@ -951,7 +956,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('inbound.orders.index', ['status' => 'inbound', 'start_date' => today()->toDateString(), 'end_date' => today()->toDateString()]) }}" class="kpi-link">
                 <div class="kpi-card kpi-teal">
                     <i class="fas fa-sign-in-alt kpi-icon"></i>
@@ -967,7 +972,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('putaway.index') }}" class="kpi-link">
                 <div class="kpi-card kpi-orange">
                     <i class="fas fa-dolly kpi-icon"></i>
@@ -977,7 +982,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('stock.low-stock', ['type' => 'empty']) }}" class="kpi-link">
                 <div class="kpi-card kpi-red">
                     <i class="fas fa-times-circle kpi-icon"></i>
@@ -987,7 +992,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('stock.low-stock', ['type' => 'low']) }}" class="kpi-link">
                 <div class="kpi-card kpi-amber">
                     <i class="fas fa-exclamation-triangle kpi-icon"></i>
@@ -997,7 +1002,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('stock.deadstock', ['days' => $deadstockDays]) }}" class="kpi-link">
                 <div class="kpi-card" style="background:linear-gradient(135deg,#374151,#1f2937);">
                     <i class="fas fa-hourglass-half kpi-icon"></i>
@@ -1007,7 +1012,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('inbound.orders.index', ['status' => 'inbound']) }}" class="kpi-link">
                 <div class="kpi-card kpi-purple">
                     <i class="fas fa-tasks kpi-icon"></i>
@@ -1020,7 +1025,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('stock.index') }}" class="kpi-link">
                 <div class="kpi-card kpi-slate">
                     <i class="fas fa-cubes kpi-icon"></i>
@@ -1030,7 +1035,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-3 mb-3">
             <a href="{{ route('location.cells.index') }}" class="kpi-link">
                 <div class="kpi-card" style="background:linear-gradient(135deg,#be185d,#f43f5e);">
                     <i class="fas fa-map-marked-alt kpi-icon"></i>

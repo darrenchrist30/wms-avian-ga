@@ -23,6 +23,7 @@ class ExportScenarioData extends Command
         $this->exportCapacityUtilization($dir);
         $this->exportExistingPositions($dir);
         $this->exportRandomPositions($dir);
+        $this->exportMspartValidation($dir);
 
         $this->info('');
         $this->info('✓ Selesai! File tersimpan di:');
@@ -33,6 +34,7 @@ class ExportScenarioData extends Command
         $this->line('  4. capacity_utilization.csv');
         $this->line('  5. existing_positions.csv  (Skenario 1 – kondisi existing perusahaan)');
         $this->line('  6. random_positions.csv    (Skenario 2 – posisi diacak, dari mspart_random)');
+        $this->line('  7. mspart_validation.csv   (Validasi: posisi real mspart vs rekomendasi GA)');
 
         return self::SUCCESS;
     }
@@ -210,6 +212,112 @@ class ExportScenarioData extends Command
             $r->kode, $r->nama, $r->stok, $r->sat,
             $r->blok, $r->grup, $r->kolom, $r->baris,
         ])->toArray());
+    }
+
+    private function exportMspartValidation(string $dir): void
+    {
+        $this->line('  → mspart_validation.csv');
+
+        // Item dari DO real yang kode-nya ada di mspart dengan posisi valid
+        $rows = DB::table('inbound_transactions as io')
+            ->join('inbound_details as id',            'id.inbound_order_id',      '=', 'io.id')
+            ->join('items as i',                       'i.id',                     '=', 'id.item_id')
+            ->join('item_categories as cat',           'cat.id',                   '=', 'i.category_id')
+            ->join('mspart as m',                      DB::raw('m.kode COLLATE utf8mb4_0900_ai_ci'), '=', 'i.sku')
+            ->join('ga_recommendations as gr',         'gr.inbound_order_id',      '=', 'io.id')
+            ->join('ga_recommendation_details as grd', 'grd.ga_recommendation_id', '=', 'gr.id')
+            ->join('cells as c',                       'c.id',                     '=', 'grd.cell_id')
+            ->where('io.do_number',              'like', 'SJ/GUD-AAP/%')
+            ->where('grd.inbound_order_item_id', '=',   DB::raw('id.id'))
+            ->whereNotNull('m.blok')
+            ->where('m.blok', '!=', '')
+            ->where('m.blok', '!=', '0')
+            ->select(
+                'io.do_number',
+                'i.sku',
+                'i.name as item_name',
+                'cat.name as category',
+                'id.quantity_received',
+                // Posisi real mspart (S1 aktual)
+                'm.blok as m_blok', 'm.grup as m_grup',
+                'm.kolom as m_kolom', 'm.baris as m_baris',
+                // Posisi GA (S3 aktual)
+                'c.code as ga_cell',
+                'c.blok as ga_blok', 'c.grup as ga_grup',
+                'c.kolom as ga_kolom', 'c.baris as ga_baris',
+                // Fitness GA
+                'grd.gene_fitness',
+                'grd.fc_cap_score', 'grd.fc_cat_score',
+                'grd.fc_aff_score', 'grd.fc_split_score', 'grd.fc_mov_score',
+            )
+            ->orderBy('i.sku')
+            ->get();
+
+        if ($rows->isEmpty()) {
+            $this->warn('  ! Tidak ada item yang cocok antara mspart dan DO real.');
+            return;
+        }
+
+        $data = $rows->map(function ($r) {
+            // Hitung jarak Manhattan dari posisi mspart (blok huruf → angka)
+            $mBlok  = is_numeric($r->m_blok)  ? (int)$r->m_blok  : max(1, ord(strtoupper($r->m_blok))  - ord('A') + 1);
+            $mGrup  = is_numeric($r->m_grup)  ? (int)$r->m_grup  : max(1, ord(strtolower($r->m_grup))  - ord('a') + 1);
+            $mKolom = is_numeric($r->m_kolom) ? (int)$r->m_kolom : 1;
+            $mBaris = is_numeric($r->m_baris) ? (int)$r->m_baris : 1;
+            $mDist  = ($mBlok * 10) + ($mGrup * 5) + ($mKolom * 2);
+            $mWaktu = round($mDist / 50 + $mBaris * 0.5 + 2, 4);
+
+            // Hitung jarak Manhattan dari posisi GA (cell, blok angka)
+            $gBlok  = $r->ga_blok  !== null ? (int)$r->ga_blok  : 1;
+            $gGrup  = $r->ga_grup  !== null ? (is_numeric($r->ga_grup) ? (int)$r->ga_grup : max(1, ord(strtolower($r->ga_grup)) - ord('a') + 1)) : 1;
+            $gKolom = $r->ga_kolom !== null ? (int)$r->ga_kolom : 1;
+            $gBaris = $r->ga_baris !== null ? (int)$r->ga_baris : 1;
+            $gDist  = ($gBlok * 10) + ($gGrup * 5) + ($gKolom * 2);
+            $gWaktu = round($gDist / 50 + $gBaris * 0.5 + 2, 4);
+
+            $selisih = round($mWaktu - $gWaktu, 4);
+
+            return [
+                $r->do_number,
+                $r->sku,
+                $r->item_name,
+                $r->category,
+                $r->quantity_received,
+                // S1 mspart
+                "{$r->m_blok}-{$r->m_grup}-{$r->m_kolom}-{$r->m_baris}",
+                $mDist,
+                $mWaktu,
+                // S3 GA
+                $r->ga_cell,
+                "{$r->ga_blok}-{$r->ga_grup}-{$r->ga_kolom}-{$r->ga_baris}",
+                $gDist,
+                $gWaktu,
+                // Fitness GA
+                round($r->gene_fitness, 4),
+                round($r->fc_cap_score,   4),
+                round($r->fc_cat_score,   4),
+                round($r->fc_aff_score,   4),
+                round($r->fc_split_score, 4),
+                round($r->fc_mov_score,   4),
+                // Perbandingan
+                $selisih,
+                $selisih > 0 ? 'GA Lebih Efisien' : ($selisih < 0 ? 'Mspart Lebih Dekat' : 'Sama'),
+            ];
+        })->toArray();
+
+        $this->writeCsv("{$dir}/mspart_validation.csv", [
+            'DO Number', 'SKU', 'Nama Item', 'Kategori', 'Qty Diterima',
+            // S1
+            'S1 Posisi Mspart', 'S1 Jarak (unit)', 'S1 Est. Waktu (mnt)',
+            // S3
+            'S3 Cell GA', 'S3 Posisi GA', 'S3 Jarak (unit)', 'S3 Est. Waktu (mnt)',
+            // Fitness
+            'Gene Fitness GA', 'FC_CAP', 'FC_CAT', 'FC_AFF', 'FC_SPLIT', 'FC_MOV',
+            // Perbandingan
+            'Selisih Waktu S1 vs GA (mnt)', 'Keterangan',
+        ], $data);
+
+        $this->line('  ✓ ' . count($data) . ' item tervalidasi dari data mspart real.');
     }
 
     private function writeCsv(string $path, array $header, array $rows): void

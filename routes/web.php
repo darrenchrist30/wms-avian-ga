@@ -83,7 +83,8 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
 
         Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');
         Route::get('cells/lookup',    [\App\Http\Controllers\Location\CellController::class, 'lookup'])->name('cells.lookup');
-        Route::get('cells/bulk-qr',   [\App\Http\Controllers\Location\CellController::class, 'bulkQrLabel'])->name('cells.bulk-qr');
+        Route::get('cells/bulk-qr',      [\App\Http\Controllers\Location\CellController::class, 'bulkQrLabel'])->name('cells.bulk-qr');
+        Route::get('cells/column-qr',    [\App\Http\Controllers\Location\CellController::class, 'columnQrLabel'])->name('cells.column-qr');
         Route::resource('cells', \App\Http\Controllers\Location\CellController::class);
         Route::get('cells/{cell}/stock',    [\App\Http\Controllers\Location\CellController::class, 'stockDetail'])->name('cells.stock');
         Route::get('cells/{cell}/qr-label', [\App\Http\Controllers\Location\CellController::class, 'qrLabel'])->name('cells.qr-label');
@@ -192,7 +193,7 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::get('inbound', [\App\Http\Controllers\Reports\ReportController::class, 'inbound'])->name('inbound');
         Route::get('putaway', [\App\Http\Controllers\Reports\ReportController::class, 'putaway'])->name('putaway');
         Route::get('movements', [\App\Http\Controllers\Reports\ReportController::class, 'movements'])->name('movements');
-        Route::get('ga-effectiveness', [\App\Http\Controllers\Reports\ReportController::class, 'gaEffectiveness'])->name('ga-effectiveness');
+        Route::get('ga-effectiveness', [\App\Http\Controllers\Reports\GaEffectivenessController::class, 'index'])->name('ga-effectiveness');
         Route::get('ga-effectiveness/export/pdf', [\App\Http\Controllers\Reports\GaEffectivenessExportController::class, 'pdf'])
             ->name('ga-effectiveness.export.pdf')->middleware('permission:report.export');
         Route::get('ga-effectiveness/export/excel', [\App\Http\Controllers\Reports\GaEffectivenessExportController::class, 'excel'])

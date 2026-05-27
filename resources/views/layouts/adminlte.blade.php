@@ -931,6 +931,7 @@
 
         /* â”€â”€â”€ GLOBAL RESPONSIVE BASELINE â€” operator tablet/mobile â”€â”€â”€ */
         @media (max-width: 991.98px) {
+
             body {
                 font-size: 13px;
                 letter-spacing: 0;
@@ -1631,7 +1632,7 @@
                         </li>
 
                         {{-- ═══════════════════════════════
-                             8. PENGATURAN SISTEM
+                            8. PENGATURAN SISTEM
                         ═══════════════════════════════ --}}
                         @if(!auth()->user()->hasRole('operator'))
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">SISTEM</li>
@@ -1706,9 +1707,6 @@
         <footer class="main-footer">
             <strong>Copyright &copy; 2026 <a href="https://avianbrands.com" target="_blank">Avian Brands</a>.</strong>
             All rights reserved.
-            <div class="float-right d-none d-sm-inline-block" style="color:#9ca3af;">
-                WMS Avian &nbsp;&middot;&nbsp; <b style="color:#6b7280;">v1.0.0</b>
-            </div>
         </footer>
     </div>
 
@@ -2150,19 +2148,15 @@
         const PUBLIC_CELL_BASE = "{{ url('/c') }}";
 
         // ── Scanner gun buffer ─────────────────────────────────────────────
-        // Scanner guns send keystrokes very fast (~10ms apart) followed by Enter.
-        // We accumulate characters and process on Enter.
         let buf = '', timer = null;
-        const TIMEOUT_MS = 200; // reset buffer if gap > 200ms (human typing is slower)
+        const TIMEOUT_MS = 300;
 
         document.addEventListener('keydown', function (e) {
-            // Skip when typing in any input / textarea / select
-            const tag = document.activeElement && document.activeElement.tagName;
-            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-
-            // Skip modifier-only and function keys
             if (e.key.length > 1 && e.key !== 'Enter') return;
             if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            const tag = document.activeElement && document.activeElement.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
             clearTimeout(timer);
 
@@ -2208,6 +2202,8 @@
                     renderItemModal(data.item, data.stocks);
                 } else if (data.type === 'rack') {
                     renderRackModal(data.rack, data.cells);
+                } else if (data.type === 'column') {
+                    renderColumnModal(data.column, data.cells);
                 } else {
                     renderCellModal(data.cell, data.stocks);
                 }
@@ -2325,6 +2321,47 @@
                     + (c.dominant_category ? '<div style="font-size:10px;padding:1px 6px;border-radius:8px;background:' + escHtml(c.category_color) + ';color:#fff;margin-right:8px;">' + escHtml(c.dominant_category) + '</div>' : '')
                     + '<div style="font-size:11px;color:#888;white-space:nowrap;margin-right:6px;">' + c.capacity_used + '/' + c.capacity_max + '</div>'
                     + '<i class="fas fa-chevron-right" style="font-size:10px;color:#adb5bd;"></i>'
+                    + '</div>';
+            });
+
+            $('#globalCellModalBody').html(summaryHtml + cellsHtml);
+        }
+
+        // ── Render column modal content (blok-grup-kolom) ─────────────────
+        function renderColumnModal(column, cells) {
+            $('#globalCellModalTitle').html(
+                '<i class="fas fa-columns mr-1"></i> Kolom ' + escHtml(column.code)
+            );
+            $('#globalCellModalLink').attr('href', PUBLIC_CELL_BASE + '/' + encodeURIComponent(column.code));
+
+            const statusColor = { available: '#28a745', partial: '#ffc107', full: '#dc3545', blocked: '#6c757d' };
+            const statusLabel = { available: 'Tersedia', partial: 'Sebagian', full: 'Penuh', blocked: 'Diblokir' };
+
+            let summaryHtml = '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">'
+                + '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">' + escHtml(column.warehouse) + '</span>'
+                + '<span class="badge" style="background:#e9ecef;color:#495057;font-size:11px;">' + column.total + ' baris</span>'
+                + '<span class="badge" style="background:#d4edda;color:#155724;font-size:11px;">' + column.available + ' tersedia</span>'
+                + '</div>';
+
+            let cellsHtml = '<div style="font-size:11px;font-weight:700;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">'
+                + '<i class="fas fa-list mr-1"></i> Pilih Baris</div>';
+
+            cells.forEach(function (c, i) {
+                const color = statusColor[c.status] || '#6c757d';
+                const label = statusLabel[c.status] || c.status;
+                const sisa  = c.capacity_remaining + '/' + c.capacity_max;
+                cellsHtml += '<div onclick="globalCellScan(\'' + escHtml(c.code) + '\')" '
+                    + 'style="display:flex;align-items:center;padding:10px;cursor:pointer;border-radius:8px;border:1.5px solid ' + color + '20;margin-bottom:6px;"'
+                    + ' onmouseover="this.style.background=\'#f8f9fa\'" onmouseout="this.style.background=\'\'">'
+                    + '<div style="width:8px;height:8px;border-radius:50%;background:' + color + ';flex-shrink:0;margin-right:10px;"></div>'
+                    + '<div style="flex:1;">'
+                    + '<div style="font-weight:700;font-size:13px;">Baris ' + escHtml(String(c.baris)) + '</div>'
+                    + '<div style="font-size:11px;color:#888;">' + escHtml(c.code) + '</div>'
+                    + '</div>'
+                    + '<div style="text-align:right;">'
+                    + '<span style="font-size:10px;font-weight:600;color:' + color + ';">' + label + '</span>'
+                    + '<div style="font-size:11px;color:#888;">' + sisa + '</div>'
+                    + '</div>'
                     + '</div>';
             });
 

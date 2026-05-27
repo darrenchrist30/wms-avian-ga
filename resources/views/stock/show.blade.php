@@ -159,11 +159,11 @@
                             <strong>{{ $s->cell?->physical_code ?? '—' }}</strong>
                             @if($s->cell_id)
                                 <br>
-                                <button class="btn btn-xs btn-outline-info mt-1 btn-view3d"
+                                <button class="btn btn-xs btn-outline-secondary mt-1 btn-view3d"
                                     data-cell-id="{{ $s->cell_id }}"
                                     data-cell-code="{{ $s->cell?->physical_code }}"
-                                    title="Lihat detail cell di visualisasi 3D">
-                                    <i class="fas fa-cube mr-1"></i>3D
+                                    title="Lihat detail cell">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>Detail
                                 </button>
                             @endif
                         </td>
@@ -260,7 +260,11 @@
                             </button>
                         </div>
                     </div>
-                    <div id="tfCellInfo" class="mt-1 small text-muted d-none"></div>
+                    <div id="tfCellInfo" class="mt-1 small d-none"></div>
+                    <div id="tfBarisPicker" class="d-none mt-2">
+                        <div class="small font-weight-bold mb-1 text-muted">Pilih baris (level):</div>
+                        <div id="tfBarisOptions" class="d-flex flex-wrap" style="gap:6px;"></div>
+                    </div>
                     <input type="hidden" id="tfToCellId">
                 </div>
                 <div class="form-group mb-2">
@@ -399,55 +403,10 @@ $(function () {
 
     // ── Modal Detail Cell 3D ───────────────────────────────────────────────
     $(document).on('click', '.btn-view3d', function () {
-        var cellId   = $(this).data('cell-id');
         var cellCode = $(this).data('cell-code');
-
-        $('#m3dCellCode').text(cellCode);
-        $('#m3dLoading').show();
-        $('#m3dContent').hide();
-        $('#modal3dCell').modal('show');
-
-        $.get('/warehouse-3d/cell/' + cellId, function (res) {
-            var c = res.cell;
-
-            // Info cell
-            $('#m3dLocation').text((c.rack || '—') + ' / ' + (c.zone || '—') + ' / ' + (c.warehouse || '—'));
-
-            var statusMap = { available:'Tersedia', partial:'Terisi Sebagian', full:'Penuh', blocked:'Diblokir', reserved:'Reserved' };
-            var statusColor = { available:'success', partial:'info', full:'danger', blocked:'dark', reserved:'warning' };
-            $('#m3dStatus').html('<span class="badge badge-' + (statusColor[c.status] || 'secondary') + '">' + (statusMap[c.status] || c.status) + '</span>');
-
-            $('#m3dCapacity').text(c.capacity_used + ' / ' + c.capacity_max + ' unit terpakai');
-            var pct = c.capacity_max > 0 ? Math.min(100, Math.round(c.capacity_used / c.capacity_max * 100)) : 0;
-            var barColor = pct >= 90 ? '#dc3545' : pct >= 60 ? '#ffc107' : '#28a745';
-            $('#m3dCapBar').css({ width: pct + '%', background: barColor });
-            $('#m3dCapPct').text(pct + '%');
-
-            // Daftar stok dalam cell
-            var stocks = res.stocks;
-            var html = '';
-            if (stocks.length === 0) {
-                html = '<small class="text-muted">Tidak ada stok di cell ini.</small>';
-            } else {
-                stocks.forEach(function (s) {
-                    var isCurrentItem = (s.sku === '{{ $item->sku }}');
-                    html += '<div class="d-flex justify-content-between align-items-center py-1 border-bottom ' + (isCurrentItem ? 'bg-light' : '') + '" style="font-size:12px">'
-                          + '<div>'
-                          + (isCurrentItem ? '<i class="fas fa-arrow-right text-primary mr-1"></i>' : '<span style="width:14px;display:inline-block"></span>')
-                          + '<strong>' + s.sku + '</strong> — ' + s.item_name
-                          + (s.lpn ? ' <code class="small">' + s.lpn + '</code>' : '')
-                          + '</div>'
-                          + '<span class="badge badge-light border text-dark">' + s.quantity + ' ' + (s.unit || '') + '</span>'
-                          + '</div>';
-                });
-            }
-            $('#m3dStockList').html(html);
-
-            $('#m3dLoading').hide();
-            $('#m3dContent').show();
-        }).fail(function () {
-            $('#m3dLoading').html('<div class="text-center text-danger py-3"><i class="fas fa-times-circle fa-2x mb-1 d-block"></i><small>Gagal memuat data cell.</small></div>');
-        });
+        if (cellCode && window.globalCellScan) {
+            window.globalCellScan(cellCode);
+        }
     });
 
     @if($canTransferStock)
@@ -467,13 +426,53 @@ $(function () {
         $('#tfQty').val('').attr('max', maxQty);
         $('#tfNotes').val('');
         $('#modalTransfer').modal('show');
+        $('#modalTransfer').one('shown.bs.modal', function () {
+            $('#tfToCellCode').focus();
+        });
     });
+
+    function resetBarisState() {
+        $('#tfBarisPicker').addClass('d-none');
+        $('#tfBarisOptions').empty();
+        $('#tfToCellId').val('');
+        $('#tfCellInfo').addClass('d-none').text('').removeClass('text-success text-danger');
+    }
 
     // Lookup cell tujuan
     function doLookup() {
-        var code = $.trim($('#tfToCellCode').val());
-        if (!code) return;
+        var raw = $.trim($('#tfToCellCode').val());
+        if (!raw) return;
+        // Strip URL jika scan QR menghasilkan URL penuh: http://domain/c/CODE
+        var code = raw.indexOf('/c/') !== -1
+            ? raw.split('/c/').pop().split(/[/?# ]/)[0]
+            : raw;
+        $('#tfToCellCode').val(code);
+        resetBarisState();
+
         $.get('{{ route("location.cells.lookup") }}', { code: code }, function (res) {
+            // Kode kolom (tanpa baris) — tampilkan baris picker
+            if (res.column_found) {
+                var statusLabel = { available: 'Tersedia', partial: 'Sebagian', full: 'Penuh', blocked: 'Diblokir' };
+                var statusColor = { available: '#0d8564', partial: '#f59e0b', full: '#ef4444', blocked: '#6b7280' };
+                var html = '';
+                $.each(res.column_cells, function (i, c) {
+                    var color  = statusColor[c.status] || '#6b7280';
+                    var label  = statusLabel[c.status] || c.status;
+                    var sisa   = c.capacity_remaining + '/' + c.capacity_max;
+                    html += '<button type="button" class="btn btn-sm btn-baris-pick" '
+                          + 'data-cell-id="' + c.id + '" data-cell-code="' + c.code + '" '
+                          + 'style="border:2px solid ' + color + ';color:' + color + ';background:#fff;border-radius:8px;padding:6px 12px;font-weight:600;">'
+                          + 'Baris ' + c.baris
+                          + '<br><small style="font-weight:400;font-size:10px;">' + label + ' · ' + sisa + '</small>'
+                          + '</button>';
+                });
+                $('#tfBarisOptions').html(html);
+                $('#tfBarisPicker').removeClass('d-none');
+                $('#tfCellInfo').removeClass('d-none').addClass('text-muted')
+                    .text('Kolom ' + res.column_code + ' ditemukan. Pilih baris di bawah.');
+                return;
+            }
+
             if (!res.found) {
                 $('#tfCellInfo').removeClass('d-none text-success').addClass('text-danger').text(res.message);
                 $('#tfToCellId').val('');
@@ -487,6 +486,17 @@ $(function () {
 
     $('#btnLookupCell').on('click', doLookup);
     $('#tfToCellCode').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
+
+    // Klik tombol baris dari picker
+    $(document).on('click', '.btn-baris-pick', function () {
+        var cellId   = $(this).data('cell-id');
+        var cellCode = $(this).data('cell-code');
+        $('#tfToCellId').val(cellId);
+        $('#tfToCellCode').val(cellCode);
+        $('#tfBarisPicker').addClass('d-none');
+        $('#tfCellInfo').removeClass('d-none text-danger text-muted').addClass('text-success')
+            .text(cellCode + ' dipilih.');
+    });
 
     // Eksekusi transfer
     $('#btnDoTransfer').on('click', function () {

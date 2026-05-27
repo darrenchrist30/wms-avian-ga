@@ -205,11 +205,11 @@
 @endif
 
 {{-- ── Highlight Banner (hanya tampil saat ada cell yang disorot dari rekomendasi GA / pencarian) ── --}}
-<div id="highlightBanner" class="alert py-2 px-3 mb-2 d-flex align-items-center justify-content-between" style="display:none;border-radius:8px">
-    <span id="highlightBannerText" class="font-weight-bold" style="font-size:13px"></span>
-    <button class="btn btn-sm ml-3" id="btnClearHighlight" style="white-space:nowrap"
-            title="Kembalikan tampilan cell ke warna normal">
-        <i class="fas fa-times mr-1"></i>Reset Tampilan
+<div id="highlightBanner" style="display:none;text-align:right;margin-bottom:4px">
+    <span id="highlightBannerText" style="display:none"></span>
+    <button class="btn btn-sm btn-outline-secondary" id="btnClearHighlight"
+            title="Reset Tampilan — kembalikan cell ke warna normal">
+        <i class="fas fa-times"></i>
     </button>
 </div>
 
@@ -332,16 +332,48 @@ $('#warehouseSelector').on('change', function () {
 $('#skuSearch').on('keydown', function (e) { if (e.key === 'Enter') $('#btnSkuSearch').trigger('click'); });
 $('#btnSkuSearch').on('click', function () {
     const q = $('#skuSearch').val().trim();
-    if (q.length < 2) { alert('Masukkan minimal 2 karakter untuk pencarian.'); return; }
+    if (q.length < 2) {
+        Swal.fire({
+            icon: 'warning',
+            title: 'Terlalu Pendek',
+            text: 'Masukkan minimal 2 karakter untuk pencarian.',
+            confirmButtonColor: '#0d8564',
+        });
+        return;
+    }
     $.getJSON('{{ route("warehouse3d.cells-by-item") }}', { q }, function (results) {
         if (!results.length) {
-            alert('Tidak ditemukan cell berisi item "' + q + '".');
+            Swal.fire({
+                icon: 'info',
+                title: 'Item Tidak Ditemukan',
+                html: 'Tidak ada stok <strong>"' + q + '"</strong> di gudang saat ini.<br><small class="text-muted">Item mungkin belum memiliki stok tersimpan atau belum di-put-away.</small>',
+                confirmButtonColor: '#0d8564',
+            });
             return;
         }
-        const ids   = new Set(results.map(r => r.cell_id));
-        const label = results[0].item + (results.length > 1 ? ' (+' + (results.length - 1) + ' item lain)' : '');
+        const ids      = new Set(results.map(r => r.cell_id));
+        const itemName = results[0].item;
+        const label    = itemName + (results.length > 1 ? ' (+' + (results.length - 1) + ' item lain)' : '');
         applyHighlight(ids, 'search', label + ' — ' + results.length + ' cell ditemukan');
-    }).fail(function () { alert('Gagal mencari item.'); });
+
+        const cellList = results.map(r => '<span class="badge badge-primary mr-1">' + r.code + '</span> qty: ' + r.quantity).join('<br>');
+        Swal.fire({
+            icon: 'success',
+            title: 'Item Ditemukan!',
+            html: '<strong>' + itemName + '</strong><br><small class="text-muted">' + results.length + ' lokasi:</small><br><div class="mt-1">' + cellList + '</div>',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            showCloseButton: true,
+        });
+    }).fail(function () {
+        Swal.fire({
+            icon: 'error',
+            title: 'Gagal Mencari',
+            text: 'Terjadi kesalahan saat mencari item. Coba lagi.',
+            confirmButtonColor: '#0d8564',
+        });
+    });
 });
 
 $('#btnClearHighlight').on('click', function () { clearHighlight(); });
@@ -1241,21 +1273,15 @@ function applyHighlight(ids, reason, label) {
     const bannerEl  = document.getElementById('highlightBanner');
     const bannerTx  = document.getElementById('highlightBannerText');
     const bannerBtn = document.getElementById('btnClearHighlight');
+    bannerEl.className = '';
+    bannerEl.style.cssText = 'display:block;text-align:right;margin-bottom:4px';
     if (isGa) {
-        bannerEl.className = 'alert alert-ga py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
-        bannerBtn.className = 'btn btn-sm ml-3';
-        bannerBtn.style.cssText = 'border:1px solid #ffd700;color:#ffd700;background:transparent;white-space:nowrap';
-        bannerTx.innerHTML = `
-            <i class="fas fa-star ga-star"></i>
-            <strong style="font-size:14px;letter-spacing:.4px;color:#ffd700">CELL REKOMENDASI GA</strong>
-            <span style="opacity:.75;font-size:12px;margin-left:8px">${label || ''}</span>`;
+        bannerBtn.className = 'btn btn-sm';
+        bannerBtn.style.cssText = 'border:1px solid #ffd700;color:#ffd700;background:transparent';
     } else {
-        bannerEl.className = 'alert alert-info py-2 px-3 mb-2 d-flex align-items-center justify-content-between';
-        bannerBtn.className = 'btn btn-sm btn-outline-info ml-3';
+        bannerBtn.className = 'btn btn-sm btn-outline-secondary';
         bannerBtn.style.cssText = '';
-        bannerTx.innerHTML = '<i class="fas fa-search mr-2"></i>' + (label || 'Cell hasil pencarian disorot');
     }
-    bannerEl.style.display = 'flex';
 
     // ── Legend ────────────────────────────────────────────────────────────────
     const legItem = document.querySelector('.leg-highlight');
@@ -1462,19 +1488,24 @@ function showMspartColumnDetail(blok, grup, kolom) {
         const filledBaris = res.levels.filter(lv => lv.stocks.length > 0).length;
         const totalItems  = res.levels.reduce((t, lv) => t + lv.stocks.length, 0);
 
+        const domCat = res.dominant_category || '—';
         $('#cellModalBody').html(`
             <div class="row mx-0 border-bottom pb-2 pt-2 bg-light">
-                <div class="col-md-4 mb-2">
+                <div class="col-6 col-md-3 mb-2">
                     <small class="text-muted">Lokasi</small>
                     <div class="font-weight-bold">Blok ${res.blok} &rsaquo; Grup ${res.grup} &rsaquo; Kolom ${res.kolom}</div>
                 </div>
-                <div class="col-md-4 mb-2">
+                <div class="col-6 col-md-3 mb-2">
                     <small class="text-muted">Baris Terisi</small>
                     <div class="font-weight-bold">${filledBaris} / ${totalBaris} baris</div>
                 </div>
-                <div class="col-md-4 mb-2">
+                <div class="col-6 col-md-3 mb-2">
                     <small class="text-muted">Total Item</small>
                     <div class="font-weight-bold">${totalItems} item</div>
+                </div>
+                <div class="col-6 col-md-3 mb-2">
+                    <small class="text-muted">Kategori Dominan</small>
+                    <div class="font-weight-bold">${domCat}</div>
                 </div>
             </div>
             <div class="p-2">

@@ -77,6 +77,7 @@ class StockController extends Controller
                 'items.sku',
                 'items.erp_item_code',
                 'items.min_stock',
+                'items.max_stock',
                 'items.reorder_point',
                 'cat.name as category_name',
                 'cat.color_code',
@@ -89,7 +90,7 @@ class StockController extends Controller
             ->where('items.is_active', true)
             ->groupBy(
                 'items.id','items.name','items.sku','items.erp_item_code',
-                'items.min_stock','items.reorder_point',
+                'items.min_stock','items.max_stock','items.reorder_point',
                 'cat.name','cat.color_code','units.code'
             )
             ->when($request->filled('category_id'),

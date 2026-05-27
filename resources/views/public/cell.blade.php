@@ -3,270 +3,357 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>{{ $cell->code }} — Info Cell</title>
+<title>{{ $cell->physical_code ?? $cell->code }} — WMS Avian</title>
 <meta name="robots" content="noindex, nofollow">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 <style>
-    * { -webkit-tap-highlight-color: transparent; }
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+
     body {
-        background: #f0f2f5;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-        color: #1a1a2e;
+        background: #f7f8fa;
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        color: #111;
         min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
     }
 
     /* ── Top bar ── */
     .topbar {
-        background: linear-gradient(135deg, #1a2332 0%, #2d3a4f 100%);
-        color: #fff; padding: 14px 16px;
-        display: flex; align-items: center; gap: 10px;
-        position: sticky; top: 0; z-index: 100;
-        box-shadow: 0 2px 8px rgba(0,0,0,.25);
+        background: #004230;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        gap: 10px;
     }
-    .topbar-logo {
-        width: 32px; height: 32px; background: #28a745;
-        border-radius: 8px; display: flex; align-items: center; justify-content: center;
-        font-weight: 900; font-size: 14px; flex-shrink: 0;
-    }
-    .topbar-title { font-size: 13px; font-weight: 700; line-height: 1.2; }
-    .topbar-sub   { font-size: 11px; opacity: .7; }
+    .topbar i { color: rgba(255,255,255,.7); font-size: 14px; }
+    .topbar-name { font-size: 13px; font-weight: 700; color: #fff; }
+    .topbar-sep  { color: rgba(255,255,255,.3); margin: 0 2px; }
+    .topbar-sub  { font-size: 12px; color: rgba(255,255,255,.5); }
 
-    /* ── Cell header card ── */
-    .cell-header-card {
-        background: #fff; margin: 12px;
-        border-radius: 14px; overflow: hidden;
-        box-shadow: 0 2px 12px rgba(0,0,0,.08);
-    }
-    .cell-code-banner {
-        background: linear-gradient(135deg, #1a2332 0%, #2d3a4f 100%);
-        padding: 20px 20px 16px; color: #fff;
-    }
-    .cell-code-text {
-        font-size: 32px; font-weight: 900; letter-spacing: 1px;
-        font-family: 'Courier New', monospace;
-    }
-    .cell-code-label { font-size: 12px; opacity: .7; margin-bottom: 4px; }
-    .cell-location-row {
-        padding: 14px 20px; display: flex; gap: 20px; flex-wrap: wrap;
-    }
-    .loc-item { flex: 1; min-width: 80px; }
-    .loc-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; }
-    .loc-val   { font-size: 14px; font-weight: 700; color: #1a1a2e; margin-top: 2px; }
-
-    /* ── Status badge ── */
-    .status-row { padding: 0 20px 16px; display: flex; gap: 8px; flex-wrap: wrap; }
-    .status-chip {
-        display: inline-flex; align-items: center; gap: 5px;
-        padding: 5px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
-    }
-    .chip-green  { background: #d4edda; color: #155724; }
-    .chip-yellow { background: #fff3cd; color: #856404; }
-    .chip-red    { background: #f8d7da; color: #721c24; }
-    .chip-blue   { background: #cce5ff; color: #004085; }
-
-    /* ── Capacity bar ── */
-    .cap-section { padding: 0 20px 16px; }
-    .cap-label { font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; margin-bottom: 6px; }
-    .cap-bar   { height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden; }
-    .cap-fill  { height: 100%; border-radius: 5px; transition: width .3s; }
-    .cap-nums  { display: flex; justify-content: space-between; margin-top: 4px; font-size: 11px; color: #888; }
-
-    /* ── Stocks section ── */
-    .section-header {
-        padding: 8px 12px 4px;
-        font-size: 11px; font-weight: 800; color: #6c757d;
-        text-transform: uppercase; letter-spacing: .8px;
-    }
-    .stock-card {
-        background: #fff; margin: 0 12px 8px;
-        border-radius: 12px; overflow: hidden;
-        box-shadow: 0 1px 6px rgba(0,0,0,.06);
-        border-left: 4px solid #dee2e6;
-    }
-    .stock-card-body { padding: 14px 16px; }
-    .stock-item-name { font-weight: 700; font-size: 14px; line-height: 1.3; }
-    .stock-item-sku  { font-size: 11px; color: #6c757d; margin-top: 2px; }
-    .stock-item-merk { font-size: 11px; color: #495057; margin-top: 2px; }
-    .stock-meta      { display: flex; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
-    .stock-meta-item { flex: 1; min-width: 70px; }
-    .meta-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; }
-    .meta-val   { font-size: 16px; font-weight: 800; margin-top: 1px; }
-    .meta-val.qty { color: #28a745; }
-
-    /* ── Empty state ── */
-    .empty-state {
-        background: #fff; margin: 0 12px 12px;
-        border-radius: 12px; padding: 32px 20px;
-        text-align: center; color: #adb5bd;
-        box-shadow: 0 1px 6px rgba(0,0,0,.06);
+    /* ── Layout ── */
+    .wrap {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
     }
 
-    /* ── Login hint ── */
-    .login-hint {
-        margin: 8px 12px 16px;
-        background: #e8f4fd; border-radius: 10px;
-        padding: 12px 14px; font-size: 12px; color: #1565c0;
-        display: flex; align-items: center; gap: 8px;
+    /* ── Cell code block ── */
+    .cell-code {
+        margin-bottom: 24px;
     }
+    .cell-code-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        color: #0d8564;
+        margin-bottom: 6px;
+    }
+    .cell-code-value {
+        font-size: 40px;
+        font-weight: 800;
+        color: #111;
+        letter-spacing: 1px;
+        line-height: 1;
+        margin-bottom: 10px;
+    }
+    @if ($cell->label && $cell->label !== $cell->code)
+    .cell-code-sub {
+        font-size: 13px;
+        color: #888;
+        margin-bottom: 10px;
+    }
+    @endif
+
+    /* ── Meta row ── */
+    .meta-row {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e8e8e8;
+    }
+    .meta-item {}
+    .meta-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .8px;
+        color: #aaa;
+        margin-bottom: 3px;
+    }
+    .meta-val {
+        font-size: 14px;
+        font-weight: 600;
+        color: #111;
+    }
+
+    /* ── Section ── */
+    .section { margin-bottom: 24px; }
+    .section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #aaa;
+        margin-bottom: 12px;
+    }
+
+    /* ── Status + chips ── */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 5px 12px;
+        border-radius: 6px;
+        border: 1.5px solid transparent;
+    }
+    .chip-available { background: #dcfce7; color: #14532d; border-color: #86efac; }
+    .chip-partial   { background: #fef3c7; color: #78350f; border-color: #fcd34d; }
+    .chip-full      { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
+    .chip-zone      { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+
+    /* ── Capacity ── */
+    .cap-numbers {
+        display: flex;
+        justify-content: space-between;
+        font-size: 12.5px;
+        color: #666;
+        margin-bottom: 8px;
+    }
+    .cap-numbers strong { color: #111; }
+    .cap-track {
+        height: 6px;
+        background: #ebebeb;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .cap-fill { height: 100%; border-radius: 3px; }
+    .cap-note {
+        font-size: 11px;
+        color: #bbb;
+        margin-top: 6px;
+    }
+
+    /* ── Stock list ── */
+    .stock-item {
+        background: #fff;
+        border: 1px solid #ebebeb;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 10px;
+    }
+    .stock-item:last-child { margin-bottom: 0; }
+    .stock-name {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #111;
+        margin-bottom: 3px;
+        line-height: 1.4;
+    }
+    .stock-sku {
+        font-size: 12px;
+        color: #999;
+        font-weight: 500;
+        margin-bottom: 14px;
+    }
+    .stock-row {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap;
+    }
+    .stock-field {}
+    .sf-label {
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: .7px;
+        color: #bbb;
+        margin-bottom: 4px;
+    }
+    .sf-val {
+        font-size: 13px;
+        font-weight: 600;
+        color: #222;
+    }
+    .sf-val.big {
+        font-size: 26px;
+        font-weight: 800;
+        color: #0d8564;
+        line-height: 1;
+    }
+    .sf-unit {
+        font-size: 12px;
+        font-weight: 500;
+        color: #999;
+        margin-left: 2px;
+    }
+    .cat-dot {
+        display: inline-block;
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        margin-right: 5px;
+        vertical-align: middle;
+    }
+
+    /* ── Empty ── */
+    .empty {
+        text-align: center;
+        padding: 40px 0;
+        color: #ccc;
+    }
+    .empty i { font-size: 32px; margin-bottom: 10px; display: block; }
+    .empty p { font-size: 13px; color: #aaa; }
 
     /* ── Footer ── */
-    .page-footer {
-        text-align: center; padding: 20px 16px;
-        font-size: 11px; color: #adb5bd;
+    .foot {
+        font-size: 11px;
+        color: #ccc;
+        text-align: center;
+        line-height: 1.8;
+        padding-top: 8px;
+        border-top: 1px solid #ebebeb;
     }
 </style>
 </head>
 <body>
 
 <div class="topbar">
-    <div class="topbar-logo">W</div>
-    <div>
-        <div class="topbar-title">WMS Avian</div>
-        <div class="topbar-sub">Info Lokasi Penyimpanan</div>
-    </div>
+    <i class="fas fa-warehouse"></i>
+    <span class="topbar-name">WMS Avian</span>
+    <span class="topbar-sep">/</span>
+    <span class="topbar-sub">Info Cell</span>
 </div>
 
-{{-- ── Cell Header ─────────────────────────────────────────────────── --}}
-<div class="cell-header-card">
+<div class="wrap">
 
-    <div class="cell-code-banner">
-        <div class="cell-code-label">KODE CELL</div>
-        <div class="cell-code-text">{{ $cell->code }}</div>
+    {{-- Cell code --}}
+    <div class="cell-code">
+        <div class="cell-code-label">Kode Cell</div>
+        <div class="cell-code-value">{{ $cell->physical_code ?? $cell->code }}</div>
         @if ($cell->label && $cell->label !== $cell->code)
-            <div style="font-size:13px;opacity:.8;margin-top:4px;">{{ $cell->label }}</div>
+            <div style="font-size:13px;color:#888;margin-top:6px;">{{ $cell->label }}</div>
         @endif
     </div>
 
-    <div class="cell-location-row">
-        <div class="loc-item">
-            <div class="loc-label">Gudang</div>
-            <div class="loc-val">{{ $cell->rack?->warehouse?->name ?? '—' }}</div>
+    {{-- Location meta --}}
+    <div class="meta-row">
+        <div class="meta-item">
+            <div class="meta-label">Gudang</div>
+            <div class="meta-val">{{ $cell->rack?->warehouse?->name ?? '—' }}</div>
         </div>
-        <div class="loc-item">
-            <div class="loc-label">Rak</div>
-            <div class="loc-val">{{ $cell->rack?->code ?? '—' }}</div>
+        <div class="meta-item">
+            <div class="meta-label">Rak</div>
+            <div class="meta-val">{{ $cell->rack?->code ?? '—' }}</div>
         </div>
-        <div class="loc-item">
-            <div class="loc-label">Level</div>
-            <div class="loc-val">{{ $cell->level ?? '—' }}</div>
+        @if ($cell->level)
+        <div class="meta-item">
+            <div class="meta-label">Level</div>
+            <div class="meta-val">{{ $cell->level }}</div>
         </div>
-    </div>
-
-    {{-- Status chips --}}
-    <div class="status-row">
-        @php
-            $statusChip = match($cell->status) {
-                'available' => ['chip-green', 'fa-check-circle', 'Tersedia'],
-                'full'      => ['chip-red',   'fa-times-circle', 'Penuh'],
-                'partial'   => ['chip-yellow','fa-adjust',       'Sebagian Terisi'],
-                default     => ['chip-blue',  'fa-circle',        ucfirst($cell->status ?? '-')],
-            };
-        @endphp
-        <span class="status-chip {{ $statusChip[0] }}">
-            <i class="fas {{ $statusChip[1] }}"></i> {{ $statusChip[2] }}
-        </span>
-        @if ($cell->zone_category)
-        <span class="status-chip chip-blue">
-            <i class="fas fa-tag"></i> {{ $cell->zone_category }}
-        </span>
-        @endif
-        @if ($cell->dominantCategory)
-        <span class="status-chip" style="background:#f3e8ff;color:#6b21a8;">
-            <i class="fas fa-boxes"></i> {{ $cell->dominantCategory->name }}
-        </span>
         @endif
     </div>
 
-    {{-- Capacity bar --}}
+    {{-- Status --}}
+    <div class="section">
+        <div class="section-title">Status</div>
+        <div class="chips">
+            @php
+                [$chipClass, $chipLabel] = match($cell->status) {
+                    'available' => ['chip-available', 'Tersedia'],
+                    'full'      => ['chip-full',      'Penuh'],
+                    'partial'   => ['chip-partial',   'Sebagian Terisi'],
+                    default     => ['chip-zone',      ucfirst($cell->status ?? '-')],
+                };
+            @endphp
+            <span class="chip {{ $chipClass }}">{{ $chipLabel }}</span>
+
+            @if ($cell->dominantCategory)
+                @php $dc = $cell->dominantCategory; $dcColor = $dc->color_code ?? '#6b7280'; @endphp
+                <span class="chip" style="background:{{ $dcColor }}18;color:{{ $dcColor }};border-color:{{ $dcColor }}55;">
+                    {{ $dc->name }}
+                </span>
+            @endif
+            @if ($cell->zone_category)
+                <span class="chip chip-zone">{{ $cell->zone_category }}</span>
+            @endif
+        </div>
+    </div>
+
+    {{-- Capacity --}}
     @if ($cell->capacity_max > 0)
     @php
-        $capPct = min(100, round(($cell->capacity_used / $cell->capacity_max) * 100));
-        $barColor = $capPct >= 90 ? '#dc3545' : ($capPct >= 70 ? '#ffc107' : '#28a745');
+        $capPct   = min(100, round(($cell->capacity_used / $cell->capacity_max) * 100));
+        $barColor = $capPct >= 90 ? '#ef4444' : ($capPct >= 70 ? '#f59e0b' : '#0d8564');
     @endphp
-    <div class="cap-section">
-        <div class="cap-label">Kapasitas</div>
-        <div class="cap-bar">
-            <div class="cap-fill" style="width:{{ $capPct }}%;background:{{ $barColor }};"></div>
+    <div class="section">
+        <div class="section-title">Kapasitas</div>
+        <div class="cap-numbers">
+            <span><strong>{{ number_format($cell->capacity_used) }}</strong> terisi</span>
+            <span>Maks <strong>{{ number_format($cell->capacity_max) }}</strong> &nbsp;·&nbsp; <strong>{{ $capPct }}%</strong></span>
         </div>
-        <div class="cap-nums">
-            <span>Terisi: <strong>{{ number_format($cell->capacity_used) }}</strong></span>
-            <span>{{ $capPct }}%</span>
-            <span>Maks: <strong>{{ number_format($cell->capacity_max) }}</strong></span>
+        <div class="cap-track">
+            <div class="cap-fill" style="width:{{ $capPct }}%;background:{{ $barColor }};"></div>
         </div>
     </div>
     @endif
 
-</div>
+    {{-- Stock items --}}
+    <div class="section">
+        <div class="section-title">Isi Cell &mdash; {{ $stocks->count() }} item</div>
 
-{{-- ── Stock Items ──────────────────────────────────────────────────── --}}
-<div class="section-header">
-    <i class="fas fa-box-open mr-1"></i> Isi Cell
-    <span style="font-weight:400;color:#adb5bd;"> ({{ $stocks->count() }} item)</span>
-</div>
-
-@if ($stocks->isEmpty())
-    <div class="empty-state">
-        <i class="fas fa-inbox fa-3x mb-2" style="opacity:.2;"></i>
-        <div style="font-size:14px;font-weight:600;">Cell Kosong</div>
-        <div style="font-size:12px;margin-top:4px;">Tidak ada stok yang tersimpan di cell ini.</div>
-    </div>
-@else
-    @foreach ($stocks as $stock)
-    @php
-        $cat = $stock->item?->category;
-        $borderColor = $cat?->color_code ?? '#dee2e6';
-    @endphp
-    <div class="stock-card" style="border-left-color:{{ $borderColor }};">
-        <div class="stock-card-body">
-            <div class="stock-item-name">{{ $stock->item?->name ?? '—' }}</div>
-            <div class="stock-item-sku">SKU: {{ $stock->item?->sku ?? '—' }}</div>
-            @if ($stock->item?->merk)
-                <div class="stock-item-merk"><i class="fas fa-tag" style="font-size:9px;"></i> {{ $stock->item->merk }}</div>
-            @endif
-
-            <div class="stock-meta">
-                <div class="stock-meta-item">
-                    <div class="meta-label">Qty Tersedia</div>
-                    <div class="meta-val qty">{{ number_format($stock->quantity) }}
-                        <span style="font-size:12px;font-weight:500;color:#6c757d;">{{ $stock->item?->unit?->code }}</span>
-                    </div>
-                </div>
-                <div class="stock-meta-item">
-                    <div class="meta-label">Inbound Date</div>
-                    <div class="meta-val" style="font-size:13px;color:#495057;">
-                        {{ $stock->inbound_date?->format('d M Y') ?? '—' }}
-                    </div>
-                </div>
-                @if ($cat)
-                <div class="stock-meta-item">
-                    <div class="meta-label">Kategori</div>
-                    <div class="meta-val" style="font-size:12px;">
-                        <span class="badge px-2 py-1"
-                              style="background:{{ $cat->color_code ?? '#6c757d' }};color:#fff;border-radius:6px;">
-                            {{ $cat->name }}
-                        </span>
-                    </div>
-                </div>
-                @endif
+        @if ($stocks->isEmpty())
+            <div class="empty">
+                <i class="fas fa-inbox"></i>
+                <p>Cell ini kosong.</p>
             </div>
-        </div>
+        @else
+            @foreach ($stocks as $stock)
+            @php $cat = $stock->item?->category; @endphp
+            <div class="stock-item">
+                <div class="stock-name">{{ $stock->item?->name ?? '—' }}</div>
+                <div class="stock-sku">{{ $stock->item?->sku ?? '—' }}</div>
+
+                <div class="stock-row">
+                    <div class="stock-field">
+                        <div class="sf-label">Qty</div>
+                        <div class="sf-val big">
+                            {{ number_format($stock->quantity) }}<span class="sf-unit">{{ $stock->item?->unit?->code }}</span>
+                        </div>
+                    </div>
+                    <div class="stock-field">
+                        <div class="sf-label">Inbound</div>
+                        <div class="sf-val">{{ $stock->inbound_date?->format('d M Y') ?? '—' }}</div>
+                    </div>
+                    @if ($cat)
+                    <div class="stock-field">
+                        <div class="sf-label">Kategori</div>
+                        <div class="sf-val">
+                            <span class="cat-dot" style="background:{{ $cat->color_code ?? '#ccc' }};"></span>
+                            {{ $cat->name }}
+                        </div>
+                    </div>
+                    @endif
+                </div>
+            </div>
+            @endforeach
+        @endif
     </div>
-    @endforeach
-@endif
 
-{{-- ── Login hint for staff ─────────────────────────────────────────── --}}
-@guest
-<div class="login-hint">
-    <i class="fas fa-info-circle" style="flex-shrink:0;font-size:16px;"></i>
-    <span>Anda melihat halaman publik. <a href="{{ route('login') }}" style="font-weight:700;color:#1565c0;">Login</a> untuk mengakses fitur manajemen gudang.</span>
+    {{-- Footer --}}
+    <div class="foot">
+        Diperbarui {{ now()->format('d M Y, H:i') }} WIB
+        @guest &nbsp;·&nbsp; <a href="{{ route('login') }}" style="color:#0d8564;font-weight:600;text-decoration:none;">Login</a> @endguest
+    </div>
+
 </div>
-@endguest
-
-<div class="page-footer">
-    <i class="fas fa-warehouse mr-1"></i> WMS Avian &mdash; Info diperbarui real-time<br>
-    <span style="font-size:10px;">{{ now()->format('d M Y, H:i') }} WIB</span>
-</div>
-
 </body>
 </html>

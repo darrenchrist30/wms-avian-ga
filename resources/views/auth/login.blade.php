@@ -280,23 +280,10 @@
                 @error('password')<div class="invalid-text">{{ $message }}</div>@enderror
             </div>
 
-            <div class="row-remember">
-                <div class="left">
-                    <input type="checkbox" id="remember" name="remember">
-                    <label for="remember">Ingat saya</label>
-                </div>
-                <a href="#" class="link-forgot">Lupa password?</a>
-            </div>
-
             <button type="submit" class="btn-login">
                 <i class="fas fa-sign-in-alt"></i> Masuk
             </button>
         </form>
-    </div>
-
-    {{-- Footer --}}
-    <div class="card-foot">
-        &copy; {{ date('Y') }} PT Avian Brands &nbsp;&middot;&nbsp; WMS v1.0
     </div>
 
 </div>

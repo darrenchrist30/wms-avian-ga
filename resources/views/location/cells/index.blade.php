@@ -18,7 +18,7 @@
                             </div>
                             <div class="d-flex" style="gap:6px;">
                                 <a href="#" id="btnBulkQr" class="btn btn-primary btn-sm"
-                                   title="Pilih rak di filter lalu klik untuk cetak semua label QR sekaligus">
+                                   title="Pilih rak di filter lalu klik untuk cetak semua label QR per sel">
                                     <i class="fas fa-layer-group mr-1"></i>Cetak Label Rak
                                 </a>
                                 <div class="btn-group">
@@ -150,7 +150,33 @@
                         searchable: false,
                         className: 'text-center'
                     },
-                ]
+                    { data: 'column_code', name: 'column_code', visible: false, searchable: false },
+                ],
+                drawCallback: function () {
+                    var api  = this.api();
+                    var rows = api.rows({ page: 'current' }).nodes();
+                    var last = null;
+                    api.rows({ page: 'current' }).data().each(function (d, i) {
+                        var col = d.column_code;
+                        if (col && col !== last) {
+                            $(rows).eq(i).before(
+                                '<tr class="dt-column-group" style="background:#f0f9f4;">'
+                                + '<td colspan="7" style="padding:6px 12px;">'
+                                + '<i class="fas fa-columns text-success mr-2" style="font-size:11px;"></i>'
+                                + '<strong style="font-size:13px;color:#004230;">' + col + '</strong>'
+                                + '<span class="badge badge-light ml-2" style="font-size:10px;font-weight:500;color:#666;">Kolom</span>'
+                                + '<button class="btn btn-xs btn-outline-success ml-3 btnColQr" data-col="' + col + '" style="font-size:11px;padding:2px 8px;">'
+                                + '<i class="fas fa-qrcode mr-1"></i>QR Kolom'
+                                + '</button>'
+                                + '</td>'
+                                + '</tr>'
+                            );
+                            last = col;
+                        } else if (!col) {
+                            last = null;
+                        }
+                    });
+                }
             });
 
             $('.btnRefresh').on('click', function() {
@@ -162,22 +188,29 @@
                 table.ajax.reload();
             });
 
-            // Cetak Label Rak — butuh rack filter dipilih dahulu
-            const BULK_QR_URL = '{{ route("location.cells.bulk-qr") }}';
+            // Cetak Label Rak
+            const BULK_QR_URL   = '{{ route("location.cells.bulk-qr") }}';
+            const COLUMN_QR_URL = '{{ route("location.cells.column-qr") }}';
+
             $('#btnBulkQr').on('click', function (e) {
                 e.preventDefault();
                 const rackId = $('#filter-rack').val();
                 if (!rackId) {
                     Swal.fire({
-                        icon: 'info',
-                        title: 'Pilih Rak Terlebih Dahulu',
-                        text: 'Gunakan filter Rak di atas, lalu klik "Cetak Label Rak" untuk mencetak semua label QR dalam satu rak sekaligus.',
-                        confirmButtonColor: '#28a745',
-                        confirmButtonText: 'Mengerti',
+                        icon: 'info', title: 'Pilih Rak Terlebih Dahulu',
+                        text: 'Gunakan filter Rak di atas, lalu klik "Cetak Label Rak" untuk mencetak semua label QR per sel.',
+                        confirmButtonColor: '#28a745', confirmButtonText: 'Mengerti',
                     });
                     return;
                 }
                 window.open(BULK_QR_URL + '?rack_id=' + rackId, '_blank');
+            });
+
+            // QR Kolom dari baris group header di DataTable
+            $(document).on('click', '.btnColQr', function (e) {
+                e.stopPropagation();
+                const col = $(this).data('col');
+                window.open(COLUMN_QR_URL + '?column=' + encodeURIComponent(col), '_blank');
             });
 
             $(document).on('click', '.btnDel', function(e) {

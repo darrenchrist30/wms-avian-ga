@@ -63,8 +63,53 @@ class PublicCellController extends Controller
                 return view('public.item', compact('item', 'itemStocks'));
             }
 
-            // Check if it's a rack-prefix "blok-grup" format (e.g. "1-A")
             $parts = explode('-', $code);
+
+            // 3-segment: blok-grup-kolom (e.g. "1-F-1") — column QR code
+            if (count($parts) === 3) {
+                [$colBlok, $colGrup, $colKolom] = $parts;
+                $colGrup = strtoupper($colGrup);
+
+                $columnCells = Cell::with(['dominantCategory', 'rack.warehouse'])
+                    ->where('is_active', true)
+                    ->where('blok', $colBlok)
+                    ->whereRaw('UPPER(grup) = ?', [$colGrup])
+                    ->where('kolom', $colKolom)
+                    ->orderBy('baris')
+                    ->get();
+
+                if ($columnCells->isNotEmpty()) {
+                    $columnCode    = "{$colBlok}-{$colGrup}-{$colKolom}";
+                    $warehouseName = $columnCells->first()->rack?->warehouse?->name ?? '—';
+
+                    if ($request->expectsJson()) {
+                        return response()->json([
+                            'success' => true,
+                            'type'    => 'column',
+                            'column'  => [
+                                'code'      => $columnCode,
+                                'warehouse' => $warehouseName,
+                                'total'     => $columnCells->count(),
+                                'available' => $columnCells->where('status', 'available')->count(),
+                            ],
+                            'cells' => $columnCells->map(fn($c) => [
+                                'id'                 => $c->id,
+                                'code'               => $c->physical_code,
+                                'baris'              => $c->baris,
+                                'status'             => $c->status,
+                                'capacity_used'      => $c->physical_capacity_used,
+                                'capacity_max'       => $c->physical_capacity_max,
+                                'capacity_remaining' => $c->physical_capacity_remaining,
+                                'dominant_category'  => $c->dominantCategory?->name,
+                                'category_color'     => $c->dominantCategory?->color_code ?? '#dee2e6',
+                            ])->values(),
+                        ]);
+                    }
+                    return view('public.column', compact('columnCells', 'columnCode', 'warehouseName'));
+                }
+            }
+
+            // Check if it's a rack-prefix "blok-grup" format (e.g. "1-A")
             if (count($parts) === 2) {
                 $rackBlok = $parts[0];
                 $rackGrup = strtoupper($parts[1]);
