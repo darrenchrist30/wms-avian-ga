@@ -353,15 +353,57 @@ class PutAwayService
             ->with('rack')
             ->first();
 
-        // Fallback: QR label hanya encode "blok-grup" (e.g. "2-A") karena label fisik
-        // di MSpart hanya menunjuk ke rak, bukan baris spesifik.
+        // Jika ditemukan tapi merupakan column record (baris=null) → resolve ke sel baris nyata.
+        // Perilaku sama dengan fallback 2-segmen tapi lebih spesifik (blok+grup+kolom).
+        if ($cell && $cell->isColumnCell()) {
+            $colBlok  = (string) $cell->blok;
+            $colGrup  = strtoupper((string) $cell->grup);
+            $colKolom = (int) $cell->kolom;
+            $cell     = null; // reset, cari baris nyata di bawah
+
+            if ($gaCellId) {
+                $gaCellCandidate = Cell::where('id', $gaCellId)
+                    ->where('is_active', true)
+                    ->with('rack')
+                    ->first();
+
+                if ($gaCellCandidate && $this->isMspartCell($gaCellCandidate)) {
+                    $gaBlok  = (string) $gaCellCandidate->blok;
+                    $gaGrup  = strtoupper((string) $gaCellCandidate->grup);
+                    $gaKolom = (int) $gaCellCandidate->kolom;
+
+                    if ($colBlok === $gaBlok && $colGrup === $gaGrup && $colKolom === $gaKolom) {
+                        // Kolom yang di-scan cocok dengan rekomendasi GA → pakai GA cell.
+                        $cell = $gaCellCandidate;
+                    } elseif (!$isOverride) {
+                        throw new \Exception(
+                            "Kolom '{$qrCode}' tidak sesuai rekomendasi GA. " .
+                            "Menuju {$gaBlok}-{$gaGrup}-{$gaKolom} (sel {$gaCellCandidate->code})."
+                        );
+                    }
+                }
+            }
+
+            if (!$cell && $isOverride) {
+                $cell = Cell::where('blok', $colBlok)
+                    ->whereRaw('UPPER(grup) = ?', [$colGrup])
+                    ->where('kolom', $colKolom)
+                    ->whereNotNull('baris')
+                    ->where('is_active', true)
+                    ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'partial' THEN 2 ELSE 3 END")
+                    ->orderBy('baris')
+                    ->with('rack')
+                    ->first();
+            }
+        }
+
+        // Fallback: QR label encode "blok-grup" (e.g. "1-A") — 2-segmen tanpa kolom.
         if (!$cell) {
             $parts = explode('-', $qrCode);
             if (count($parts) === 2) {
                 $qrBlok = $parts[0];
                 $qrGrup = strtoupper($parts[1]);
 
-                // Cek GA cell dulu — baik mode normal maupun override, jika rak sama pakai GA cell.
                 if ($gaCellId) {
                     $gaCellCandidate = Cell::where('id', $gaCellId)
                         ->where('is_active', true)
@@ -373,23 +415,20 @@ class PutAwayService
                         $gaGrup = strtoupper((string) $gaCellCandidate->grup);
 
                         if ($qrBlok === $gaBlok && $qrGrup === $gaGrup) {
-                            // Rak yang di-scan sama dengan rekomendasi GA → pakai GA cell.
                             $cell = $gaCellCandidate;
                         } elseif (!$isOverride) {
-                            // Non-override + rak berbeda → error informatif.
                             throw new \Exception(
                                 "Rak '{$qrCode}' tidak sesuai rekomendasi GA. " .
                                 "Menuju rak {$gaBlok}-{$gaGrup} (sel {$gaCellCandidate->code})."
                             );
                         }
-                        // Override + rak berbeda → fall-through ke pencarian override di bawah.
                     }
                 }
 
-                // Override mode: cari sel terbaik di rak yang di-scan (available/partial dulu).
                 if (!$cell && $isOverride) {
                     $cell = Cell::where('blok', $qrBlok)
                         ->whereRaw('UPPER(grup) = ?', [$qrGrup])
+                        ->whereNotNull('baris')
                         ->where('is_active', true)
                         ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'partial' THEN 2 ELSE 3 END")
                         ->orderBy('kolom')

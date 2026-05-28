@@ -130,6 +130,9 @@ class ItemCategoryController extends Controller
 
         return DataTables::of($query)
             ->addIndexColumn()
+            ->filterColumn('items_count', function ($query, $keyword) {
+                $query->whereRaw('(select count(*) from `items` where `items`.`category_id` = `item_categories`.`id` and `items`.`deleted_at` is null) like ?', ["%{$keyword}%"]);
+            })
             ->addColumn('color_badge', function ($row) {
                 return '<span class="badge" style="background:' . ($row->color_code ?? '#6c757d') . ';color:#fff;padding:4px 8px;">' . $row->name . '</span>';
             })

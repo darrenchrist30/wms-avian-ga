@@ -192,7 +192,7 @@
                     },
                     type: 'GET',
                     error: function(xhr) {
-                        if (xhr.status === 401 || xhr.status === 419) { window.location.href = '{{ route("login") }}'; return; }
+                        if (xhr.status === 401 || xhr.status === 419) { window.location.reload(); return; }
                         var message = xhr.status === 500 ? 'Terjadi error server saat memuat data sparepart.' : 'Data sparepart gagal dimuat.';
                         Swal.fire({
                             icon: 'error',

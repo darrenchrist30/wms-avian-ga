@@ -158,6 +158,46 @@ class PublicCellController extends Controller
             return view('public.not-found', compact('code'));
         }
 
+        // Column record (baris=null) → show baris list, not cell detail
+        if ($cell->isColumnCell()) {
+            $columnCells   = Cell::with(['dominantCategory', 'rack.warehouse'])
+                ->where('is_active', true)
+                ->where('blok', $cell->blok)
+                ->whereRaw('UPPER(grup) = ?', [strtoupper($cell->grup)])
+                ->where('kolom', $cell->kolom)
+                ->whereNotNull('baris')
+                ->orderBy('baris')
+                ->get();
+
+            $columnCode    = $cell->code;
+            $warehouseName = $cell->rack?->warehouse?->name ?? '—';
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'type'    => 'column',
+                    'column'  => [
+                        'code'      => $columnCode,
+                        'warehouse' => $warehouseName,
+                        'total'     => $columnCells->count(),
+                        'available' => $columnCells->where('status', 'available')->count(),
+                    ],
+                    'cells' => $columnCells->map(fn($c) => [
+                        'id'                 => $c->id,
+                        'code'               => $c->physical_code,
+                        'baris'              => $c->baris,
+                        'status'             => $c->status,
+                        'capacity_used'      => $c->physical_capacity_used,
+                        'capacity_max'       => $c->physical_capacity_max,
+                        'capacity_remaining' => $c->physical_capacity_remaining,
+                        'dominant_category'  => $c->dominantCategory?->name,
+                        'category_color'     => $c->dominantCategory?->color_code ?? '#dee2e6',
+                    ])->values(),
+                ]);
+            }
+            return view('public.column', compact('columnCells', 'columnCode', 'warehouseName'));
+        }
+
         $stocks = Stock::with(['item.category', 'item.unit'])
             ->where('cell_id', $cell->id)
             ->where('status', 'available')

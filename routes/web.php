@@ -128,7 +128,7 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::post('{order}/items/{detail}/confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'confirm'])
             ->name('confirm');
         Route::post('{order}/items/{detail}/override', [\App\Http\Controllers\PutAway\PutAwayController::class, 'override'])
-            ->name('override')->middleware('role:admin,supervisor');
+            ->name('override')->middleware('role:admin,supervisor,operator');
     });
 
     /*

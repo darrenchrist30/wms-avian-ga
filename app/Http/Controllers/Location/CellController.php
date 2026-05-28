@@ -156,6 +156,31 @@ class CellController extends Controller
             ->where('is_active', true)
             ->first();
 
+        // Column record (baris=null) → kembalikan column_found agar baris picker muncul
+        if ($cell && $cell->isColumnCell()) {
+            $columnCells = Cell::where('blok', $cell->blok)
+                ->whereRaw('UPPER(grup) = ?', [strtoupper($cell->grup)])
+                ->where('kolom', $cell->kolom)
+                ->whereNotNull('baris')
+                ->where('is_active', true)
+                ->orderBy('baris')
+                ->get();
+
+            return response()->json([
+                'found'        => false,
+                'column_found' => true,
+                'column_code'  => $cell->code,
+                'column_cells' => $columnCells->map(fn($c) => [
+                    'id'                 => $c->id,
+                    'code'               => $c->physical_code,
+                    'baris'              => $c->baris,
+                    'status'             => $c->status,
+                    'capacity_remaining' => max(0, $c->capacity_max - $c->physical_capacity_used),
+                    'capacity_max'       => $c->capacity_max,
+                ]),
+            ]);
+        }
+
         if (!$cell) {
             // Cell ditemukan tapi nonaktif → beri pesan spesifik
             $inactive = Cell::where(function ($q) use ($code) {
@@ -301,6 +326,7 @@ class CellController extends Controller
             ->whereNotNull('blok')
             ->whereNotNull('grup')
             ->whereNotNull('kolom')
+            ->whereNotNull('baris')
             ->orderBy('blok')
             ->orderByRaw('UPPER(grup)')
             ->orderBy('kolom')
@@ -377,25 +403,107 @@ class CellController extends Controller
             $query->where('status', $request->status);
         }
 
+        // Pre-compute agregasi untuk sel tipe parent (format "blok-grup", e.g. "1-A")
+        $parentAggregates = [];
+        $parentCandidates = Cell::whereNull('blok')->get(['id', 'code']);
+        foreach ($parentCandidates as $c) {
+            $parts = explode('-', $c->code ?? '');
+            if (count($parts) === 2 && is_numeric($parts[0]) && ctype_alpha($parts[1])) {
+                $agg = Cell::where('blok', $parts[0])
+                    ->whereRaw('UPPER(grup) = ?', [strtoupper($parts[1])])
+                    ->whereNotNull('baris')
+                    ->where('is_active', true)
+                    ->selectRaw('SUM(capacity_used) as used, SUM(capacity_max) as max, COUNT(*) as cnt,
+                                 SUM(CASE WHEN status="full" THEN 1 ELSE 0 END) as cnt_full,
+                                 SUM(CASE WHEN status="available" THEN 1 ELSE 0 END) as cnt_avail')
+                    ->first();
+                if ($agg && $agg->cnt > 0) {
+                    $parentAggregates[$c->id] = $agg;
+                }
+            }
+        }
+
+        // Pre-compute agregasi untuk column records (blok-grup-kolom, baris=null) — satu query GROUP BY
+        $columnAggByKey = Cell::whereNotNull('blok')
+            ->whereNotNull('grup')
+            ->whereNotNull('kolom')
+            ->whereNotNull('baris')
+            ->where('is_active', true)
+            ->selectRaw('blok, UPPER(grup) as grup, kolom,
+                         SUM(capacity_used) as used, SUM(capacity_max) as cap_max, COUNT(*) as cnt,
+                         SUM(CASE WHEN status="full" THEN 1 ELSE 0 END) as cnt_full,
+                         SUM(CASE WHEN status="available" THEN 1 ELSE 0 END) as cnt_avail')
+            ->groupBy('blok', 'grup', 'kolom')
+            ->get()
+            ->keyBy(fn($r) => $r->blok . '-' . strtoupper($r->grup) . '-' . $r->kolom);
+
         return DataTables::of($query)
             ->addIndexColumn()
-            ->addColumn('column_code', fn($row) => ($row->blok !== null && $row->grup !== null && $row->kolom !== null)
+            ->addColumn('is_column', fn($row) => $row->isColumnCell() ? 1 : 0)
+            ->addColumn('column_code', fn($row) => ($row->blok !== null && $row->grup !== null && $row->kolom !== null && $row->baris !== null)
                 ? $row->blok . '-' . strtoupper($row->grup) . '-' . $row->kolom
                 : null)
-            ->addColumn('level_label', fn($row) => chr(64 + $row->level))
+            ->addColumn('level_label', function ($row) {
+                if ($row->isColumnCell()) {
+                    return '<span class="badge badge-light border" style="color:#004230;font-size:10px;">Kolom</span>';
+                }
+                return $row->level > 0 ? chr(64 + $row->level) : '-';
+            })
             ->addColumn('lokasi', function ($row) {
                 $wh   = $row->rack->warehouse->name ?? '-';
                 $rack = $row->rack->code ?? '-';
                 return '<small class="text-muted">' . e($wh) . ' / <strong>' . e($rack) . '</strong></small>';
             })
-            ->addColumn('kapasitas', function ($row) {
-                $pct = $row->capacity_max > 0 ? round(($row->capacity_used / $row->capacity_max) * 100) : 0;
+            ->addColumn('kapasitas', function ($row) use ($parentAggregates, $columnAggByKey) {
+                if (isset($parentAggregates[$row->id])) {
+                    $agg   = $parentAggregates[$row->id];
+                    $used  = (int) $agg->used;
+                    $max   = (int) $agg->max;
+                    $pct   = $max > 0 ? round($used / $max * 100) : 0;
+                    $color = $pct >= 100 ? 'bg-danger' : ($pct >= 75 ? 'bg-warning' : 'bg-success');
+                    $html  = '<div class="progress" style="height:14px;"><div class="progress-bar ' . $color . '" style="width:' . min(100, $pct) . '%"><small>' . $pct . '%</small></div></div>';
+                    $html .= '<small class="text-muted">' . $used . '/' . $max . '</small>';
+                    $html .= '<small class="text-info" style="font-size:10px;"> (' . $agg->cnt . ' sel)</small>';
+                    return $html;
+                }
+                if ($row->isColumnCell()) {
+                    $key = $row->blok . '-' . strtoupper($row->grup) . '-' . $row->kolom;
+                    $agg = $columnAggByKey->get($key);
+                    if ($agg && (int) $agg->cnt > 0) {
+                        $used  = (int) $agg->used;
+                        $max   = (int) $agg->cap_max;
+                        $pct   = $max > 0 ? round($used / $max * 100) : 0;
+                        $color = $pct >= 100 ? 'bg-danger' : ($pct >= 75 ? 'bg-warning' : 'bg-success');
+                        $html  = '<div class="progress" style="height:14px;"><div class="progress-bar ' . $color . '" style="width:' . min(100, $pct) . '%"><small>' . $pct . '%</small></div></div>';
+                        $html .= '<small class="text-muted">' . $used . '/' . $max . '</small>';
+                        $html .= '<small class="text-info" style="font-size:10px;"> (' . $agg->cnt . ' baris)</small>';
+                        return $html;
+                    }
+                    return '<small class="text-muted">—</small>';
+                }
+                $pct   = $row->capacity_max > 0 ? round(($row->capacity_used / $row->capacity_max) * 100) : 0;
                 $color = $pct >= 100 ? 'bg-danger' : ($pct >= 75 ? 'bg-warning' : 'bg-success');
                 $html  = '<div class="progress" style="height:14px;"><div class="progress-bar ' . $color . '" style="width:' . $pct . '%"><small>' . $pct . '%</small></div></div>';
                 $html .= '<small class="text-muted">' . $row->capacity_used . '/' . $row->capacity_max . '</small>';
                 return $html;
             })
-            ->addColumn('status_badge', function ($row) {
+            ->addColumn('status_badge', function ($row) use ($parentAggregates, $columnAggByKey) {
+                if (isset($parentAggregates[$row->id])) {
+                    $agg = $parentAggregates[$row->id];
+                    if ((int) $agg->cnt_full === (int) $agg->cnt)  return '<span class="badge badge-danger">Full</span>';
+                    if ((int) $agg->cnt_avail === (int) $agg->cnt) return '<span class="badge badge-success">Available</span>';
+                    return '<span class="badge badge-warning">Partial</span>';
+                }
+                if ($row->isColumnCell()) {
+                    $key = $row->blok . '-' . strtoupper($row->grup) . '-' . $row->kolom;
+                    $agg = $columnAggByKey->get($key);
+                    if ($agg && (int) $agg->cnt > 0) {
+                        if ((int) $agg->cnt_full === (int) $agg->cnt)  return '<span class="badge badge-danger">Full</span>';
+                        if ((int) $agg->cnt_avail === (int) $agg->cnt) return '<span class="badge badge-success">Available</span>';
+                        return '<span class="badge badge-warning">Partial</span>';
+                    }
+                    return '<span class="badge badge-secondary">—</span>';
+                }
                 $map = [
                     'available' => 'badge-success',
                     'partial'   => 'badge-warning',
@@ -407,6 +515,12 @@ class CellController extends Controller
                 return '<span class="badge ' . $cls . '">' . ucfirst($row->status) . '</span>';
             })
             ->addColumn('action', function ($row) {
+                if ($row->isColumnCell()) {
+                    $colQrUrl = route('location.cells.column-qr') . '?column=' . urlencode($row->code);
+                    return '<div style="display:flex;gap:3px;flex-wrap:nowrap;">'
+                        . '<a href="' . $colQrUrl . '" class="btn btn-xs btn-success" title="Print QR Kolom"><i class="fas fa-qrcode"></i></a>'
+                        . '</div>';
+                }
                 $stockUrl = route('location.cells.stock', $row->id);
                 $qrUrl    = route('location.cells.qr-label', $row->id);
                 $editUrl  = route('location.cells.edit', $row->id);

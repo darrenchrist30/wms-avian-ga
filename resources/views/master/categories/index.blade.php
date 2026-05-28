@@ -133,7 +133,8 @@
                         data: 'items_count',
                         name: 'items_count',
                         className: 'text-center',
-                        orderable: false
+                        orderable: false,
+                        searchable: false
                     },
                     {
                         data: 'status_badge',

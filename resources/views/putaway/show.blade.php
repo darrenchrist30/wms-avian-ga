@@ -837,17 +837,6 @@
                                                             data-qty="{{ $gd->quantity }}">
                                                             <i class="fas fa-check mr-1"></i>Konfirmasi
                                                         </button>
-                                                        <button type="button" class="btn btn-sm btn-warning btnOverride"
-                                                            title="Override: paksa cell berbeda dari GA"
-                                                            data-detail-id="{{ $detail->id }}"
-                                                            data-item-name="{{ $detail->item->name ?? '-' }}"
-                                                            data-ga-cell="{{ $gd->cell?->physical_code }}"
-                                                            data-ga-cell-id="{{ $gd->cell_id }}"
-                                                            data-cap-remaining="{{ $capRemain }}"
-                                                            data-cap-max="{{ $capMax }}"
-                                                            data-qty="{{ $gd->quantity }}">
-                                                            <i class="fas fa-map-marker-alt mr-1"></i>Override
-                                                        </button>
                                                     </div>
                                                 @endif
                                             </td>
@@ -1555,9 +1544,7 @@
         const MIN_LOADER_MS = 800; // minimum durasi overlay terlihat
 
         function doSaveConfirm(cellId, qty, notes, cellCode) {
-            const url = isOverride
-                ? overrideUrlTpl.replace('DETAIL_ID', currentDetailId)
-                : confirmUrlTpl.replace('DETAIL_ID', currentDetailId);
+            const url = confirmUrlTpl.replace('DETAIL_ID', currentDetailId);
 
             // Catat waktu mulai — untuk hitung sisa minimum durasi
             const overlayStart = Date.now();
@@ -1584,7 +1571,7 @@
                     quantity_stored: qty,
                     ga_detail_id:   isOverride ? null : (currentGaDetailId || null),
                     fast_slow_mode: (!isOverride && currentMode === 'fast_slow') ? 1 : 0,
-                    notes:          notes || ''
+                    notes:          (isOverride ? '[OVERRIDE] ' : '') + (notes || '')
                 },
                 success: function(res) {
                     if (res.status !== 'success') return;
@@ -1756,21 +1743,29 @@
                     const capOk = cell.capacity_remaining >= capacityDemand(cell) && modalQty > 0;
 
                     if (diffFromGa) {
-                        // ════ BLOCKED — sel berbeda dari rekomendasi GA, bukan override ════
+                        // ════ WARNING — sel berbeda dari rekomendasi GA, tapi tetap boleh lanjut ════
                         $('#scanLoading').hide();
                         $('#modalQrInput').prop('disabled', false);
                         Swal.fire({
-                            icon: 'error',
-                            title: 'Sel Tidak Sesuai Rekomendasi GA',
+                            icon: 'warning',
+                            title: 'Cell Berbeda dari Rekomendasi GA',
                             html:
                                 '<p>Anda memindai <strong>' + cell.code + '</strong>, sedangkan GA merekomendasikan ' +
                                 '<strong>' + modalGaCell.code + '</strong>.</p>' +
-                                '<p class="mb-0 text-muted" style="font-size:13px">Scan ulang QR cell <strong>' +
-                                modalGaCell.code + '</strong>, atau gunakan <strong>Override Lokasi</strong> ' +
-                                'jika penempatan di luar rekomendasi benar-benar diperlukan.</p>',
-                            confirmButtonText: 'Scan Ulang',
-                            confirmButtonColor: '#dc3545',
-                        }).then(() => { $('#modalQrInput').val('').focus(); });
+                                '<p class="mb-0 text-muted" style="font-size:13px">Tetap simpan di cell ini jika penempatan aktual memang berbeda.</p>',
+                            showCancelButton: true,
+                            confirmButtonText: 'Tetap Simpan di Sini',
+                            confirmButtonColor: '#f0ad4e',
+                            cancelButtonText: 'Scan Cell Lain',
+                            cancelButtonColor: '#6c757d',
+                        }).then(result => {
+                            if (result.isConfirmed) {
+                                isOverride = true;
+                                showScanResultSwal(cell, false, capOk);
+                            } else {
+                                $('#modalQrInput').val('').focus();
+                            }
+                        });
 
                     } else {
                         showScanResultSwal(cell, matchesGa, capOk);
@@ -1874,13 +1869,6 @@
                 false,
                 b.data('ga-detail-id')
             );
-        });
-
-        $(document).on('click', '.btnOverride', function() {
-            const b = $(this);
-            openConfirmModal(b.data('detail-id'), b.data('item-name'), parseInt(b.data('qty')),
-                b.data('ga-cell') || '', b.data('ga-cell-id') || '',
-                parseInt(b.data('cap-remaining')) || 0, parseInt(b.data('cap-max')) || 0, true, null);
         });
 
         // ── Tombol "Konfirmasi 1 Item" (Phase 2) ─────────────────────────────────────

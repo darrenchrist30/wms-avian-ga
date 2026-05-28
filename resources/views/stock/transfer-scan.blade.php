@@ -103,7 +103,7 @@
             <h5 class="mb-0 font-weight-bold">
                 <i class="fas fa-qrcode text-success mr-2"></i>Scan Transfer Stok
             </h5>
-            <small class="text-muted">Scan cell asal → scan item → qty → scan cell tujuan. Scanner otomatis setelah Enter.</small>
+            {{-- <small class="text-muted">Scan cell asal → scan item → qty → scan cell tujuan. Scanner otomatis setelah Enter.</small> --}}
         </div>
         <a href="{{ route('stock.movements') }}" class="btn btn-sm btn-outline-info">
             <i class="fas fa-history mr-1"></i>Mutasi Stok
@@ -211,14 +211,14 @@
             </div>
 
             {{-- Last result + history --}}
-            <div class="card result-panel mt-2">
+            {{-- <div class="card result-panel mt-2">
                 <div class="card-body pb-1" id="resultPanel">
                     <div class="text-muted small">
                         <i class="fas fa-info-circle mr-1"></i>
                         Urutan: scan cell asal → scan barcode item → qty <kbd>Enter</kbd> → scan cell tujuan.
                     </div>
                 </div>
-            </div>
+            </div> --}}
 
             <div class="card mt-2 d-none" id="historyCard">
                 <div class="card-header py-2">

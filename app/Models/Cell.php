@@ -138,6 +138,14 @@ class Cell extends Model
         $this->save();
     }
 
+    public function isColumnCell(): bool
+    {
+        return $this->blok !== null
+            && $this->grup !== null
+            && $this->kolom !== null
+            && $this->baris === null;
+    }
+
     private function isMspartCell(): bool
     {
         return $this->blok !== null

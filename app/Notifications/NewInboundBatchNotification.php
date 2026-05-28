@@ -30,7 +30,7 @@ class NewInboundBatchNotification extends Notification
             'icon'    => 'fas fa-truck-loading',
             'color'   => 'primary',
             'title'   => 'Inbound Baru Masuk',
-            'message' => "{$count} DO baru masuk dari BC — menunggu proses GA.",
+            'message' => "{$count} DO baru masuk dari BC, menunggu proses GA.",
             'url'     => route('inbound.orders.index', ['status' => 'inbound'], false),
         ];
     }

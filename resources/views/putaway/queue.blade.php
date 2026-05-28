@@ -495,22 +495,6 @@
                                             title="Konfirmasi penempatan ke {{ $selGa ?? 'sel GA' }}">
                                         <i class="fas fa-check mr-1"></i>Konfirmasi
                                     </button>
-                                    <button class="btn btn-xs btn-warning text-dark btnOverride"
-                                            data-order-id="{{ $order->id }}"
-                                            data-do-number="{{ $order->do_number }}"
-                                            data-detail-id="{{ $detail->inboundOrderItem->id }}"
-                                            data-ga-detail-id="{{ $detail->id }}"
-                                            data-row-id="{{ $rowId }}"
-                                            data-item-name="{{ $item->name }}"
-                                            data-qty="{{ $remainingQty }}"
-                                            data-unit="{{ $unitLabel }}"
-                                            data-ga-cell="{{ $selGa ?? '' }}"
-                                            data-ga-cell-id="{{ $cell?->id ?? '' }}"
-                                            data-cap-remaining="{{ $cell?->physical_capacity_remaining ?? 0 }}"
-                                            data-cap-max="{{ $cell?->physical_capacity_max ?? 0 }}"
-                                            title="Override — tempatkan di luar rekomendasi GA">
-                                        <i class="fas fa-map-marker-alt mr-1"></i>Override
-                                    </button>
                                 </td>
                                 <td class="d-none">{{ $locationSort }}</td>
                             </tr>
@@ -1164,9 +1148,7 @@ const MIN_LOADER_MS = 800;
 
 function doSaveConfirm(cellId, qty, notes, cellCode, splitCell = null, splitQty = 0) {
     const usesManualOverride = isOverride || manualNonGaOverride;
-    const url = usesManualOverride
-        ? overrideUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId)
-        : confirmUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId);
+    const url = confirmUrlTpl.replace('ORDER_ID', currentOrderId).replace('DETAIL_ID', currentDetailId);
 
     let saveSucceeded = false;
     const overlayStart = Date.now();
@@ -1185,7 +1167,7 @@ function doSaveConfirm(cellId, qty, notes, cellCode, splitCell = null, splitQty 
         cell_id:         cellId,
         quantity_stored: qty,
         ga_detail_id:    usesManualOverride ? null : (currentGaDetailId || null),
-        notes:           notes || ''
+        notes:           (usesManualOverride ? '[OVERRIDE] ' : '') + (notes || '')
     };
 
     if (splitCell && splitQty > 0) {
@@ -1614,25 +1596,6 @@ $(document).on('click', '.btnConfirm', function() {
         parseInt(b.data('cap-remaining')) || 0,
         parseInt(b.data('cap-max')) || 0,
         false,
-        b.data('do-number') || ''
-    );
-});
-
-$(document).on('click', '.btnOverride', function() {
-    const b = $(this);
-    openConfirmModal(
-        b.data('order-id'),
-        b.data('detail-id'),
-        b.data('ga-detail-id'),
-        b.data('row-id'),
-        b.data('item-name'),
-        parseInt(b.data('qty')),
-        b.data('unit'),
-        b.data('ga-cell')    || '',
-        b.data('ga-cell-id') || '',
-        parseInt(b.data('cap-remaining')) || 0,
-        parseInt(b.data('cap-max')) || 0,
-        true,
         b.data('do-number') || ''
     );
 });

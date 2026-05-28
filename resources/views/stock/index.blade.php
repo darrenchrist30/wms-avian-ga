@@ -144,7 +144,7 @@ $(function () {
         order: [],
         pageLength: 25,
         error: function (xhr) {
-            if (xhr.status === 401 || xhr.status === 419) { window.location.href = '{{ route("login") }}'; return; }
+            if (xhr.status === 401 || xhr.status === 419) { window.location.reload(); return; }
             var msg = xhr.status === 500 ? 'Terjadi error server saat memuat data stok.' : 'Gagal memuat data stok.';
             Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#dc3545' });
         },

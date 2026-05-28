@@ -178,6 +178,19 @@
                                             </div>
 
                                             <div class="form-group row">
+                                                <label class="col-sm-6 col-form-label">Reorder Point <span class="text-danger">*</span></label>
+                                                <div class="col-sm-6">
+                                                    <input type="number" name="reorder_point"
+                                                        class="form-control @error('reorder_point') is-invalid @enderror"
+                                                        value="{{ old('reorder_point', $data->reorder_point ?? 0) }}" min="0">
+                                                    <small class="text-muted">Stok minimum sebelum reorder.</small>
+                                                    @error('reorder_point')
+                                                        <div class="invalid-feedback">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
+                                            </div>
+
+                                            <div class="form-group row">
                                                 <label class="col-sm-6 col-form-label">Deadstock (hari) <span class="text-danger">*</span></label>
                                                 <div class="col-sm-6">
                                                     <input type="number" name="deadstock_threshold_days"

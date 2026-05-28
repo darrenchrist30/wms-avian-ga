@@ -114,7 +114,7 @@ $(document).ready(function () {
                 }
 
                 if (xhr.status === 401 || xhr.status === 419) {
-                    window.location.href = '{{ route("login") }}';
+                    window.location.reload();
                     return;
                 }
                 if (window.Swal) {
