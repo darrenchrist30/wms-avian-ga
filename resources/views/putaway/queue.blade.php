@@ -943,7 +943,6 @@ const scanQrUrl        = "{{ route('putaway.scan-qr') }}";
 const batchScanUrl     = "{{ route('putaway.batch-scan') }}";
 const batchConfirmUrl  = "{{ route('putaway.batch-confirm') }}";
 const confirmUrlTpl    = "{{ route('putaway.confirm', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
-const overrideUrlTpl   = "{{ route('putaway.override', ['order' => 'ORDER_ID', 'detail' => 'DETAIL_ID']) }}";
 const altCellUrlTpl    = "{{ route('putaway.alternative-cells', ['order' => 'ORDER_ID']) }}";
 const queueFilters     = @json($queueFilters);
 const csrfToken        = $('meta[name="csrf-token"]').attr('content');

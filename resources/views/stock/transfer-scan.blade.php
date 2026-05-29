@@ -3,69 +3,137 @@
 
 @push('styles')
 <style>
-.transfer-step {
-    border-left: 4px solid #d1d5db;
+/* ── Step bar ──────────────────────────────────────────── */
+.step-bar {
+    display: flex;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    overflow: hidden;
     background: #fff;
-    border-radius: 6px;
-    padding: 12px 14px;
-    min-height: 82px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.07);
 }
-.transfer-step.active { border-left-color: #28a745; box-shadow: 0 0 0 1px rgba(40,167,69,.12); }
-.transfer-step.done   { border-left-color: #17a2b8; background: #f8fffb; }
+.transfer-step {
+    flex: 1;
+    padding: 10px 12px;
+    border-right: 1px solid #e9ecef;
+    min-width: 0;
+    transition: background .15s;
+}
+.transfer-step:last-child { border-right: none; }
+.step-label {
+    display: flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #adb5bd;
+    margin-bottom: 3px;
+}
+.step-num-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #dee2e6;
+    color: #6c757d;
+    font-size: 11px;
+    font-weight: 800;
+    margin-right: 5px;
+    flex-shrink: 0;
+    transition: background .15s, color .15s;
+}
+.step-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: #495057;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.step-sub {
+    font-size: 11px;
+    color: #adb5bd;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* active step */
+.transfer-step.active {
+    background: #f0fff4;
+    border-bottom: 3px solid #28a745;
+}
+.transfer-step.active .step-num-circle { background: #28a745; color: #fff; }
+.transfer-step.active .step-label      { color: #28a745; }
+.transfer-step.active .step-value      { color: #155724; }
+/* done step */
+.transfer-step.done { background: #f4fffe; }
+.transfer-step.done .step-num-circle { background: #17a2b8; color: #fff; }
+.transfer-step.done .step-label      { color: #17a2b8; }
+.transfer-step.done .step-value      { color: #0c525d; }
+
+/* ── Inputs ──────────────────────────────────────────────── */
 .scan-input {
     height: 58px;
     font-size: 22px;
     font-weight: 700;
-    letter-spacing: 0;
 }
 .qty-input-lg {
-    height: 52px;
-    font-size: 24px;
-    font-weight: 700;
+    height: 70px;
+    font-size: 32px;
+    font-weight: 800;
     text-align: center;
 }
+#btnAllQty { font-size: 18px; font-weight: 700; }
+
+/* ── Stock choices ─────────────────────────────────────── */
 .stock-choice {
     cursor: pointer;
     border: 2px solid #e5e7eb;
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 12px 16px;
     background: #fff;
-    min-height: 60px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
     transition: border-color .12s, background .12s;
 }
-.stock-choice:hover,
-.stock-choice.selected {
+.stock-choice:last-child { margin-bottom: 0; }
+.stock-choice:hover, .stock-choice.selected {
     border-color: #28a745;
     background: #f0fff4;
 }
 .kb-badge {
-    display: inline-block;
-    min-width: 28px;
-    height: 28px;
-    line-height: 28px;
-    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
     border-radius: 6px;
     background: #e9ecef;
     color: #495057;
-    font-size: 13px;
-    font-weight: 700;
-    margin-right: 8px;
+    font-size: 14px;
+    font-weight: 800;
+    margin-right: 14px;
     flex-shrink: 0;
 }
-.stock-choice.selected .kb-badge {
-    background: #28a745;
-    color: #fff;
+.stock-choice.selected .kb-badge { background: #28a745; color: #fff; }
+.stock-item-qty {
+    font-size: 18px;
+    font-weight: 800;
+    color: #28a745;
+    white-space: nowrap;
 }
-.result-panel {
-    min-height: 72px;
-}
+
+/* ── Keyboard hint ─────────────────────────────────────── */
 .kb-hint {
     font-size: 11px;
     color: #6c757d;
     background: #f8f9fa;
     border-radius: 4px;
     padding: 4px 8px;
-    margin-top: 6px;
 }
 .kb-hint kbd {
     background: #dee2e6;
@@ -73,180 +141,301 @@
     padding: 1px 5px;
     font-size: 11px;
 }
+
+/* ── Result / summary ──────────────────────────────────── */
+#resultPanel .result-info {
+    background: #f8f9fa;
+    border-left: 4px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 13px;
+    color: #6c757d;
+}
+#resultPanel .result-success {
+    background: #d4edda;
+    border-left: 4px solid #28a745;
+    border-radius: 4px;
+    padding: 10px 14px;
+}
+#resultPanel .result-error {
+    background: #f8d7da;
+    border-left: 4px solid #dc3545;
+    border-radius: 4px;
+    padding: 10px 14px;
+}
+#resultPanel .result-loading {
+    background: #e3f2fd;
+    border-left: 4px solid #17a2b8;
+    border-radius: 4px;
+    padding: 10px 14px;
+    color: #0c525d;
+}
+
+/* ── Transfer preview (step 4) ─────────────────────────── */
+#transferPreview {
+    background: linear-gradient(135deg, #e8f5e9 0%, #f0f8ff 100%);
+    border: 1px solid #c3e6cb;
+    border-radius: 10px;
+    padding: 16px 20px;
+}
+
+/* ── History ───────────────────────────────────────────── */
 .history-row {
     border-bottom: 1px solid #f0f0f0;
-    padding: 5px 0;
+    padding: 6px 0;
     font-size: 12px;
 }
 .history-row:last-child { border-bottom: none; }
+
+/* ── Camera ────────────────────────────────────────────── */
 #cameraReader video  { width: 100% !important; border-radius: 6px; }
 #cameraReader img    { display: none; }
 
+/* ── Flash overlay ─────────────────────────────────────── */
 @keyframes pageFlash {
     0%   { opacity: .6; }
     100% { opacity: 0; }
 }
 .flash-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    pointer-events: none;
+    position: fixed; inset: 0;
+    z-index: 9999; pointer-events: none;
     animation: pageFlash .35s ease-out forwards;
+}
+
+/* ── Baris picker ──────────────────────────────────────── */
+.baris-option {
+    cursor: pointer;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fff;
+    transition: border-color .12s, background .12s;
+}
+.baris-option:last-child { margin-bottom: 0; }
+.baris-option:hover { border-color: #28a745; background: #f0fff4; }
+.baris-option .baris-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: #e9ecef;
+    font-size: 16px; font-weight: 800;
+    margin-right: 14px; flex-shrink: 0;
+}
+.baris-option .cap-bar {
+    height: 6px; border-radius: 3px;
+    background: #e9ecef; margin-top: 4px;
+    overflow: hidden;
+}
+.baris-option .cap-bar-fill {
+    height: 100%; border-radius: 3px;
+    background: #28a745; transition: width .3s;
+}
+
+/* ── Mobile tweaks ─────────────────────────────────────── */
+@media (max-width: 480px) {
+    .transfer-step { padding: 8px 6px; }
+    .step-value    { font-size: 11px; }
+    .step-sub      { display: none; }
 }
 </style>
 @endpush
 
 @section('content')
-<div class="container-fluid pb-4">
+<div class="container-fluid pb-4" style="max-width:780px;">
+
+    {{-- Header --}}
     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap" style="gap:8px;">
-        <div>
-            <h5 class="mb-0 font-weight-bold">
-                <i class="fas fa-qrcode text-success mr-2"></i>Scan Transfer Stok
-            </h5>
-            {{-- <small class="text-muted">Scan cell asal → scan item → qty → scan cell tujuan. Scanner otomatis setelah Enter.</small> --}}
+        <h5 class="mb-0 font-weight-bold">
+            <i class="fas fa-qrcode text-success mr-2"></i>Scan Transfer Stok
+        </h5>
+        <div class="d-flex" style="gap:6px;">
+            <a href="{{ route('stock.movements') }}" class="btn btn-sm btn-outline-info">
+                <i class="fas fa-history mr-1"></i>Mutasi Stok
+            </a>
+            <button type="button" id="btnResetFlow" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-redo mr-1"></i>Reset
+            </button>
         </div>
-        <a href="{{ route('stock.movements') }}" class="btn btn-sm btn-outline-info">
-            <i class="fas fa-history mr-1"></i>Mutasi Stok
-        </a>
     </div>
 
-    <div id="scanAlert" class="alert d-none" role="alert"></div>
-
-    <div class="row">
-        {{-- LEFT: Scanner input --}}
-        <div class="col-lg-5 mb-3">
-            <div class="card">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <strong><i class="fas fa-barcode mr-1"></i>Scanner</strong>
-                    <span class="badge badge-success" id="phaseBadge">1. Scan Cell Asal</span>
-                </div>
-                <div class="card-body">
-                    <label class="small font-weight-bold" id="scanLabel">Scan QR / barcode cell asal</label>
-                    <input type="text" id="scanInput" class="form-control scan-input"
-                        autocomplete="off" inputmode="text" placeholder="Arahkan scanner lalu Enter">
-                    <div class="kb-hint mt-1" id="kbHintScan">
-                        <kbd>Enter</kbd> kirim scan &nbsp;&nbsp; <kbd>Esc</kbd> reset
-                    </div>
-                    <div class="d-flex flex-wrap mt-2" style="gap:6px;">
-                        <button type="button" id="btnResetFlow" class="btn btn-sm btn-outline-secondary">
-                            <i class="fas fa-redo mr-1"></i>Reset <kbd class="ml-1" style="font-size:10px">Esc</kbd>
-                        </button>
-                        <button type="button" id="btnCamera" class="btn btn-sm btn-outline-success">
-                            <i class="fas fa-camera mr-1"></i>Kamera
-                        </button>
-                    </div>
-                    <div id="cameraWrap" class="mt-3 d-none">
-                        <div id="cameraReader"></div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Qty card (always visible, enabled only on qty phase) --}}
-            <div class="card" id="qtyCard">
-                <div class="card-header py-2">
-                    <strong><i class="fas fa-cubes mr-1"></i>Qty Transfer</strong>
-                </div>
-                <div class="card-body">
-                    <div class="input-group">
-                        <input type="text" id="qtyInput" class="form-control qty-input-lg"
-                            inputmode="numeric" autocomplete="off" placeholder="—" disabled>
-                        <div class="input-group-append">
-                            <button type="button" id="btnAllQty" class="btn btn-outline-primary btn-lg px-3" disabled>
-                                All
-                            </button>
-                        </div>
-                    </div>
-                    <div class="kb-hint mt-1" id="kbHintQty">
-                        <kbd>Enter</kbd> konfirmasi &nbsp;&nbsp; <kbd>*</kbd> atau <kbd>A</kbd> = semua qty
-                    </div>
-                </div>
-            </div>
+    {{-- Hidden state holders (JS still reads/writes these) --}}
+    <div style="display:none">
+        <div class="transfer-step active" id="stepSource">
+            <span id="sourceCellText"></span><span id="sourceMeta"></span>
         </div>
+        <div class="transfer-step" id="stepItem">
+            <span id="itemText"></span><span id="itemMeta"></span>
+        </div>
+        <div class="transfer-step" id="stepQty"><span id="qtyText"></span></div>
+        <div class="transfer-step" id="stepTarget">
+            <span id="targetCellText"></span><span id="targetMeta"></span>
+        </div>
+    </div>
 
-        {{-- RIGHT: Status steps + stocks + result --}}
-        <div class="col-lg-7 mb-3">
-            {{-- 4 step cards --}}
-            <div class="row mb-2">
-                <div class="col-6 mb-2">
-                    <div class="transfer-step active" id="stepSource">
-                        <div class="small text-muted font-weight-bold">CELL ASAL</div>
-                        <div class="h5 mb-1" id="sourceCellText">Belum discan</div>
-                        <div class="small text-muted" id="sourceMeta">-</div>
-                    </div>
+    {{-- Alert --}}
+    <div id="scanAlert" class="alert d-none mb-3" role="alert"></div>
+
+    {{-- ② Main action card --}}
+    <div class="card mb-3">
+        <div class="card-header py-2">
+            <h5 class="mb-0 font-weight-bold" id="scanLabel">Scan QR / barcode cell asal</h5>
+            <span id="phaseBadge" class="d-none"></span>
+        </div>
+        <div class="card-body">
+
+            {{-- Scan input section (hidden on qty step) --}}
+            <div id="scanSection">
+                <input type="text" id="scanInput" class="form-control scan-input mb-2"
+                    autocomplete="off" inputmode="text" placeholder="Arahkan scanner lalu Enter">
+                <div class="d-flex align-items-center flex-wrap" style="gap:8px;">
+                    <button type="button" id="btnCamera" class="btn btn-sm btn-outline-success ml-auto">
+                        <i class="fas fa-camera mr-1"></i>Kamera
+                    </button>
                 </div>
-                <div class="col-6 mb-2">
-                    <div class="transfer-step" id="stepItem">
-                        <div class="small text-muted font-weight-bold">ITEM</div>
-                        <div class="h5 mb-1" id="itemText">Belum dipilih</div>
-                        <div class="small text-muted" id="itemMeta">-</div>
-                    </div>
-                </div>
-                <div class="col-6 mb-2">
-                    <div class="transfer-step" id="stepQty">
-                        <div class="small text-muted font-weight-bold">QTY</div>
-                        <div class="h5 mb-1" id="qtyText">Belum diisi</div>
-                        <div class="small text-muted">Qty unit barang asli</div>
-                    </div>
-                </div>
-                <div class="col-6 mb-2">
-                    <div class="transfer-step" id="stepTarget">
-                        <div class="small text-muted font-weight-bold">CELL TUJUAN</div>
-                        <div class="h5 mb-1" id="targetCellText">Belum discan</div>
-                        <div class="small text-muted" id="targetMeta">Transfer otomatis setelah scan.</div>
-                    </div>
+                <div id="cameraWrap" class="mt-3 d-none">
+                    <div id="cameraReader"></div>
                 </div>
             </div>
 
-            {{-- Stok di cell asal --}}
-            <div class="card">
-                <div class="card-header py-2 d-flex justify-content-between align-items-center">
-                    <strong><i class="fas fa-list mr-1"></i>Stok di Cell Asal</strong>
-                    <small class="text-muted kb-hint mb-0 py-0" id="itemKbHint" style="display:none!important">
-                        Tekan <kbd>1</kbd>–<kbd>9</kbd> pilih item
-                    </small>
+            {{-- Qty section (shown only on step 3) --}}
+            <div id="qtyCard" class="d-none">
+                <div class="input-group mb-2">
+                    <input type="text" id="qtyInput" class="form-control qty-input-lg"
+                        inputmode="numeric" autocomplete="off" placeholder="—" disabled>
+                    <div class="input-group-append">
+                        <button type="button" id="btnAllQty" class="btn btn-outline-primary btn-lg px-4" disabled>
+                            All
+                        </button>
+                    </div>
                 </div>
-                <div class="card-body p-2" id="sourceStocks">
-                    <div class="text-muted text-center py-4">Scan cell asal untuk melihat stok.</div>
+                <div class="kb-hint">
+                    <kbd>Enter</kbd> konfirmasi &nbsp;&nbsp; <kbd>*</kbd> atau <kbd>A</kbd> = semua qty
                 </div>
             </div>
 
-            {{-- Last result + history --}}
-            {{-- <div class="card result-panel mt-2">
-                <div class="card-body pb-1" id="resultPanel">
-                    <div class="text-muted small">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Urutan: scan cell asal → scan barcode item → qty <kbd>Enter</kbd> → scan cell tujuan.
-                    </div>
-                </div>
-            </div> --}}
+        </div>
+    </div>
 
-            <div class="card mt-2 d-none" id="historyCard">
-                <div class="card-header py-2">
-                    <strong><i class="fas fa-history mr-1 text-info"></i>Transfer Terakhir</strong>
-                </div>
-                <div class="card-body p-2" id="historyPanel"></div>
+    {{-- ③ Stock list (step 2 — item selection) --}}
+    <div class="card mb-3" id="stocksCard">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+            <strong><i class="fas fa-hand-pointer mr-1"></i>Pilih item yang akan dipindah</strong>
+            <small id="itemKbHint" style="display:none!important"></small>
+        </div>
+        <div class="card-body p-2" id="sourceStocks">
+            <div class="text-muted text-center py-4">
+                <i class="fas fa-search mr-1"></i>Scan cell asal untuk melihat stok.
             </div>
         </div>
     </div>
+
+    {{-- QR Confirm (muncul setelah pilih baris, sebelum scan konfirmasi) --}}
+    <div id="qrConfirmSection" class="card mb-3 d-none" style="border-left:4px solid #28a745;">
+        <div class="card-header py-2 d-flex align-items-center">
+            <i class="fas fa-qrcode text-success mr-2" style="font-size:18px;"></i>
+            <strong id="qrConfirmLabel">Scan QR untuk konfirmasi</strong>
+        </div>
+        <div class="card-body text-center py-3">
+            <div id="qrCanvas" class="d-inline-block" style="background:#fff;padding:12px;border-radius:8px;border:1px solid #dee2e6;"></div>
+            <div class="text-muted small mt-2" id="qrCellCodeLabel"></div>
+            <div class="text-muted small mt-1">Arahkan scanner ke QR di atas</div>
+        </div>
+    </div>
+
+    {{-- Baris picker (muncul saat scan kolom sebagai target) --}}
+    <div id="columnTargetPicker" class="card mb-3 d-none">
+        <div class="card-header py-2">
+            <strong><i class="fas fa-layer-group mr-1"></i>Pilih baris tujuan</strong>
+            <small class="text-muted ml-2" id="pickerColumnCode"></small>
+        </div>
+        <div class="card-body p-2" id="pickerRows"></div>
+    </div>
+
+    {{-- Item terpilih (step 3 & 4) --}}
+    <div id="selectedItemBanner" class="card mb-3 d-none" style="border-left:4px solid #28a745;">
+        <div class="card-body py-2 px-3 d-flex align-items-center">
+            <div class="flex-grow-1">
+                <div class="small text-muted font-weight-bold text-uppercase mb-1" style="letter-spacing:.4px;">
+                    <i class="fas fa-check-circle text-success mr-1"></i>Item Dipilih
+                </div>
+                <div class="font-weight-bold" id="bannerItemName" style="font-size:16px;">-</div>
+                <div class="small text-muted" id="bannerItemSku">-</div>
+            </div>
+            <div class="ml-3 text-right">
+                <div class="small text-muted">Tersedia</div>
+                <div class="font-weight-bold text-success" style="font-size:20px;" id="bannerItemAvail">-</div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ④ Transfer preview (step 4) --}}
+    <div id="transferPreviewWrap" class="mb-3 d-none">
+        <div id="transferPreview">
+            <div class="text-muted small font-weight-bold mb-2 text-uppercase" style="letter-spacing:.5px;">
+                <i class="fas fa-exchange-alt mr-1"></i>Ringkasan Transfer
+            </div>
+            <div class="row align-items-center">
+                <div class="col-5 text-center">
+                    <div class="small text-muted">Dari</div>
+                    <div class="h6 mb-0 font-weight-bold text-dark" id="previewFrom">-</div>
+                </div>
+                <div class="col-2 text-center text-muted h4 mb-0">→</div>
+                <div class="col-5 text-center">
+                    <div class="small text-muted">Ke</div>
+                    <div class="h6 mb-0 font-weight-bold text-success" id="previewTo">...</div>
+                </div>
+            </div>
+            <hr class="my-2">
+            <div class="text-center">
+                <span class="font-weight-bold" id="previewItem">-</span>
+                &nbsp;·&nbsp;
+                <span class="text-success font-weight-bold" id="previewQty">-</span>
+            </div>
+        </div>
+    </div>
+
+    {{-- ⑤ Result panel --}}
+    <div id="resultPanel" class="mb-3">
+    </div>
+
+    {{-- ⑥ History --}}
+    <div class="card d-none" id="historyCard">
+        <div class="card-header py-2">
+            <strong><i class="fas fa-history mr-1 text-info"></i>Transfer Terakhir</strong>
+        </div>
+        <div class="card-body p-2" id="historyPanel"></div>
+    </div>
+
 </div>
 @endsection
 
 @push('scripts')
 <script src="{{ asset('js/html5-qrcode.min.js') }}"></script>
+<script src="{{ asset('js/qrious.min.js') }}"></script>
 <script>
 const cellLookupUrl = '{{ route("stock.transfer-scan.cell") }}';
 const transferUrl   = '{{ route("stock.transfer") }}';
 const csrfToken     = '{{ csrf_token() }}';
+const cellBaseUrl   = '{{ url("/c") }}';
 
-let phase         = 'source';
-let sourceCell    = null;
-let sourceStocks  = [];
-let selectedStock = null;
-let lastCameraCode = '';
-let cameraScanner  = null;
-let recentTransfers = [];
+let phase            = 'source';
+let sourceCell       = null;
+let sourceStocks     = [];
+let selectedStock    = null;
+let pendingTargetCell = null;
+let lastCameraCode   = '';
+let cameraScanner    = null;
+let recentTransfers  = (function() {
+    try { return JSON.parse(localStorage.getItem('transfer_history') || '[]'); } catch(e) { return []; }
+})();
 
-/* ── Audio feedback ─────────────────────────────────────────── */
+/* ── Audio feedback ──────────────────────────────────────────── */
 function beepSound(type) {
     try {
         const ctx  = new (window.AudioContext || window.webkitAudioContext)();
@@ -278,7 +467,7 @@ function flashScreen(type) {
     setTimeout(function () { $('.flash-overlay').remove(); }, 380);
 }
 
-/* ── Helpers ────────────────────────────────────────────────── */
+/* ── Helpers ─────────────────────────────────────────────────── */
 function cleanCode(code) {
     code = $.trim(code || '');
     if (code.indexOf('/c/') !== -1) {
@@ -293,55 +482,74 @@ function setAlert(type, message) {
         .addClass('alert-' + type)
         .html(message);
 }
-
 function clearAlert() { $('#scanAlert').addClass('d-none').html(''); }
-
-function numberFmt(value) { return new Intl.NumberFormat('id-ID').format(value || 0); }
-
-function escapeHtml(value) {
-    return $('<div>').text(value == null ? '' : String(value)).html();
-}
-
+function numberFmt(v) { return new Intl.NumberFormat('id-ID').format(v || 0); }
+function escapeHtml(v) { return $('<div>').text(v == null ? '' : String(v)).html(); }
 function timeAgo(date) {
-    const s = Math.round((new Date() - date) / 1000);
-    if (s < 60)  return s + 'd lalu';
-    if (s < 3600) return Math.floor(s / 60) + 'm lalu';
-    return Math.floor(s / 3600) + 'j lalu';
+    const s = Math.round((new Date() - new Date(date)) / 1000);
+    if (s < 60)   return s + ' dtk lalu';
+    if (s < 3600) return Math.floor(s / 60) + ' mnt lalu';
+    return Math.floor(s / 3600) + ' jam lalu';
 }
 
-/* ── Phase management ───────────────────────────────────────── */
+/* ── Phase management ────────────────────────────────────────── */
 function setPhase(nextPhase) {
     phase = nextPhase;
     $('.transfer-step').removeClass('active');
 
     const labels = {
-        source: ['1. Scan Cell Asal',    'Scan QR / barcode cell asal'],
-        item:   ['2. Scan / Pilih Item', 'Scan barcode item atau tekan 1–9 untuk memilih'],
-        qty:    ['3. Isi Qty',           'Masukkan jumlah transfer lalu Enter'],
-        target: ['4. Scan Cell Tujuan',  'Scan QR / barcode cell tujuan'],
+        source: 'Scan cell asal',
+        item:   'Scan barcode item atau pilih di bawah',
+        qty:    'Berapa qty yang akan dipindah?',
+        target: 'Scan cell tujuan',
     };
-
-    $('#phaseBadge').text(labels[nextPhase][0]);
-    $('#scanLabel').text(labels[nextPhase][1]);
+    $('#phaseBadge').text(labels[nextPhase]);
+    $('#scanLabel').text(labels[nextPhase]);
 
     if (nextPhase === 'source') $('#stepSource').addClass('active');
     if (nextPhase === 'item')   { $('#stepItem').addClass('active'); $('#itemKbHint').show(); }
     else                        { $('#itemKbHint').hide(); }
     if (nextPhase === 'qty')    $('#stepQty').addClass('active');
-    if (nextPhase === 'target') $('#stepTarget').addClass('active');
+    if (nextPhase === 'target') {
+        $('#stepTarget').addClass('active');
+        if (selectedStock) {
+            $('#previewFrom').text(selectedStock.cell_code || (sourceCell ? sourceCell.code : '-'));
+            $('#previewItem').text(selectedStock.name);
+            $('#previewQty').text(numberFmt(parseInt($('#qtyInput').val(), 10)) + ' ' + selectedStock.unit);
+            $('#previewTo').text('Scan cell tujuan...');
+            $('#transferPreviewWrap').removeClass('d-none');
+        }
+    } else {
+        $('#transferPreviewWrap').addClass('d-none');
+    }
 
+    // Tampilkan/sembunyikan daftar item & banner item terpilih
+    if (nextPhase === 'source' || nextPhase === 'item') {
+        $('#stocksCard').removeClass('d-none');
+        $('#selectedItemBanner').addClass('d-none');
+    } else {
+        // qty & target: sembunyikan list, tampilkan banner item terpilih
+        $('#stocksCard').addClass('d-none');
+        $('#selectedItemBanner').removeClass('d-none');
+    }
+
+    // Swap scan input vs qty input
     if (nextPhase === 'qty') {
+        $('#scanSection').addClass('d-none');
+        $('#qtyCard').removeClass('d-none');
         $('#qtyInput').prop('disabled', false).val('').focus().select();
         $('#btnAllQty').prop('disabled', false);
         $('#scanInput').prop('disabled', true);
     } else {
+        $('#qtyCard').addClass('d-none');
+        $('#scanSection').removeClass('d-none');
         $('#qtyInput').prop('disabled', true);
         $('#btnAllQty').prop('disabled', true);
         $('#scanInput').prop('disabled', false).val('').focus();
     }
 }
 
-/* ── Cell lookup ────────────────────────────────────────────── */
+/* ── Cell lookup ─────────────────────────────────────────────── */
 function lookupCell(code, purpose) {
     const data = { code: cleanCode(code), purpose: purpose || 'source' };
     if (purpose === 'target' && selectedStock) {
@@ -353,25 +561,26 @@ function lookupCell(code, purpose) {
     });
 }
 
-/* ── Stock rendering ────────────────────────────────────────── */
+/* ── Stock rendering ─────────────────────────────────────────── */
 function renderSourceStocks() {
     if (!sourceStocks.length) {
-        $('#sourceStocks').html('<div class="text-danger text-center py-4">Cell ini tidak memiliki stok available.</div>');
+        $('#sourceStocks').html('');
         return;
     }
 
     const html = sourceStocks.map(function (stock, idx) {
         const selected = selectedStock && selectedStock.stock_id === stock.stock_id ? ' selected' : '';
-        const kbNum    = idx < 9 ? (idx + 1) : '';
-        return '<div class="stock-choice mb-2 d-flex align-items-center' + selected + '" data-stock-id="' + stock.stock_id + '">' +
-            (kbNum ? '<span class="kb-badge">' + kbNum + '</span>' : '') +
+        const kbNum    = idx + 1;
+        const barisTag = stock.baris
+            ? '<span class="badge badge-secondary ml-1" style="font-size:11px;font-weight:600;">Baris ' + stock.baris + '</span>'
+            : '';
+        return '<div class="stock-choice' + selected + '" data-stock-id="' + stock.stock_id + '">' +
+            '<span class="kb-badge">' + kbNum + '</span>' +
             '<div class="flex-grow-1">' +
-                '<div class="font-weight-bold">' + escapeHtml(stock.name) + '</div>' +
-                '<div class="small text-muted">' + escapeHtml(stock.sku) + (stock.barcode ? ' | ' + escapeHtml(stock.barcode) : '') + '</div>' +
+                '<div class="font-weight-bold" style="font-size:15px">' + escapeHtml(stock.name) + barisTag + '</div>' +
+                '<div class="small text-muted">' + escapeHtml(stock.sku) + (stock.barcode ? ' · ' + escapeHtml(stock.barcode) : '') + '</div>' +
             '</div>' +
-            '<div class="text-right ml-2">' +
-                '<div class="h6 mb-0 text-success">' + numberFmt(stock.quantity) + ' ' + escapeHtml(stock.unit) + '</div>' +
-            '</div>' +
+            '<div class="stock-item-qty ml-3">' + numberFmt(stock.quantity) + ' <span style="font-size:13px;font-weight:600">' + escapeHtml(stock.unit) + '</span></div>' +
         '</div>';
     }).join('');
 
@@ -382,8 +591,12 @@ function selectStock(stock) {
     selectedStock = stock;
     $('#stepItem').addClass('done').removeClass('active');
     $('#itemText').text(stock.name);
-    $('#itemMeta').text(stock.sku + ' | tersedia ' + numberFmt(stock.quantity) + ' ' + stock.unit);
+    $('#itemMeta').text(stock.sku + ' · stok ' + numberFmt(stock.quantity) + ' ' + stock.unit);
     $('#qtyInput').attr('max', stock.quantity).val('');
+    // Isi banner item terpilih
+    $('#bannerItemName').text(stock.name);
+    $('#bannerItemSku').text(stock.sku + (stock.barcode ? ' · ' + stock.barcode : ''));
+    $('#bannerItemAvail').text(numberFmt(stock.quantity) + ' ' + stock.unit);
     renderSourceStocks();
     setPhase('qty');
 }
@@ -397,7 +610,7 @@ function findStockByCode(code) {
     });
 }
 
-/* ── Qty confirm ────────────────────────────────────────────── */
+/* ── Qty confirm ─────────────────────────────────────────────── */
 function confirmQty() {
     if (!selectedStock) {
         setAlert('warning', 'Pilih item terlebih dahulu.');
@@ -421,7 +634,7 @@ function confirmQty() {
     setPhase('target');
 }
 
-/* ── Execute transfer ───────────────────────────────────────── */
+/* ── Execute transfer ────────────────────────────────────────── */
 function executeTransfer(target) {
     const qty = parseInt($('#qtyInput').val(), 10);
     if (!sourceCell || !selectedStock || !qty) {
@@ -434,20 +647,23 @@ function executeTransfer(target) {
         return;
     }
 
-    $('#scanInput').prop('disabled', true);
+    // Update preview with target cell
+    $('#previewTo').text(target.code);
+    const resolved = target.resolved_from_rack ? ' (dari rak ' + target.resolved_from_rack + ')' : '';
     $('#targetCellText').text(target.code);
-    const resolved = target.resolved_from_rack ? ' | dari rak ' + target.resolved_from_rack : '';
-    $('#targetMeta').text('Kapasitas sisa: ' + target.capacity_remaining + '/' + target.capacity_max + ' ' + target.capacity_unit + resolved);
-    $('#resultPanel').html('<div class="text-info"><i class="fas fa-spinner fa-spin mr-1"></i>Menyimpan transfer...</div>');
+    $('#targetMeta').text('Sisa: ' + target.capacity_remaining + '/' + target.capacity_max + ' ' + target.capacity_unit + resolved);
+
+    $('#scanInput').prop('disabled', true);
+    $('#resultPanel').html('<div class="result-loading"><i class="fas fa-spinner fa-spin mr-2"></i>Menyimpan transfer...</div>');
 
     $.ajax({
         url: transferUrl,
         method: 'POST',
         data: {
-            _token:    csrfToken,
-            stock_id:  selectedStock.stock_id,
+            _token:     csrfToken,
+            stock_id:   selectedStock.stock_id,
             to_cell_id: target.id,
-            quantity:  qty,
+            quantity:   qty,
             notes: 'Scan transfer: ' + (selectedStock.cell_code || sourceCell.code) + ' -> ' + target.code,
         },
         success: function (res) {
@@ -456,29 +672,32 @@ function executeTransfer(target) {
             flashScreen('success');
             const fromCode = selectedStock.cell_code || sourceCell.code;
             $('#resultPanel').html(
-                '<div class="text-success font-weight-bold mb-1">' +
-                    '<i class="fas fa-check-circle mr-1"></i>' + escapeHtml(res.message || 'Transfer berhasil.') +
-                '</div>' +
-                '<div class="small text-muted">' +
-                    escapeHtml(selectedStock.sku) + ' | ' + numberFmt(qty) + ' ' + escapeHtml(selectedStock.unit) +
-                    ' | ' + escapeHtml(fromCode) + ' → ' + escapeHtml(target.code) +
+                '<div class="result-success">' +
+                    '<div class="font-weight-bold text-success mb-1">' +
+                        '<i class="fas fa-check-circle mr-1"></i>' + escapeHtml(res.message || 'Transfer berhasil.') +
+                    '</div>' +
+                    '<div class="small text-muted">' +
+                        escapeHtml(selectedStock.sku) + ' · ' +
+                        numberFmt(qty) + ' ' + escapeHtml(selectedStock.unit) + ' · ' +
+                        escapeHtml(fromCode) + ' → ' + escapeHtml(target.code) +
+                    '</div>' +
                 '</div>'
             );
             addToHistory(selectedStock.sku, selectedStock.name, qty, selectedStock.unit, fromCode, target.code);
-            setTimeout(resetFlow, 900);
+            setTimeout(resetFlow, 1200);
         },
         error: function (xhr) {
             const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Transfer gagal.';
             beepSound('error');
             flashScreen('error');
-            $('#resultPanel').html('<div class="text-danger"><i class="fas fa-times-circle mr-1"></i>' + escapeHtml(msg) + '</div>');
+            $('#resultPanel').html('<div class="result-error"><i class="fas fa-times-circle mr-1"></i>' + escapeHtml(msg) + '</div>');
             setAlert('danger', escapeHtml(msg));
             setPhase('target');
         },
     });
 }
 
-/* ── Scan handler ───────────────────────────────────────────── */
+/* ── Scan handler ────────────────────────────────────────────── */
 function handleScan(code) {
     code = cleanCode(code);
     if (!code) return;
@@ -486,12 +705,12 @@ function handleScan(code) {
 
     if (phase === 'source') {
         lookupCell(code, 'source').done(function (res) {
-            sourceCell   = res.cell;
-            sourceStocks = res.stocks || [];
+            sourceCell    = res.cell;
+            sourceStocks  = res.stocks || [];
             selectedStock = null;
             $('#stepSource').addClass('done').removeClass('active');
             $('#sourceCellText').text(sourceCell.code);
-            $('#sourceMeta').text('Stok: ' + sourceStocks.length + ' | Kapasitas: ' + sourceCell.capacity_used + '/' + sourceCell.capacity_max + ' ' + sourceCell.capacity_unit);
+            $('#sourceMeta').text(sourceStocks.length + ' item · kap ' + sourceCell.capacity_used + '/' + sourceCell.capacity_max);
             renderSourceStocks();
 
             if (!sourceStocks.length) {
@@ -513,7 +732,7 @@ function handleScan(code) {
         const stock = findStockByCode(code);
         if (!stock) {
             beepSound('error');
-            setAlert('warning', 'Item ' + escapeHtml(code) + ' tidak ada di cell asal ' + sourceCell.code + '.');
+            setAlert('warning', 'Item <strong>' + escapeHtml(code) + '</strong> tidak ada di cell asal ' + sourceCell.code + '.');
             setPhase('item');
             return;
         }
@@ -522,8 +741,24 @@ function handleScan(code) {
     }
 
     if (phase === 'target') {
+        // Jika ada pending target (dari baris picker), verifikasi scan cocok
+        if (pendingTargetCell) {
+            if (cleanCode(code).toUpperCase() === pendingTargetCell.code.toUpperCase()) {
+                const cell = pendingTargetCell;
+                pendingTargetCell = null;
+                executeTransfer(cell);
+            } else {
+                beepSound('error');
+                setAlert('danger', 'Cell tidak cocok. Scan QR <strong>' + escapeHtml(pendingTargetCell.code) + '</strong> untuk konfirmasi.');
+            }
+            return;
+        }
         lookupCell(code, 'target').done(function (res) {
-            executeTransfer(res.cell);
+            if (res.is_column_target) {
+                showColumnTargetPicker(res);
+            } else {
+                executeTransfer(res.cell);
+            }
         }).fail(function (xhr) {
             beepSound('error');
             setAlert('danger', escapeHtml(xhr.responseJSON?.message || 'Cell tujuan tidak ditemukan.'));
@@ -532,10 +767,11 @@ function handleScan(code) {
     }
 }
 
-/* ── Transfer history ───────────────────────────────────────── */
+/* ── Transfer history ────────────────────────────────────────── */
 function addToHistory(sku, name, qty, unit, fromCode, toCode) {
-    recentTransfers.unshift({ sku: sku, name: name, qty: qty, unit: unit, from: fromCode, to: toCode, time: new Date() });
+    recentTransfers.unshift({ sku, name, qty, unit, from: fromCode, to: toCode, time: new Date().toISOString() });
     if (recentTransfers.length > 8) recentTransfers.pop();
+    try { localStorage.setItem('transfer_history', JSON.stringify(recentTransfers)); } catch(e) {}
     renderHistory();
 }
 
@@ -556,7 +792,69 @@ function renderHistory() {
     $('#historyPanel').html(html);
 }
 
-/* ── Reset ──────────────────────────────────────────────────── */
+/* ── Baris picker (target column scan) ──────────────────────── */
+function showColumnTargetPicker(res) {
+    $('#pickerColumnCode').text(res.column_code);
+    const html = res.child_cells.map(function(c) {
+        const pct = c.capacity_max > 0 ? Math.round((c.capacity_remaining / c.capacity_max) * 100) : 0;
+        const capColor = pct > 50 ? '#28a745' : pct > 20 ? '#ffc107' : '#dc3545';
+        return '<div class="baris-option" data-cell-id="' + c.id + '" data-cell-code="' + escapeHtml(c.code) + '"' +
+            ' data-qr-code="' + escapeHtml(c.qr_code || c.code) + '"' +
+            ' data-cap-remaining="' + c.capacity_remaining + '" data-cap-max="' + c.capacity_max + '">' +
+            '<div class="d-flex align-items-center flex-grow-1">' +
+                '<span class="baris-num">' + c.baris + '</span>' +
+                '<div>' +
+                    '<div class="font-weight-bold">' + escapeHtml(c.code) + '</div>' +
+                    '<div class="cap-bar" style="width:120px">' +
+                        '<div class="cap-bar-fill" style="width:' + pct + '%;background:' + capColor + '"></div>' +
+                    '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="text-right ml-3">' +
+                '<div class="small text-muted">Sisa kapasitas</div>' +
+                '<div class="font-weight-bold">' + c.capacity_remaining + ' / ' + c.capacity_max + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+    $('#pickerRows').html(html || '<div class="text-muted text-center py-3">Tidak ada baris tersedia.</div>');
+    $('#columnTargetPicker').removeClass('d-none');
+    $('#scanSection').addClass('d-none');
+}
+
+$(document).on('click', '.baris-option', function() {
+    pendingTargetCell = {
+        id:                 parseInt($(this).data('cell-id')),
+        code:               $(this).data('cell-code'),
+        qr_code:            $(this).data('qr-code') || $(this).data('cell-code'),
+        capacity_remaining: parseInt($(this).data('cap-remaining')),
+        capacity_max:       parseInt($(this).data('cap-max')),
+        capacity_unit:      'poin',
+        resolved_from_rack: null,
+    };
+    $('#columnTargetPicker').addClass('d-none');
+    $('#scanSection').removeClass('d-none');
+
+    // Render QR code — encode URL sama persis seperti label cetak fisik
+    const qrEl = document.getElementById('qrCanvas');
+    qrEl.innerHTML = '<canvas id="qrCanvas_inner"></canvas>';
+    new QRious({
+        element: document.getElementById('qrCanvas_inner'),
+        value: cellBaseUrl + '/' + pendingTargetCell.qr_code,
+        size: 200,
+        level: 'H',
+        background: '#ffffff',
+        foreground: '#1a2332',
+        padding: 4,
+    });
+    $('#qrConfirmLabel').text('Scan QR cell ' + pendingTargetCell.code);
+    $('#qrCellCodeLabel').text(pendingTargetCell.code);
+    $('#qrConfirmSection').removeClass('d-none');
+
+    $('#scanLabel').text('Scan QR cell ' + pendingTargetCell.code + ' untuk konfirmasi');
+    $('#scanInput').val('').focus();
+});
+
+/* ── Reset ───────────────────────────────────────────────────── */
 function resetFlow() {
     sourceCell    = null;
     sourceStocks  = [];
@@ -568,18 +866,27 @@ function resetFlow() {
     $('#itemMeta').text('-');
     $('#qtyText').text('Belum diisi');
     $('#targetCellText').text('Belum discan');
-    $('#targetMeta').text('Transfer otomatis setelah scan.');
+    $('#targetMeta').text('-');
     $('#qtyInput').val('').prop('disabled', true).removeAttr('max');
     $('#btnAllQty').prop('disabled', true);
-    $('#sourceStocks').html('<div class="text-muted text-center py-4">Scan cell asal untuk melihat stok.</div>');
-    $('#resultPanel').html('<div class="text-muted small"><i class="fas fa-info-circle mr-1"></i>Urutan: scan cell asal → scan barcode item → qty <kbd>Enter</kbd> → scan cell tujuan.</div>');
+    $('#sourceStocks').html('<div class="text-muted text-center py-4"><i class="fas fa-search mr-1"></i>Scan cell asal untuk melihat stok.</div>');
+    $('#resultPanel').html('');
+    $('#transferPreviewWrap').addClass('d-none');
+    $('#scanSection').removeClass('d-none');
+    $('#qtyCard').addClass('d-none');
+    $('#stocksCard').removeClass('d-none');
+    $('#selectedItemBanner').addClass('d-none');
+    $('#columnTargetPicker').addClass('d-none');
+    $('#qrConfirmSection').addClass('d-none');
+    $('#qrCanvas').empty();
+    pendingTargetCell = null;
     $('.transfer-step').removeClass('done active');
     clearAlert();
     setPhase('source');
     renderHistory();
 }
 
-/* ── Event handlers ─────────────────────────────────────────── */
+/* ── Event handlers ──────────────────────────────────────────── */
 $('#scanInput').on('keydown', function (e) {
     if (e.key === 'Enter') {
         e.preventDefault();
@@ -590,20 +897,14 @@ $('#scanInput').on('keydown', function (e) {
 });
 
 $('#qtyInput').on('keydown', function (e) {
-    // * or A = fill all qty immediately
     if (e.key === '*' || e.key.toLowerCase() === 'a') {
         e.preventDefault();
-        if (selectedStock) {
-            $(this).val(selectedStock.quantity);
-            confirmQty();
-        }
+        if (selectedStock) { $(this).val(selectedStock.quantity); confirmQty(); }
         return;
     }
-
     if (e.key === 'Enter') {
         e.preventDefault();
         const raw = $(this).val().trim();
-        // If scanner fired into qty field (contains non-numeric chars) → treat as scan
         if (raw && /[^0-9]/.test(raw)) {
             $(this).val('');
             handleScan(raw);
@@ -625,30 +926,22 @@ $(document).on('click', '.stock-choice', function () {
     if (stock) selectStock(stock);
 });
 
-// Global keyboard shortcuts
 $(document).on('keydown', function (e) {
-    // Escape = reset from any phase
     if (e.key === 'Escape') {
         e.preventDefault();
         resetFlow();
         return;
     }
-
-    // 1–9 = select item by index when in item phase
     if (phase === 'item' && e.key >= '1' && e.key <= '9' && !$(e.target).is('input, textarea')) {
         const idx = parseInt(e.key, 10) - 1;
-        if (idx < sourceStocks.length) {
-            selectStock(sourceStocks[idx]);
-        }
+        if (idx < sourceStocks.length) selectStock(sourceStocks[idx]);
         return;
     }
 });
 
-// Also allow 1–9 on scanInput when in item phase (scanner might send digit-only barcodes)
 $('#scanInput').on('keyup', function (e) {
     if (phase !== 'item') return;
     const val = $(this).val().trim();
-    // Single digit typed → select by index shortcut
     if (/^[1-9]$/.test(val) && e.key >= '1' && e.key <= '9') {
         const idx = parseInt(val, 10) - 1;
         if (idx < sourceStocks.length) {
@@ -670,7 +963,6 @@ $('#btnCamera').on('click', async function () {
         $('#scanInput').focus();
         return;
     }
-
     $('#cameraWrap').removeClass('d-none');
     cameraScanner = new Html5Qrcode('cameraReader');
     $(this).html('<i class="fas fa-stop mr-1"></i>Stop Kamera');

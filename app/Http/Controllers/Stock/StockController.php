@@ -493,6 +493,43 @@ class StockController extends Controller
             ->first();
 
         if ($cell) {
+            $hasStock = Stock::where('cell_id', $cell->id)
+                ->where('status', 'available')
+                ->where('quantity', '>', 0)
+                ->exists();
+
+            if (!$hasStock) {
+                $childCells = Cell::with(['rack.warehouse'])
+                    ->where('code', 'like', $code . '-%')
+                    ->where('is_active', true)
+                    ->get();
+
+                if ($childCells->isNotEmpty()) {
+                    if ($purpose === 'source') {
+                        return $this->transferScanColumnPayload($code, $childCells);
+                    }
+                    // Target: tampilkan pilihan baris ke operator
+                    $stock = Stock::find($request->input('stock_id'));
+                    $options = $childCells
+                        ->when($stock, fn($col) => $col->reject(fn(Cell $c) => $c->id === $stock?->cell_id))
+                        ->map(fn(Cell $c) => [
+                            'id'                 => $c->id,
+                            'code'               => $c->code,
+                            'qr_code'            => $c->qr_code ?? $c->code,
+                            'baris'              => $c->baris,
+                            'capacity_remaining' => $this->remainingTransferCapacity($c),
+                            'capacity_max'       => (int) $c->capacity_max,
+                        ])
+                        ->values();
+                    return response()->json([
+                        'found'             => true,
+                        'is_column_target'  => true,
+                        'column_code'       => strtoupper($code),
+                        'child_cells'       => $options,
+                    ]);
+                }
+            }
+
             return $this->transferScanCellPayload($cell);
         }
 
@@ -585,6 +622,41 @@ class StockController extends Controller
         ]);
     }
 
+    private function transferScanColumnPayload(string $columnCode, \Illuminate\Support\Collection $cells): \Illuminate\Http\JsonResponse
+    {
+        $cellIds = $cells->pluck('id');
+        $stocks  = Stock::with(['item.unit', 'item.category', 'cell'])
+            ->whereIn('cell_id', $cellIds)
+            ->where('status', 'available')
+            ->where('quantity', '>', 0)
+            ->orderBy('cell_id')
+            ->orderBy('inbound_date')
+            ->orderBy('created_at')
+            ->get();
+
+        $capacityMax = (int) $cells->sum('capacity_max');
+        $usedPoints  = (int) $cells->sum(fn(Cell $c) => app(CellCapacityService::class)->usedPoints($c));
+
+        return response()->json([
+            'found' => true,
+            'cell'  => [
+                'id'                 => null,
+                'code'               => strtoupper($columnCode),
+                'label'              => strtoupper($columnCode) . ' (Kolom)',
+                'status'             => 'column',
+                'rack'               => strtoupper($columnCode),
+                'warehouse'          => $cells->first()?->rack?->warehouse?->name ?? '-',
+                'capacity_max'       => $capacityMax,
+                'capacity_used'      => $usedPoints,
+                'capacity_remaining' => max(0, $capacityMax - $usedPoints),
+                'capacity_unit'      => 'poin',
+                'stock_count'        => $stocks->count(),
+                'is_rack_scan'       => true,
+            ],
+            'stocks' => $stocks->map(fn(Stock $stock) => $this->transferScanStockPayload($stock))->values(),
+        ]);
+    }
+
     private function transferScanTargetRackPayload(int $blok, string $grup, Request $request): \Illuminate\Http\JsonResponse
     {
         $stock = Stock::with(['cell', 'item'])->find($request->input('stock_id'));
@@ -638,6 +710,7 @@ class StockController extends Controller
                 'item_id' => $stock->item_id,
                 'cell_id' => $stock->cell_id,
                 'cell_code' => $stock->cell?->code ?? '-',
+                'baris'     => $stock->cell?->baris,
                 'sku' => $stock->item?->sku ?? '-',
                 'erp_item_code' => $stock->item?->erp_item_code,
                 'barcode' => $stock->item?->barcode,

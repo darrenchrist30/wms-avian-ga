@@ -66,7 +66,8 @@
       "Bash(findstr \":8001\")",
       "Bash(Get-Content \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\.env\")",
       "Bash(Select-String \"APP_URL\")",
-      "PowerShell(cd c:\\\\laragon\\\\www\\\\wms-avian-ga; php artisan tinker --execute=\"echo implode\\(', ', DB::select\\('SHOW TABLES'\\) |> array_map\\(fn\\(\\\\$t\\) => array_values\\(\\(array\\)\\\\$t\\)[0], \\\\$\\\\$\\)\\);\" 2>&1; php artisan tinker --execute=\"echo json_encode\\(array_map\\(fn\\(\\\\$t\\)=>array_values\\(\\(array\\)\\\\$t\\)[0], DB::select\\('SHOW TABLES'\\)\\)\\);\" 2>&1)"
+      "PowerShell(cd c:\\\\laragon\\\\www\\\\wms-avian-ga; php artisan tinker --execute=\"echo implode\\(', ', DB::select\\('SHOW TABLES'\\) |> array_map\\(fn\\(\\\\$t\\) => array_values\\(\\(array\\)\\\\$t\\)[0], \\\\$\\\\$\\)\\);\" 2>&1; php artisan tinker --execute=\"echo json_encode\\(array_map\\(fn\\(\\\\$t\\)=>array_values\\(\\(array\\)\\\\$t\\)[0], DB::select\\('SHOW TABLES'\\)\\)\\);\" 2>&1)",
+      "Bash(xargs grep -l \"genetic\\\\|GA\\\\|chromosome\\\\|population\\\\|fitness\" -i)"
     ]
   }
 }

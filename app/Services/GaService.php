@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Cell;
 use App\Models\GaRecommendation;
+use App\Services\CellCapacityService;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
 use App\Models\ItemAffinity;
@@ -193,14 +194,30 @@ class GaService
             ->with('rack')
             ->get();
 
+        $cellIds = $cellsCollection->pluck('id');
+
         // Konteks stok existing per cell (untuk preferensi continuity item/rack)
         $existingItemIdsByCell = DB::table('stock_records')
             ->select('cell_id', DB::raw('GROUP_CONCAT(DISTINCT item_id) as item_ids'))
-            ->whereIn('cell_id', $cellsCollection->pluck('id'))
+            ->whereIn('cell_id', $cellIds)
             ->where('quantity', '>', 0)
             ->where('status', 'available')
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
+
+        // Hitung usedPoints semua cell sekaligus (1 query, bukan N query)
+        $usedPointsByCell = DB::table('stock_records as sr')
+            ->join('items as i', 'i.id', '=', 'sr.item_id')
+            ->whereIn('sr.cell_id', $cellIds)
+            ->where('sr.quantity', '>', 0)
+            ->whereIn('sr.status', ['available', 'reserved'])
+            ->groupBy('sr.cell_id', 'sr.item_id', 'i.max_stock')
+            ->selectRaw('sr.cell_id, i.max_stock, SUM(sr.quantity) as qty')
+            ->get()
+            ->groupBy('cell_id')
+            ->map(fn($rows) => (int) $rows->sum(fn($row) =>
+                max(1, (int) ceil((int) $row->qty * CellCapacityService::SCALE / max(1, (int) ($row->max_stock ?: CellCapacityService::DEFAULT_CAPACITY_MAX))))
+            ));
 
         // Hitung capacity points yang sudah di-reserve order lain.
         // Capacity points = ceil(qty * 100 / item.max_stock), sehingga SKU kecil
@@ -214,7 +231,7 @@ class GaService
                 'grd.cell_id',
                 DB::raw('SUM(GREATEST(1, CEIL(grd.quantity * 100 / GREATEST(COALESCE(NULLIF(reserved_items.max_stock, 0), 100), 1)))) as reserved_qty')
             )
-            ->whereIn('grd.cell_id', $cellsCollection->pluck('id'))
+            ->whereIn('grd.cell_id', $cellIds)
             ->where('gr.status', 'accepted')
             ->where('it.warehouse_id', $order->warehouse_id)
             ->where('it.id', '!=', $order->id)
@@ -225,7 +242,8 @@ class GaService
         $cellCandidates = collect($this->buildCellCandidates(
             $cellsCollection,
             $existingItemIdsByCell,
-            $reservedQtyByCell
+            $reservedQtyByCell,
+            $usedPointsByCell
         ));
 
         // ─────────────────────────────────────────────────────────────
@@ -441,11 +459,11 @@ class GaService
      * Legacy cells stay one candidate per cells.id. MSpart cells use the exact
      * SQL coordinate: blok + grup + kolom + baris.
      */
-    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell, $reservedQtyByCell): array
+    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell, $reservedQtyByCell, $usedPointsByCell = null): array
     {
         return $cellsCollection
             ->groupBy(fn(Cell $cell) => $this->physicalLocationKey($cell))
-            ->map(function ($group) use ($existingItemIdsByCell, $reservedQtyByCell) {
+            ->map(function ($group) use ($existingItemIdsByCell, $reservedQtyByCell, $usedPointsByCell) {
                 $representative = $group
                     ->sortBy(fn(Cell $cell) => sprintf('%03d-%08d', (int) ($cell->baris ?? 0), $cell->id))
                     ->first();
@@ -473,7 +491,10 @@ class GaService
                     ->sum(fn($cellId) => (int) ($reservedQtyByCell->get($cellId) ?? 0));
 
                 $capacityMax = max(1, (int) ($representative->capacity_max ?: CellCapacityService::DEFAULT_CAPACITY_MAX));
-                $capacityUsed = app(CellCapacityService::class)->usedPoints($representative);
+                // Gunakan map yang sudah di-batch, fallback ke 0 jika cell kosong
+                $capacityUsed = $usedPointsByCell
+                    ? (int) ($usedPointsByCell->get($representative->id) ?? 0)
+                    : app(CellCapacityService::class)->usedPoints($representative);
                 $capacityRemaining = max(0, $capacityMax - $capacityUsed - $reservedQty);
 
                 if (!$this->isMspartCell($representative)) {

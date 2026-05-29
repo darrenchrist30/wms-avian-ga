@@ -1171,7 +1171,6 @@
         const altCellUrl     = "{{ route('putaway.alternative-cells', $order->id) }}";
         const fastSlowUrl    = "{{ route('putaway.fast-slow-suggestions', $order->id) }}";
         const confirmUrlTpl  = "{{ route('putaway.confirm', ['order' => $order->id, 'detail' => 'DETAIL_ID']) }}";
-        const overrideUrlTpl = "{{ route('putaway.override', ['order' => $order->id, 'detail' => 'DETAIL_ID']) }}";
         const csrfToken = $('meta[name="csrf-token"]').attr('content');
 
         // ── State ─────────────────────────────────────────────────────────────────────
