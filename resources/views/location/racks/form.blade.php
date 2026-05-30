@@ -1,5 +1,11 @@
 @extends('layouts.adminlte')
 
+@php
+    $selectedWarehouseId = $selectedWarehouseId ?? null;
+    $selectedPosX        = $selectedPosX ?? null;
+    $selectedPosZ        = $selectedPosZ ?? null;
+@endphp
+
 @section('title', $typeForm == 'create' ? 'Tambah Rak' : 'Edit Rak')
 
 @section('content')
@@ -15,9 +21,19 @@
                 {{ $typeForm == 'create' ? 'Daftarkan rak baru dalam gudang' : 'Perbarui data rak: ' . ($data->code ?? '') }}
             </small>
         </div>
+        @if(!empty($selectedWarehouseId) && $typeForm == 'create')
+        <a href="{{ route('location.warehouses.edit', $selectedWarehouseId) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left mr-1"></i> Kembali ke Gudang
+        </a>
+        @elseif($typeForm == 'edit')
+        <a href="{{ route('location.racks.show', $data->id) }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-arrow-left mr-1"></i> Kembali ke Detail
+        </a>
+        @else
         <a href="{{ route('location.racks.index') }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-arrow-left mr-1"></i> Kembali
         </a>
+        @endif
     </div>
 
     @if (session('error'))
@@ -54,15 +70,19 @@
                                 <span class="input-group-text" style="min-width:40px;"></span>
                             </div>
                             <select name="warehouse_id"
-                                class="form-control @error('warehouse_id') is-invalid @enderror">
+                                class="form-control @error('warehouse_id') is-invalid @enderror"
+                                {{ !empty($selectedWarehouseId) ? 'disabled' : '' }}>
                                 <option value="">-- Pilih Gudang --</option>
                                 @foreach ($warehouses as $warehouse)
                                     <option value="{{ $warehouse->id }}"
-                                        {{ old('warehouse_id', $data->warehouse_id ?? '') == $warehouse->id ? 'selected' : '' }}>
+                                        {{ old('warehouse_id', $data->warehouse_id ?? $selectedWarehouseId ?? '') == $warehouse->id ? 'selected' : '' }}>
                                         {{ $warehouse->name }}
                                     </option>
                                 @endforeach
                             </select>
+                            @if(!empty($selectedWarehouseId))
+                                <input type="hidden" name="warehouse_id" value="{{ $selectedWarehouseId }}">
+                            @endif
                             @error('warehouse_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                     </div>
@@ -143,14 +163,32 @@
                                 value="{{ old('total_levels', 7) }}" min="1" max="26">
                             @error('total_levels')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
-                        <small class="text-muted">Jumlah level rak (A, B, C, ...).</small>
+                        <small class="text-muted">Jumlah level rak (A, B, C, ...). Vertikal (atas–bawah).</small>
+                    </div>
+                </div>
+
+                <div class="form-group row mb-3">
+                    <label class="col-sm-3 col-form-label" style="font-weight:600">
+                        Jumlah Kolom <span class="text-danger">*</span>
+                    </label>
+                    <div class="col-sm-3">
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text" style="min-width:40px;"></span>
+                            </div>
+                            <input type="number" name="total_columns"
+                                class="form-control @error('total_columns') is-invalid @enderror"
+                                value="{{ old('total_columns', 1) }}" min="1" max="20">
+                            @error('total_columns')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                        <small class="text-muted">Jumlah kolom berdampingan. 1 = satu kolom (default). Horizontal (kiri–kanan).</small>
                     </div>
                 </div>
 
                 <div class="alert alert-info border small py-2">
                     <i class="fas fa-magic mr-1"></i>
                     Sel akan di-generate otomatis: <strong id="cellCount">7 sel</strong>
-                    — diberi label <strong id="cellRange">A – G</strong>
+                    — <span id="cellRange">label A–G (1 kolom)</span>
                 </div>
                 @else
                 <div class="alert alert-light border small text-muted py-2">
@@ -176,7 +214,7 @@
                                 <canvas id="floorCanvas" width="480" height="360"
                                     style="border:1px solid #ced4da;border-radius:6px;cursor:crosshair;background:#f8f9fa;display:block;"></canvas>
                                 <div id="floorHelp" class="text-muted" style="font-size:11px;margin-top:4px;text-align:center;">
-                                    <i class="fas fa-mouse-pointer mr-1"></i>Klik pada minimap untuk meletakkan rak baru
+                                    <i class="fas fa-mouse-pointer mr-1"></i>{{ $typeForm === 'edit' ? 'Klik pada minimap untuk memindahkan posisi rak' : 'Klik pada minimap untuk meletakkan rak baru' }}
                                 </div>
                             </div>
 
@@ -188,11 +226,11 @@
                                     <div class="d-flex" style="gap:8px;">
                                         <div>
                                             <label class="small text-muted mb-0">Pos X</label>
-                                            <input type="number" id="dispPosX" class="form-control form-control-sm" step="0.5" value="{{ old('pos_x', $data->pos_x ?? 0) }}" style="width:80px;">
+                                            <input type="number" id="dispPosX" class="form-control form-control-sm" step="0.5" value="{{ old('pos_x', $data->pos_x ?? $selectedPosX ?? 0) }}" style="width:80px;">
                                         </div>
                                         <div>
                                             <label class="small text-muted mb-0">Pos Z</label>
-                                            <input type="number" id="dispPosZ" class="form-control form-control-sm" step="0.5" value="{{ old('pos_z', $data->pos_z ?? 0) }}" style="width:80px;">
+                                            <input type="number" id="dispPosZ" class="form-control form-control-sm" step="0.5" value="{{ old('pos_z', $data->pos_z ?? $selectedPosZ ?? 0) }}" style="width:80px;">
                                         </div>
                                     </div>
                                 </div>
@@ -206,14 +244,6 @@
                                     </div>
                                 </div>
 
-                                {{-- Legend --}}
-                                <div class="card card-body p-2 border" style="background:#f8f9fa;font-size:11px;">
-                                    <div class="font-weight-bold text-muted mb-1">Legenda</div>
-                                    <div class="d-flex align-items-center mb-1"><span style="width:14px;height:14px;background:#6c757d;border-radius:2px;display:inline-block;margin-right:5px;"></span>Rak existing</div>
-                                    <div class="d-flex align-items-center mb-1"><span style="width:14px;height:14px;background:#0d8564;border-radius:2px;display:inline-block;margin-right:5px;"></span>Rak baru (posisi)</div>
-                                    <div class="d-flex align-items-center"><span style="width:14px;height:14px;background:#dc3545;border-radius:2px;opacity:.4;display:inline-block;margin-right:5px;"></span>Tumpang tindih</div>
-                                </div>
-
                                 <button type="button" id="btnReloadMap" class="btn btn-sm btn-outline-secondary w-100 mt-2">
                                     <i class="fas fa-sync-alt mr-1"></i>Muat Ulang Denah
                                 </button>
@@ -221,9 +251,12 @@
                         </div>
 
                         {{-- Hidden inputs --}}
-                        <input type="hidden" name="pos_x"      id="posX"      value="{{ old('pos_x', $data->pos_x ?? 0) }}">
-                        <input type="hidden" name="pos_z"      id="posZ"      value="{{ old('pos_z', $data->pos_z ?? 0) }}">
+                        <input type="hidden" name="pos_x"      id="posX"      value="{{ old('pos_x', $data->pos_x ?? $selectedPosX ?? 0) }}">
+                        <input type="hidden" name="pos_z"      id="posZ"      value="{{ old('pos_z', $data->pos_z ?? $selectedPosZ ?? 0) }}">
                         <input type="hidden" name="rotation_y" id="rotationY" value="{{ old('rotation_y', $data->rotation_y ?? 0) }}">
+                        @if(!empty($selectedWarehouseId))
+                            <input type="hidden" name="from_warehouse" value="{{ $selectedWarehouseId }}">
+                        @endif
                     </div>
                 </div>
 
@@ -298,10 +331,20 @@
 var letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function updateCellCount() {
     var levels = parseInt($('[name=total_levels]').val()) || 0;
-    $('#cellCount').text(levels + ' sel');
-    if (levels > 0 && levels <= 26) $('#cellRange').text('A – ' + letters[levels - 1]);
+    var cols   = parseInt($('[name=total_columns]').val()) || 1;
+    var total  = levels * cols;
+    $('#cellCount').text(total + ' sel');
+    if (levels > 0 && levels <= 26) {
+        var lastLetter = letters[levels - 1];
+        if (cols === 1) {
+            $('#cellRange').text('label A–' + lastLetter + ' (1 kolom)');
+        } else {
+            $('#cellRange').text('label A1–' + lastLetter + cols + ' (' + levels + ' level × ' + cols + ' kolom)');
+        }
+    }
 }
 $('[name=total_levels]').on('input', updateCellCount);
+$('[name=total_columns]').on('input', updateCellCount);
 updateCellCount();
 
 // ── Floor Plan Picker ─────────────────────────────────────────────────────────
@@ -315,8 +358,12 @@ var existingRacks = [];
 var curPosX = parseFloat($('#posX').val()) || 0;
 var curPosZ = parseFloat($('#posZ').val()) || 0;
 var curRot  = parseFloat($('#rotationY').val()) || 0;
-var RACK_W  = 2.0;
 var RACK_D  = 1.0;
+var isEditMode   = {{ $typeForm === 'edit' ? 'true' : 'false' }};
+var editRackCode = '{{ $typeForm === "edit" ? addslashes($data->code ?? "") : "" }}';
+
+function rackW(cols) { return Math.max(2.0, (cols || 1) * 1.5); }
+function curRackW()   { return rackW(parseInt($('[name=total_columns]').val()) || 1); }
 
 function scaleX() { return W / (maxX - minX); }
 function scaleZ() { return H / (maxZ - minZ); }
@@ -333,8 +380,9 @@ function fitBounds(racks) {
     var xs = racks.map(function(r) { return parseFloat(r.pos_x) || 0; });
     var zs = racks.map(function(r) { return parseFloat(r.pos_z) || 0; });
     xs.push(curPosX); zs.push(curPosZ);
-    var bminX = Math.min.apply(null, xs) - PAD - RACK_W;
-    var bmaxX = Math.max.apply(null, xs) + PAD + RACK_W;
+    var maxW  = Math.max(curRackW(), Math.max.apply(null, racks.map(function(r){ return rackW(r.total_columns||1); })));
+    var bminX = Math.min.apply(null, xs) - PAD - maxW;
+    var bmaxX = Math.max.apply(null, xs) + PAD + maxW;
     var bminZ = Math.min.apply(null, zs) - PAD - RACK_D;
     var bmaxZ = Math.max.apply(null, zs) + PAD + RACK_D;
     // Keep aspect ratio so racks don't distort
@@ -345,9 +393,10 @@ function fitBounds(racks) {
     minX = bminX; maxX = bmaxX; minZ = bminZ; maxZ = bmaxZ;
 }
 
-function getRackRect(x, z, rot) {
-    var rw = (rot !== 0) ? RACK_D : RACK_W;
-    var rd = (rot !== 0) ? RACK_W : RACK_D;
+function getRackRect(x, z, rot, cols) {
+    var w  = (cols !== undefined) ? rackW(cols) : curRackW();
+    var rw = (rot !== 0) ? RACK_D : w;
+    var rd = (rot !== 0) ? w : RACK_D;
     return { x: x - rw/2, z: z - rd/2, w: rw, d: rd };
 }
 function rectsOverlap(a, b) {
@@ -381,7 +430,7 @@ function drawGrid() {
 function drawExistingRacks() {
     existingRacks.forEach(function(rack) {
         var rot  = parseFloat(rack.rotation_y) || 0;
-        var rect = getRackRect(parseFloat(rack.pos_x), parseFloat(rack.pos_z), rot);
+        var rect = getRackRect(parseFloat(rack.pos_x), parseFloat(rack.pos_z), rot, rack.total_columns || 1);
         var cp   = w2c(rect.x, rect.z);
         var pw   = rect.w * scaleX(), pd = rect.d * scaleZ();
 
@@ -403,7 +452,7 @@ function drawExistingRacks() {
 function drawNewRack() {
     var rect    = getRackRect(curPosX, curPosZ, curRot);
     var overlap = existingRacks.some(function(r) {
-        var rr = getRackRect(parseFloat(r.pos_x), parseFloat(r.pos_z), parseFloat(r.rotation_y)||0);
+        var rr = getRackRect(parseFloat(r.pos_x), parseFloat(r.pos_z), parseFloat(r.rotation_y)||0, r.total_columns||1);
         return rectsOverlap(rect, rr);
     });
     var cp = w2c(rect.x, rect.z);
@@ -416,25 +465,29 @@ function drawNewRack() {
     ctx.strokeRect(cp.cx, cp.cy, pw, pd);
 
     var lp = w2c(curPosX, curPosZ);
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 9px Arial';
+    var label = isEditMode ? editRackCode : 'BARU';
+    var fs = Math.max(7, Math.min(11, pw * 0.4));
+    ctx.fillStyle = '#fff'; ctx.font = 'bold ' + fs + 'px Arial';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('BARU', lp.cx, lp.cy);
+    ctx.fillText(label, lp.cx, lp.cy);
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 
     if (overlap) {
         $('#floorHelp').html('<i class="fas fa-exclamation-triangle text-danger mr-1"></i><span class="text-danger">Posisi tumpang tindih — geser ke tempat kosong</span>');
     } else {
-        $('#floorHelp').html('<i class="fas fa-check-circle text-success mr-1"></i><span class="text-success">Posisi valid (X: ' + curPosX + ', Z: ' + curPosZ + ')</span>');
+        var msg = isEditMode ? 'Posisi rak' : 'Posisi valid';
+        $('#floorHelp').html('<i class="fas fa-check-circle text-success mr-1"></i><span class="text-success">' + msg + ' (X: ' + curPosX + ', Z: ' + curPosZ + ')</span>');
     }
 }
 
 function redraw() { drawGrid(); drawExistingRacks(); drawNewRack(); }
 
-function loadRacks() {
+function loadRacks(fitView) {
+    if (fitView === undefined) fitView = true;
     var wid = $('[name=warehouse_id]').val();
     if (!wid) {
         existingRacks = [];
-        fitBounds([]);
+        if (fitView) fitBounds([]);
         redraw();
         $('#floorHelp').html('<i class="fas fa-info-circle text-muted mr-1"></i>Pilih gudang terlebih dahulu untuk melihat denah');
         return;
@@ -451,9 +504,9 @@ function loadRacks() {
                 @endif
             });
         }
-        fitBounds(existingRacks);
+        if (fitView) fitBounds(existingRacks);
         redraw();
-    }).fail(function() { fitBounds([]); redraw(); });
+    }).fail(function() { if (fitView) fitBounds([]); redraw(); });
 }
 
 canvas.addEventListener('click', function(e) {
@@ -498,16 +551,21 @@ $('.btnRot').on('click', function() {
     redraw();
 });
 
-$('#btnReloadMap').on('click', loadRacks);
-$('[name=warehouse_id]').on('change', loadRacks);
+$('#btnReloadMap').on('click', function() { loadRacks(false); });
+$('[name=warehouse_id]').on('change', function() { loadRacks(true); });
+$('[name=total_columns]').on('input', function() { fitBounds(existingRacks); redraw(); });
 
-// Auto-select first warehouse if create mode and only one option
 @if($typeForm == 'create')
+// Pre-select warehouse if arriving from warehouse edit page
+@if(!empty($selectedWarehouseId))
+$('[name=warehouse_id]').val('{{ $selectedWarehouseId }}');
+@else
 var $wSel = $('[name=warehouse_id]');
 if (!$wSel.val()) {
     var firstVal = $wSel.find('option[value!=""]').first().val();
     if (firstVal) { $wSel.val(firstVal); }
 }
+@endif
 @endif
 loadRacks();
 </script>

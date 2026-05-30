@@ -3,77 +3,6 @@
 
 @push('styles')
 <style>
-/* ── Step bar ──────────────────────────────────────────── */
-.step-bar {
-    display: flex;
-    border: 1px solid #dee2e6;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0,0,0,.07);
-}
-.transfer-step {
-    flex: 1;
-    padding: 10px 12px;
-    border-right: 1px solid #e9ecef;
-    min-width: 0;
-    transition: background .15s;
-}
-.transfer-step:last-child { border-right: none; }
-.step-label {
-    display: flex;
-    align-items: center;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    color: #adb5bd;
-    margin-bottom: 3px;
-}
-.step-num-circle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: #dee2e6;
-    color: #6c757d;
-    font-size: 11px;
-    font-weight: 800;
-    margin-right: 5px;
-    flex-shrink: 0;
-    transition: background .15s, color .15s;
-}
-.step-value {
-    font-size: 13px;
-    font-weight: 700;
-    color: #495057;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.step-sub {
-    font-size: 11px;
-    color: #adb5bd;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-/* active step */
-.transfer-step.active {
-    background: #f0fff4;
-    border-bottom: 3px solid #28a745;
-}
-.transfer-step.active .step-num-circle { background: #28a745; color: #fff; }
-.transfer-step.active .step-label      { color: #28a745; }
-.transfer-step.active .step-value      { color: #155724; }
-/* done step */
-.transfer-step.done { background: #f4fffe; }
-.transfer-step.done .step-num-circle { background: #17a2b8; color: #fff; }
-.transfer-step.done .step-label      { color: #17a2b8; }
-.transfer-step.done .step-value      { color: #0c525d; }
-
 /* ── Inputs ──────────────────────────────────────────────── */
 .scan-input {
     height: 58px;
@@ -237,12 +166,6 @@
     background: #28a745; transition: width .3s;
 }
 
-/* ── Mobile tweaks ─────────────────────────────────────── */
-@media (max-width: 480px) {
-    .transfer-step { padding: 8px 6px; }
-    .step-value    { font-size: 11px; }
-    .step-sub      { display: none; }
-}
 </style>
 @endpush
 
@@ -280,6 +203,35 @@
 
     {{-- Alert --}}
     <div id="scanAlert" class="alert d-none mb-3" role="alert"></div>
+
+    {{-- Panduan alur — hanya tampil di state awal sebelum scan --}}
+    <div id="flowGuide" class="mb-3">
+        <div class="d-flex align-items-stretch" style="gap:8px;">
+            <div class="flex-fill text-center p-3 rounded" style="background:#f0fff4;border:1px solid #c3e6cb;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#28a745;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">1</div>
+                <div class="small font-weight-bold text-success">Scan Cell Asal</div>
+                <div class="small text-muted mt-1">Scan QR cell<br>sumber barang</div>
+            </div>
+            <div class="d-flex align-items-center text-muted" style="font-size:18px;">›</div>
+            <div class="flex-fill text-center p-3 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#adb5bd;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">2</div>
+                <div class="small font-weight-bold text-muted">Pilih Item</div>
+                <div class="small text-muted mt-1">Pilih barang<br>yang dipindah</div>
+            </div>
+            <div class="d-flex align-items-center text-muted" style="font-size:18px;">›</div>
+            <div class="flex-fill text-center p-3 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#adb5bd;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">3</div>
+                <div class="small font-weight-bold text-muted">Input Qty</div>
+                <div class="small text-muted mt-1">Tentukan<br>jumlah pindah</div>
+            </div>
+            <div class="d-flex align-items-center text-muted" style="font-size:18px;">›</div>
+            <div class="flex-fill text-center p-3 rounded" style="background:#f8f9fa;border:1px solid #e9ecef;">
+                <div style="width:32px;height:32px;border-radius:50%;background:#adb5bd;color:#fff;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">4</div>
+                <div class="small font-weight-bold text-muted">Scan Cell Tujuan</div>
+                <div class="small text-muted mt-1">Scan QR cell<br>tujuan barang</div>
+            </div>
+        </div>
+    </div>
 
     {{-- ② Main action card --}}
     <div class="card mb-3">
@@ -505,6 +457,13 @@ function setPhase(nextPhase) {
     };
     $('#phaseBadge').text(labels[nextPhase]);
     $('#scanLabel').text(labels[nextPhase]);
+
+    // Panduan alur: tampil hanya di state awal
+    if (nextPhase === 'source') {
+        $('#flowGuide').removeClass('d-none');
+    } else {
+        $('#flowGuide').addClass('d-none');
+    }
 
     if (nextPhase === 'source') $('#stepSource').addClass('active');
     if (nextPhase === 'item')   { $('#stepItem').addClass('active'); $('#itemKbHint').show(); }
@@ -897,7 +856,7 @@ $('#scanInput').on('keydown', function (e) {
 });
 
 $('#qtyInput').on('keydown', function (e) {
-    if (e.key === '*' || e.key.toLowerCase() === 'a') {
+    if (e.key === '*' || e.key === 'a') {
         e.preventDefault();
         if (selectedStock) { $(this).val(selectedStock.quantity); confirmQty(); }
         return;

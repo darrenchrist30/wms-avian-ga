@@ -18,9 +18,10 @@
             align-items: center;
             justify-content: center;
             background: #eef2f0;
+            background-image: radial-gradient(circle at 20% 80%, rgba(56,193,114,.07) 0%, transparent 50%),
+                              radial-gradient(circle at 80% 20%, rgba(0,66,48,.06) 0%, transparent 50%);
         }
 
-        /* ── Accent bar di atas card ─── */
         .login-card {
             width: 100%;
             max-width: 400px;
@@ -31,45 +32,43 @@
             overflow: hidden;
         }
 
+        /* Garis aksen hijau di paling atas card */
         .card-top {
             background: #fff;
-            padding: 32px 36px 20px;
+            padding: 36px 36px 22px;
             text-align: center;
             border-bottom: 1px solid #f1f5f9;
         }
 
-        /* Garis aksen hijau di paling atas card */
         .card-top::before {
             content: '';
             display: block;
             height: 4px;
             background: linear-gradient(90deg, #004230, #38c172);
-            border-radius: 4px 4px 0 0;
-            margin: -32px -36px 28px;
+            margin: -36px -36px 32px;
         }
 
+        .card-top img { height: 62px; width: auto; margin-bottom: 12px; }
+
         .card-top h1 {
-            font-size: 15px;
+            font-size: 15.5px;
             font-weight: 700;
             color: #111827;
             letter-spacing: -.1px;
-            margin-top: 8px;
         }
 
         .card-top p {
-            font-size: 11.5px;
+            font-size: 12px;
             color: #9ca3af;
-            margin-top: 2px;
+            margin-top: 3px;
         }
 
         /* ── Form ─── */
-        .card-body {
-            padding: 32px 36px 28px;
-        }
+        .card-body { padding: 32px 36px 28px; }
 
         .form-heading {
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 20px;
+            font-weight: 800;
             color: #111827;
             margin-bottom: 4px;
         }
@@ -96,14 +95,14 @@
         .alert-box.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
         /* Field */
-        .field-group { margin-bottom: 14px; }
+        .field-group { margin-bottom: 16px; }
 
         .field-label {
             display: block;
             font-size: 12.5px;
             font-weight: 600;
             color: #374151;
-            margin-bottom: 5px;
+            margin-bottom: 6px;
         }
 
         .field-wrap { position: relative; }
@@ -113,8 +112,8 @@
             left: 12px;
             top: 50%;
             transform: translateY(-50%);
-            color: #d1d5db;
-            font-size: 12px;
+            color: #9ca3af;
+            font-size: 13px;
             pointer-events: none;
             transition: color .15s;
         }
@@ -123,7 +122,7 @@
 
         .field-wrap input {
             width: 100%;
-            padding: 10px 14px 10px 36px;
+            padding: 11px 14px 11px 38px;
             border: 1.5px solid #e5e7eb;
             border-radius: 8px;
             font-size: 13.5px;
@@ -139,7 +138,7 @@
         .field-wrap input:focus {
             background: #fff;
             border-color: #38c172;
-            box-shadow: 0 0 0 3px rgba(56,193,114,.1);
+            box-shadow: 0 0 0 3px rgba(56,193,114,.12);
         }
 
         .field-wrap input.is-invalid { border-color: #e3342f; }
@@ -147,55 +146,30 @@
 
         .invalid-text { font-size: 12px; color: #e3342f; margin-top: 4px; }
 
-        /* Toggle pw */
+        /* Toggle password */
         .toggle-pw {
             position: absolute;
             right: 12px;
             top: 50%;
             transform: translateY(-50%);
-            color: #d1d5db;
+            color: #9ca3af;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
             transition: color .15s;
+            padding: 4px;
         }
         .toggle-pw:hover { color: #38c172; }
-
-        /* Remember + Lupa password row */
-        .row-remember {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin: 6px 0 20px;
-        }
-        .row-remember .left {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-        }
-        .row-remember input[type=checkbox] {
-            width: 14px; height: 14px;
-            accent-color: #38c172;
-            cursor: pointer;
-        }
-        .row-remember label { font-size: 12.5px; color: #6b7280; cursor: pointer; }
-        .link-forgot {
-            font-size: 12.5px;
-            color: #38c172;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color .15s;
-        }
-        .link-forgot:hover { color: #2ea65f; text-decoration: underline; }
 
         /* Button */
         .btn-login {
             width: 100%;
-            padding: 12px 16px;
+            margin-top: 8px;
+            padding: 13px 16px;
             background: #38c172;
             color: #fff;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 14.5px;
             font-weight: 700;
             font-family: 'Plus Jakarta Sans', sans-serif;
             cursor: pointer;
@@ -204,12 +178,23 @@
             justify-content: center;
             gap: 8px;
             line-height: 1;
-            transition: background .15s, transform .1s, box-shadow .15s;
+            transition: background .15s, transform .1s, box-shadow .15s, opacity .15s;
             letter-spacing: .1px;
         }
-        .btn-login i { font-size: 13px; line-height: 1; position: relative; top: 0; }
-        .btn-login:hover { background: #2ea65f; box-shadow: 0 4px 12px rgba(56,193,114,.3); }
-        .btn-login:active { transform: scale(.98); }
+        .btn-login:hover:not(:disabled) { background: #2ea65f; box-shadow: 0 4px 14px rgba(56,193,114,.35); }
+        .btn-login:active:not(:disabled) { transform: scale(.98); }
+        .btn-login:disabled { opacity: .75; cursor: not-allowed; }
+
+        /* Spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 15px; height: 15px;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            flex-shrink: 0;
+        }
 
         /* Footer */
         .card-foot {
@@ -225,9 +210,9 @@
 
 <div class="login-card">
 
-    {{-- Top brand bar --}}
+    {{-- Top brand --}}
     <div class="card-top">
-        <img src="{{ asset('images/avian-logo-normal.png') }}" alt="Avian" style="height:60px; width:auto; margin-bottom:10px;">
+        <img src="{{ asset('images/avian-logo-normal.png') }}" alt="Avian">
         <h1>Sistem WMS Avian</h1>
         <p>Warehouse Management System</p>
     </div>
@@ -251,7 +236,7 @@
             </div>
         @endif
 
-        <form action="{{ route('login.post') }}" method="POST">
+        <form action="{{ route('login.post') }}" method="POST" id="loginForm">
             @csrf
 
             <div class="field-group">
@@ -280,20 +265,35 @@
                 @error('password')<div class="invalid-text">{{ $message }}</div>@enderror
             </div>
 
-            <button type="submit" class="btn-login">
-                <i class="fas fa-sign-in-alt"></i> Masuk
+            <button type="submit" class="btn-login" id="btnLogin">
+                <i class="fas fa-sign-in-alt" id="btnIcon"></i>
+                <span id="btnText">Masuk</span>
             </button>
         </form>
+    </div>
+
+    <div class="card-foot">
+        &copy; {{ date('Y') }} Avian Brands · WMS v1.0
     </div>
 
 </div>
 
 <script>
 document.getElementById('togglePw').addEventListener('click', function () {
-    const pw = document.getElementById('password');
+    const pw  = document.getElementById('password');
     const show = pw.type === 'password';
     pw.type = show ? 'text' : 'password';
     this.className = 'toggle-pw fas ' + (show ? 'fa-eye-slash' : 'fa-eye');
+});
+
+document.getElementById('loginForm').addEventListener('submit', function () {
+    const btn  = document.getElementById('btnLogin');
+    const icon = document.getElementById('btnIcon');
+    const text = document.getElementById('btnText');
+
+    btn.disabled = true;
+    icon.outerHTML = '<div class="spinner"></div>';
+    text.textContent = 'Memproses...';
 });
 </script>
 </body>

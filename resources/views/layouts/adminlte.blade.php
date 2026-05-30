@@ -1832,6 +1832,12 @@
         // Safety fallback: paksa hide setelah 8 detik (jika init.dt tidak pernah fire)
         if (hasDt) setTimeout(hideLoader, 8000);
 
+        // Bfcache restore: window.load tidak re-fire saat halaman dikembalikan dari cache
+        // browser (klik tombol Back/Forward). pageshow selalu fire, termasuk bfcache restore.
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) hideLoader();
+        });
+
         // ── DataTable: hide page loader setelah data pertama selesai dimuat ──
         // init.dt fires setelah draw pertama (termasuk AJAX server-side selesai).
         // Ini yang menggantikan window.load untuk halaman ber-DataTable,

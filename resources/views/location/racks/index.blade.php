@@ -24,9 +24,6 @@
                                 <button class="btn btn-sm btn-outline-dark btnRefresh">
                                     <i class="fas fa-redo mr-2"></i>Refresh
                                 </button>
-                                <a href="{{ route('location.racks.create') }}" class="btn btn-primary btn-sm">
-                                    <i class="fas fa-plus mr-2"></i>Add
-                                </a>
                             </div>
                         </div>
                     </div>

@@ -47,11 +47,9 @@ class InboundReceiveService
         }
 
         // ── 3. Idempotency Check ────────────────────────────────────────────
-        // Jika DO number sudah ada (termasuk yang di-soft-delete), kembalikan data existing.
-        // Ini mencegah duplikasi jika ERP mengirim ulang karena timeout/retry.
-        $existing = InboundOrder::withTrashed()
-            ->where('do_number', $data['do_number'])
-            ->first();
+        // Jika DO number sudah ada dan TIDAK di-soft-delete, kembalikan data existing.
+        // Kalau DO pernah di-soft-delete, buat ulang sebagai DO baru.
+        $existing = InboundOrder::where('do_number', $data['do_number'])->first();
 
         if ($existing) {
             Log::info('[InboundReceive] DO sudah ada — idempotent response', [

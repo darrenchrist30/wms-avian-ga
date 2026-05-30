@@ -169,7 +169,7 @@
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
                 <small>Diterima Oleh</small>
-                <div class="val">{{ $order->receivedBy->name ?? '—' }}</div>
+                <div class="val">{{ $order->receivedBy?->name ?? '—' }}</div>
             </div>
             <div class="col-6 col-md-3 info-block mb-3">
                 <small>Gudang</small>
@@ -464,7 +464,7 @@
                     </div>
                 </div>
                 <div style="font-size:11px;color:#9ca3af;margin-top:10px;line-height:1.6;">
-                    <i class="fas fa-user-circle mr-1"></i>{{ $latestGa->generatedBy->name ?? '—' }}<br>
+                    <i class="fas fa-user-circle mr-1"></i>{{ $latestGa->generatedBy?->name ?? '—' }}<br>
                     <i class="fas fa-clock mr-1"></i>{{ $latestGa->generated_at?->format('d M Y, H:i') ?? '' }}
                 </div>
             </div>

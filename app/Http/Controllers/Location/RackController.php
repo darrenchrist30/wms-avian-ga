@@ -23,7 +23,15 @@ class RackController extends Controller
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
         $categories = ItemCategory::where('is_active', true)->orderBy('name')->get();
-        return view('location.racks.form', ['typeForm' => 'create', 'data' => null, 'warehouses' => $warehouses, 'categories' => $categories]);
+        return view('location.racks.form', [
+            'typeForm'            => 'create',
+            'data'                => null,
+            'warehouses'          => $warehouses,
+            'categories'          => $categories,
+            'selectedWarehouseId' => request('warehouse_id'),
+            'selectedPosX'        => request('pos_x'),
+            'selectedPosZ'        => request('pos_z'),
+        ]);
     }
 
     public function store(Request $request)
@@ -34,6 +42,7 @@ class RackController extends Controller
             'code'                  => 'required|string|max:20',
             'name'                  => 'nullable|string|max:100',
             'total_levels'          => 'required|integer|min:1|max:26',
+            'total_columns'         => 'required|integer|min:1|max:20',
             'pos_x'                 => 'nullable|numeric',
             'pos_z'                 => 'nullable|numeric',
             'rotation_y'            => 'nullable|numeric',
@@ -52,29 +61,45 @@ class RackController extends Controller
                 'code'                 => strtoupper($request->code),
                 'name'                 => $request->name,
                 'total_levels'         => $request->total_levels,
-                'total_columns'        => 1,
+                'total_columns'        => $request->total_columns,
                 'pos_x'                => $request->pos_x ?? 0,
                 'pos_z'                => $request->pos_z ?? 0,
                 'rotation_y'           => $request->rotation_y ?? 0,
                 'is_active'            => $request->boolean('is_active', true),
             ]);
-            // Generate sel: {kode_rak}-A sampai {kode_rak}-{huruf ke-N}
+            // Generate sel per level × kolom
+            // 1 kolom → kode: R-01-A, R-01-B   (tanpa suffix angka, backward-compatible)
+            // >1 kolom → kode: R-01-A1, R-01-A2, R-01-B1, ...
+            $cols = $rack->total_columns;
             for ($level = 1; $level <= $rack->total_levels; $level++) {
-                $letter = chr(64 + $level); // 1=A, 2=B, ..., 7=G
-                Cell::create([
-                    'rack_id'       => $rack->id,
-                    'code'          => $rack->code . '-' . $letter,
-                    'level'         => $level,
-                    'column'        => 1,
-                    'capacity_max'  => 100,
-                    'capacity_used' => 0,
-                    'status'        => 'available',
-                    'is_active'     => true,
-                ]);
+                $letter = chr(64 + $level);
+                for ($col = 1; $col <= $cols; $col++) {
+                    $cellCode = $cols === 1
+                        ? $rack->code . '-' . $letter
+                        : $rack->code . '-' . $letter . $col;
+                    Cell::create([
+                        'rack_id'       => $rack->id,
+                        'code'          => $cellCode,
+                        'level'         => $level,
+                        'column'        => $col,
+                        'capacity_max'  => 100,
+                        'capacity_used' => 0,
+                        'status'        => 'available',
+                        'is_active'     => true,
+                    ]);
+                }
             }
             DB::commit();
-            return redirect()->route('location.racks.index')
-                ->with('success', 'Rak ' . strtoupper($request->code) . ' berhasil ditambahkan beserta ' . $request->total_levels . ' sel (A–' . chr(64 + $request->total_levels) . ').');
+            $totalCells = $rack->total_levels * $cols;
+            $lastLetter = chr(64 + $rack->total_levels);
+            $successMsg = $cols === 1
+                ? 'Rak ' . strtoupper($request->code) . ' berhasil ditambahkan beserta ' . $totalCells . ' sel (A–' . $lastLetter . ').'
+                : 'Rak ' . strtoupper($request->code) . ' berhasil ditambahkan beserta ' . $totalCells . ' sel (' . $rack->total_levels . ' level × ' . $cols . ' kolom).';
+            if ($request->filled('from_warehouse')) {
+                return redirect()->route('location.warehouses.edit', $request->from_warehouse)
+                    ->with('success', $successMsg);
+            }
+            return redirect()->route('location.racks.index')->with('success', $successMsg);
         } catch (\Exception $e) {
             DB::rollBack();
             report($e);
@@ -82,7 +107,25 @@ class RackController extends Controller
         }
     }
 
-    public function show($id) { return redirect()->route('location.racks.index'); }
+    public function show($id)
+    {
+        $rack = Rack::with([
+            'warehouse',
+            'dominantCategory',
+            'cells' => fn($q) => $q->orderBy('level')->orderBy('column'),
+        ])->withCount('cells')->findOrFail($id);
+
+        // Susun grid: [level][column] => cell
+        $cellGrid = [];
+        foreach ($rack->cells as $cell) {
+            $cellGrid[$cell->level][$cell->column] = $cell;
+        }
+
+        $levels  = range(1, max(1, $rack->total_levels));
+        $columns = range(1, max(1, $rack->total_columns));
+
+        return view('location.racks.show', compact('rack', 'cellGrid', 'levels', 'columns'));
+    }
 
     public function edit($id)
     {
@@ -124,7 +167,7 @@ class RackController extends Controller
                 'is_active'            => $request->boolean('is_active', true),
             ]);
             DB::commit();
-            return redirect()->route('location.racks.index')->with('success', 'Rak berhasil diperbarui.');
+            return redirect()->route('location.racks.show', $id)->with('success', 'Rak berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
             report($e);
@@ -199,8 +242,8 @@ class RackController extends Controller
                     : '<span class="badge badge-secondary">Nonaktif</span>';
             })
             ->addColumn('action', function ($row) {
-                $editUrl = route('location.racks.edit', $row->id);
-                $html  = '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a> ';
+                $showUrl = route('location.racks.show', $row->id);
+                $html  = '<a href="' . $showUrl . '" class="btn btn-xs btn-primary" title="Detail"><i class="fas fa-eye"></i></a> ';
                 $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
                 return $html;
             })

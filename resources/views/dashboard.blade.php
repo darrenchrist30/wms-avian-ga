@@ -896,7 +896,7 @@
             @endif
 
             @if ($pendingPutAway > 0)
-                <div class="col-6 col-md-3 mb-2">
+                <div class="col-12 col-md-6 mb-2">
                     <a href="{{ route('putaway.index') }}" class="d-block text-decoration-none">
                         <div class="card border-0 shadow-sm h-100"
                             style="border-left:4px solid #38c172!important;border-radius:10px;cursor:pointer;transition:transform .15s"
