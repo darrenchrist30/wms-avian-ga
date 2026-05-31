@@ -545,12 +545,15 @@ $('#btnDoConfirm').on('click', function() {
                 // Update counter with bump animation
                 var confirmed = res.confirmed_count || pendingItems.length;
                 totalRemaining -= confirmed;
+                var $ctr = $('#itemCounter');
                 if (totalRemaining <= 0) {
-                    setTimeout(showAllDone, 700);
+                    $ctr.text('0 item menunggu').addClass('bumping');
+                    setTimeout(function() {
+                        $ctr.removeClass('bumping');
+                        showAllDone();
+                    }, 900);
                 } else {
-                    var $ctr = $('#itemCounter');
-                    $ctr.text(totalRemaining + ' item menunggu')
-                        .addClass('bumping');
+                    $ctr.text(totalRemaining + ' item menunggu').addClass('bumping');
                     setTimeout(function() { $ctr.removeClass('bumping'); }, 600);
                 }
 
@@ -605,7 +608,22 @@ function showAllDone() {
 
 // ── Camera scanner ─────────────────────────────────────────────────────────
 
-var html5QrCode = null;
+var html5QrCode  = null;
+var cameraActive = false; // true only after .start() resolves
+
+// Idempotent: safe to call multiple times or when camera was never started
+function stopCameraAndClean() {
+    var inst = html5QrCode;
+    html5QrCode  = null;
+    cameraActive = false;
+    var p = (inst && cameraActive !== false)
+        ? inst.stop().catch(function() {})
+        : Promise.resolve();
+    return p.finally(function() {
+        var el = document.getElementById('camReader');
+        if (el) el.innerHTML = '';
+    });
+}
 
 $('#btnCamera').on('click', function() {
     $('#modalCamera').modal('show');
@@ -617,24 +635,32 @@ $('#modalCamera').on('shown.bs.modal', function() {
         { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 250, height: 250 } },
         function(decoded) {
-            html5QrCode.stop().then(function() {
+            // QR decoded — stop camera then process
+            var inst = html5QrCode;
+            html5QrCode  = null;
+            cameraActive = false;
+            inst.stop().catch(function() {}).finally(function() {
+                document.getElementById('camReader').innerHTML = '';
                 $('#modalCamera').modal('hide');
                 $('#scanInput').val(decoded);
                 doScan(decoded);
-            }).catch(function() {});
+            });
         }
-    ).catch(function(err) {
+    ).then(function() {
+        cameraActive = true;
+    }).catch(function() {
+        // Camera access denied or device error
+        html5QrCode  = null;
+        cameraActive = false;
+        document.getElementById('camReader').innerHTML = '';
         setScanMsg('<i class="fas fa-times-circle mr-1"></i>Kamera tidak dapat diakses.', 'text-danger');
         $('#modalCamera').modal('hide');
     });
 });
 
-$('#modalCamera').on('hidden.bs.modal', function() {
-    if (html5QrCode) {
-        html5QrCode.stop().catch(function() {});
-        html5QrCode = null;
-        $('#camReader').empty();
-    }
+// User closes modal manually (X button or backdrop click)
+$('#modalCamera').on('hide.bs.modal', function() {
+    stopCameraAndClean();
 });
 
 $('#modalConfirm').on('hide.bs.modal', function() {

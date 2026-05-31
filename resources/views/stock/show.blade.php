@@ -452,24 +452,40 @@ $(function () {
         $.get('{{ route("location.cells.lookup") }}', { code: code }, function (res) {
             // Kode kolom (tanpa baris) — tampilkan baris picker
             if (res.column_found) {
-                var statusLabel = { available: 'Tersedia', partial: 'Sebagian', full: 'Penuh', blocked: 'Diblokir' };
                 var statusColor = { available: '#0d8564', partial: '#f59e0b', full: '#ef4444', blocked: '#6b7280' };
                 var html = '';
                 $.each(res.column_cells, function (i, c) {
-                    var color  = statusColor[c.status] || '#6b7280';
-                    var label  = statusLabel[c.status] || c.status;
-                    var sisa   = c.capacity_remaining + '/' + c.capacity_max;
+                    var isFull    = c.status === 'full' || c.status === 'blocked';
+                    var color     = statusColor[c.status] || '#6b7280';
+                    // Label: full/blocked show status only; others show remaining capacity
+                    var subLabel  = isFull
+                        ? (c.status === 'blocked' ? 'Diblokir' : 'Penuh')
+                        : 'Sisa: ' + c.capacity_remaining;
+                    var disabledAttr = isFull ? 'disabled' : '';
+                    var bgStyle      = isFull ? 'background:#f5f5f5;opacity:.6;cursor:not-allowed;' : 'background:#fff;';
                     html += '<button type="button" class="btn btn-sm btn-baris-pick" '
+                          + disabledAttr + ' '
                           + 'data-cell-id="' + c.id + '" data-cell-code="' + c.code + '" '
-                          + 'style="border:2px solid ' + color + ';color:' + color + ';background:#fff;border-radius:8px;padding:6px 12px;font-weight:600;">'
+                          + 'style="border:2px solid ' + color + ';color:' + color + ';'
+                          + bgStyle + 'border-radius:8px;padding:6px 12px;font-weight:600;">'
                           + 'Baris ' + c.baris
-                          + '<br><small style="font-weight:400;font-size:10px;">' + label + ' · ' + sisa + '</small>'
+                          + '<br><small style="font-weight:400;font-size:10px;">' + subLabel + '</small>'
                           + '</button>';
                 });
                 $('#tfBarisOptions').html(html);
                 $('#tfBarisPicker').removeClass('d-none');
-                $('#tfCellInfo').removeClass('d-none').addClass('text-muted')
-                    .text('Kolom ' + res.column_code + ' ditemukan. Pilih baris di bawah.');
+                // Auto-highlight first available baris — picker stays visible
+                var $first = $('#tfBarisOptions .btn-baris-pick:not([disabled])').first();
+                if ($first.length) {
+                    $('#tfToCellId').val($first.data('cell-id'));
+                    $('#tfToCellCode').val($first.data('cell-code'));
+                    $first.css('box-shadow', '0 0 0 3px currentColor');
+                    $('#tfCellInfo').removeClass('d-none text-muted').addClass('text-success')
+                        .text('✓ ' + $first.data('cell-code') + ' dipilih, ganti jika perlu');
+                } else {
+                    $('#tfCellInfo').removeClass('d-none').addClass('text-muted')
+                        .text('Kolom ' + res.column_code + ' ditemukan. Pilih baris di bawah.');
+                }
                 return;
             }
 
@@ -487,15 +503,18 @@ $(function () {
     $('#btnLookupCell').on('click', doLookup);
     $('#tfToCellCode').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); doLookup(); } });
 
-    // Klik tombol baris dari picker
+    // Klik tombol baris dari picker — highlight pilihan, picker tetap visible
     $(document).on('click', '.btn-baris-pick', function () {
+        if ($(this).prop('disabled')) return;
         var cellId   = $(this).data('cell-id');
         var cellCode = $(this).data('cell-code');
         $('#tfToCellId').val(cellId);
         $('#tfToCellCode').val(cellCode);
-        $('#tfBarisPicker').addClass('d-none');
+        // Highlight selected
+        $('.btn-baris-pick').css('opacity', '1').css('box-shadow', 'none');
+        $(this).css('box-shadow', '0 0 0 3px currentColor');
         $('#tfCellInfo').removeClass('d-none text-danger text-muted').addClass('text-success')
-            .text(cellCode + ' dipilih.');
+            .text('✓ ' + cellCode + ' dipilih');
     });
 
     // Eksekusi transfer
