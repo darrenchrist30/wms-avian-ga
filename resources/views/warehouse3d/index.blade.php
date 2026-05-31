@@ -978,6 +978,7 @@ function buildVerticalRack(rx, rz, rack) {
             cellCode:  cell.display_code ?? cell.code,
             status:    cell.status,
             util:      cell.utilization,
+            stockQty:  cell.stock_qty ?? 0,
             rackW:     CW,
             columnKey: rack.rack_code + '_lv' + (cell.level ?? 1),
             rackCode:  rack.rack_code,
@@ -1126,6 +1127,7 @@ function buildRack(rx, rz, rack) {
             cellCode:  cell.display_code ?? cell.code,
             status:    cell.status,
             util:      cell.utilization,
+            stockQty:  cell.stock_qty ?? 0,
             rackW:     RW,
             columnKey: rack.rack_code + '_lv' + (cell.level ?? 1),
             rackCode:  rack.rack_code,
@@ -1204,9 +1206,11 @@ function buildWarehouse(areas) {
 }
 
 // ── Load Data ─────────────────────────────────────────────────────────────
-function loadScene(wid) {
+function loadScene(wid, attempt) {
+    attempt = attempt || 1;
     loading.style.display = 'flex';
-    clearScene();
+    if (attempt === 1) clearScene();
+
     $.getJSON('{{ route("warehouse3d.data") }}', { warehouse_id: wid }, function (areas) {
         buildWarehouse(areas);
         loading.style.display = 'none';
@@ -1214,8 +1218,17 @@ function loadScene(wid) {
         if (INIT_HIGHLIGHT_ID) {
             applyHighlight(new Set([INIT_HIGHLIGHT_ID]), 'ga', 'Cell rekomendasi GA disorot — klik cell untuk detail');
         }
-    }).fail(function () {
-        loading.innerHTML = '<i class="fas fa-exclamation-triangle fa-2x text-danger"></i><span class="text-danger">Gagal memuat data 3D.</span>';
+    }).fail(function (xhr) {
+        if (attempt < 2) {
+            // Retry sekali otomatis setelah 1.5 detik
+            loading.innerHTML = '<span class="text-muted" style="font-size:13px;"><i class="fas fa-sync-alt fa-spin mr-1"></i>Koneksi lambat, mencoba ulang…</span>';
+            setTimeout(function () { loadScene(wid, 2); }, 1500);
+        } else {
+            const detail = xhr.responseJSON?.detail ? '<br><small style="opacity:.6">' + xhr.responseJSON.detail + '</small>' : '';
+            loading.innerHTML = '<i class="fas fa-exclamation-triangle fa-2x text-danger"></i>'
+                + '<span class="text-danger">Gagal memuat data 3D.' + detail + '</span>'
+                + '<br><button class="btn btn-sm btn-outline-secondary mt-2" onclick="loadScene(' + wid + ')"><i class="fas fa-redo mr-1"></i>Coba Lagi</button>';
+        }
     });
 }
 
@@ -1427,7 +1440,8 @@ renderer.domElement.addEventListener('mousemove', function (e) {
             hoveredMeshes = [m];
             tooltip.innerHTML = `<strong style="color:#fbbf24">${ud.cellCode}</strong><br>
                 Status: <span style="color:#94a3b8">${ud.status}</span><br>
-                Terisi: <span style="color:#94a3b8">${ud.util}%</span>`;
+                Terisi: <span style="color:#94a3b8">${ud.util}%</span>`
+                + (ud.stockQty > 0 ? `<br><span style="color:#64748b;font-size:10px">${ud.stockQty} unit tersedia</span>` : '');
         }
 
         tooltip.style.display = 'block';

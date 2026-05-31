@@ -8,9 +8,25 @@ use App\Models\Stock;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class Warehouse3DController extends Controller
 {
+    // ─── Warehouse IDs yang boleh diakses user ini ───────────────────────────
+    private function authorizedWarehouseIds(): array
+    {
+        $user = auth()->user();
+        if ($user->warehouse_id) {
+            return [(int) $user->warehouse_id];
+        }
+        return Warehouse::where('is_active', true)->pluck('id')->map(fn($id) => (int) $id)->toArray();
+    }
+
+    private function isWarehouseAuthorized(int $warehouseId): bool
+    {
+        return in_array($warehouseId, $this->authorizedWarehouseIds(), true);
+    }
+
     // ─── View utama 3D / grid visualisasi ───────────────────────────────────
     public function index(Request $request)
     {
@@ -57,7 +73,13 @@ class Warehouse3DController extends Controller
     // ─── JSON data grid visualisasi (per warehouse) ──────────────────────────
     public function data(Request $request)
     {
-        $warehouseId = $request->input('warehouse_id');
+        $warehouseId = (int) $request->input('warehouse_id');
+
+        if ($warehouseId && !$this->isWarehouseAuthorized($warehouseId)) {
+            return response()->json(['error' => 'Akses ditolak.'], 403);
+        }
+
+        try {
 
         $cellLoader = function ($q) {
             $q->where('is_active', true)->orderBy('level')->orderBy('column');
@@ -95,6 +117,8 @@ class Warehouse3DController extends Controller
             $utilPct = $cell->capacity_max > 0
                 ? round($cell->capacity_used / $cell->capacity_max * 100)
                 : 0;
+            // stock_qty from aggregated $stockLoader (SUM of available quantities)
+            $stockQty = (int) ($cell->stocks->first()?->qty ?? 0);
             return [
                 'cell_id'       => $cell->id,
                 'code'          => $cell->code,
@@ -109,6 +133,7 @@ class Warehouse3DController extends Controller
                 'capacity_max'  => $cell->capacity_max,
                 'capacity_used' => $cell->capacity_used,
                 'utilization'   => $utilPct,
+                'stock_qty'     => $stockQty,
                 'category'      => $cell->dominantCategory
                     ? ['name' => $cell->dominantCategory->name, 'color' => $cell->dominantCategory->color_code]
                     : null,
@@ -170,6 +195,18 @@ class Warehouse3DController extends Controller
         ]];
 
         return response()->json($data);
+
+        } catch (\Throwable $e) {
+            Log::error('[Warehouse3D] data() error', [
+                'warehouse_id' => $warehouseId,
+                'error'        => $e->getMessage(),
+                'trace'        => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'error'   => 'Gagal memuat data gudang. Coba refresh halaman.',
+                'detail'  => app()->isLocal() ? $e->getMessage() : null,
+            ], 500);
+        }
     }
 
     // ─── Detail grup mspart (semua kolom dalam satu blok-grup) ─────────────
@@ -184,14 +221,14 @@ class Warehouse3DController extends Controller
         }
 
         $columns = collect(range(1, 7))->map(function ($kolom) use ($blok, $grup, $barisRak) {
-            $cells        = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->where('is_active', true)->get();
+            $cells        = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->whereNotNull('baris')->where('is_active', true)->get();
             $barisCount   = $cells->count();
             $capUsed      = (int) $cells->sum('capacity_used');
             $capMax       = (int) ($cells->sum('capacity_max') ?: $barisCount * 20);
             $fullCount    = $cells->where('status', 'full')->count();
             $partialCount = $cells->where('status', 'partial')->count();
             $emptyCount   = $cells->filter(fn ($c) => (int) $c->capacity_used <= 0)->count();
-            $util         = $capMax > 0 ? min(100, (int) round($capUsed / $capMax * 100)) : 0;
+            $util         = $capMax > 0 ? min(100, (int) floor($capUsed / $capMax * 100)) : 0;
             $status       = $capUsed <= 0
                 ? 'available'
                 : (($barisCount > 0 && $fullCount >= $barisCount) ? 'full' : 'partial');
@@ -239,6 +276,7 @@ class Warehouse3DController extends Controller
                 ->where('grup', $grup)
                 ->where('kolom', $kolom)
                 ->where('is_active', true)
+                ->whereNotNull('baris')
                 ->orderBy('baris')
                 ->with([
                     'stocks' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)->with('item.unit')->orderBy('inbound_date'),
@@ -289,7 +327,7 @@ class Warehouse3DController extends Controller
                 'levels'         => $levels,
             ]);
         } catch (\Throwable $e) {
-            \Log::error('[Warehouse3D] columnDetail error', ['error' => $e->getMessage(), 'blok' => $blok, 'grup' => $grup, 'kolom' => $kolom]);
+            Log::error('[Warehouse3D] columnDetail error', ['error' => $e->getMessage(), 'blok' => $blok, 'grup' => $grup, 'kolom' => $kolom]);
             return response()->json(['error' => 'Gagal memuat data: ' . $e->getMessage()], 500);
         }
     }
@@ -320,8 +358,10 @@ class Warehouse3DController extends Controller
             return response()->json([]);
         }
 
+        $allowedIds = $this->authorizedWarehouseIds();
         $cells = Stock::where('status', 'available')
             ->where('quantity', '>', 0)
+            ->whereIn('warehouse_id', $allowedIds)
             ->whereHas('item', fn($iq) =>
                 $iq->where('sku', 'like', "%{$q}%")
                    ->orWhere('name', 'like', "%{$q}%")
@@ -343,6 +383,11 @@ class Warehouse3DController extends Controller
     // ─── Detail satu cell (AJAX popup) ──────────────────────────────────────
     public function cellDetail(Request $request, Cell $cell)
     {
+        $cell->loadMissing('rack');
+        if ($cell->rack && !$this->isWarehouseAuthorized((int) $cell->rack->warehouse_id)) {
+            return response()->json(['error' => 'Akses ditolak.'], 403);
+        }
+
         $cell->load([
             'rack.warehouse',
             'dominantCategory',
@@ -398,6 +443,7 @@ class Warehouse3DController extends Controller
             return response()->json(['error' => 'rack_code wajib diisi.'], 422);
         }
 
+        $allowedIds = $this->authorizedWarehouseIds();
         $rack = Rack::with([
                 'warehouse',
                 'cells' => fn ($q) => $q->orderBy('level')->orderBy('column'),
@@ -407,6 +453,7 @@ class Warehouse3DController extends Controller
                     ->orderBy('inbound_date', 'asc'),
             ])
             ->where('code', $rackCode)
+            ->whereIn('warehouse_id', $allowedIds)
             ->firstOrFail();
 
         $cells = $rack->cells;
