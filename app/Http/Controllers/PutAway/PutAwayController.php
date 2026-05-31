@@ -163,6 +163,47 @@ class PutAwayController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Operator Mode — Tampilan sederhana tablet untuk operator lapangan
+    // GET /putaway/operator
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function operatorMode(Request $request)
+    {
+        $user = auth()->user();
+
+        $items = GaRecommendationDetail::with([
+            'gaRecommendation.inboundOrder',
+            'inboundOrderItem.item.unit',
+            'cell.rack',
+        ])
+        ->whereHas('gaRecommendation', function ($q) use ($user) {
+            $q->where('status', 'accepted')
+              ->whereHas('inboundOrder', function ($q2) use ($user) {
+                  $q2->where('status', 'put_away');
+                  if ($user->warehouse_id) {
+                      $q2->where('warehouse_id', $user->warehouse_id);
+                  }
+              });
+        })
+        ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
+        ->whereDoesntHave('putAwayConfirmations')
+        ->get()
+        ->sortBy(function ($d) {
+            $c = $d->cell;
+            if (!$c) return '99999-Z-999-999';
+            return sprintf('%05d-%s-%03d-%03d',
+                (int)($c->blok ?? 99999),
+                strtoupper((string)($c->grup ?? 'Z')),
+                (int)($c->kolom ?? 999),
+                (int)($c->baris ?? 999)
+            );
+        })
+        ->values();
+
+        return view('putaway.operator', compact('items'));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Show — Detail Order + Rekomendasi GA + Progress Put-Away
     // GET /putaway/{order}
     // ─────────────────────────────────────────────────────────────────────────
@@ -493,6 +534,25 @@ class PutAwayController extends Controller
             $displayCode = $exactCell->physical_code;
             $displayRack = $exactCell->rack?->code ?? '-';
 
+            // Column-level cell (baris=null) → expand to all shelf cells in this column
+            if (!$isOverride
+                && $exactCell->blok !== null
+                && $exactCell->grup !== null
+                && $exactCell->kolom !== null
+                && $exactCell->baris === null
+            ) {
+                $shelfIds = Cell::where('blok', $exactCell->blok)
+                    ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper((string) $exactCell->grup)])
+                    ->where('kolom', $exactCell->kolom)
+                    ->whereNotNull('baris')
+                    ->where('is_active', true)
+                    ->pluck('id');
+                if ($shelfIds->isNotEmpty()) {
+                    $cellIds     = $shelfIds;
+                    $displayCode = strtoupper($exactCell->blok . '-' . $exactCell->grup . '-' . $exactCell->kolom) . ' (Kolom)';
+                }
+            }
+
             if ($isOverride && $exactCell->blok !== null && $exactCell->grup !== null) {
                 $cellIds = Cell::where('blok', $exactCell->blok)
                     ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper((string) $exactCell->grup)])
@@ -500,8 +560,40 @@ class PutAwayController extends Controller
                     ->pluck('id');
             }
         } else {
-            // ── Try 2: blok-grup rack QR (e.g. "1-A" → all cells blok=1, grup=A) ─
+            // ── Try 2: blok-grup-kolom column QR (e.g. "1-A-1" → all cells blok=1,grup=A,kolom=1) ─
             $parts = explode('-', $qrCode);
+            if (count($parts) === 3) {
+                $blok  = $parts[0];
+                $grup  = $parts[1];
+                $kolom = $parts[2];
+
+                $cellIds = Cell::where('blok', $blok)
+                    ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper($grup)])
+                    ->where('kolom', $kolom)
+                    ->where('is_active', true)
+                    ->pluck('id');
+
+                $displayCode = strtoupper($blok . '-' . $grup . '-' . $kolom) . ' (Kolom)';
+                $displayRack = strtoupper($blok . '-' . $grup);
+
+                if ($isOverride) {
+                    $targetCell = Cell::where('blok', $blok)
+                        ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper($grup)])
+                        ->where('kolom', $kolom)
+                        ->where('is_active', true)
+                        ->with('rack')
+                        ->get()
+                        ->filter(fn(Cell $cell) => $cell->physical_capacity_remaining > 0)
+                        ->sortBy(fn(Cell $cell) => (int) $cell->baris)
+                        ->first();
+
+                    if ($targetCell) {
+                        $displayCode = $targetCell->physical_code . ' (Override)';
+                    }
+                }
+            }
+
+            // ── Try 3: blok-grup rack QR (e.g. "1-A" → all cells blok=1, grup=A) ─
             if (count($parts) === 2) {
                 $blok = $parts[0];
                 $grup = $parts[1];   // MySQL string compare is CI by default

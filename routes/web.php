@@ -120,6 +120,7 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::post('scan-qr', [\App\Http\Controllers\PutAway\PutAwayController::class, 'scanQr'])->name('scan-qr');
         Route::get('batch-scan', [\App\Http\Controllers\PutAway\PutAwayController::class, 'batchScan'])->name('batch-scan');
         Route::post('batch-confirm', [\App\Http\Controllers\PutAway\PutAwayController::class, 'batchConfirm'])->name('batch-confirm');
+        Route::get('operator', [\App\Http\Controllers\PutAway\PutAwayController::class, 'operatorMode'])->name('operator');
         Route::get('{order}', [\App\Http\Controllers\PutAway\PutAwayController::class, 'show'])->name('show');
         Route::get('{order}/alternative-cells', [\App\Http\Controllers\PutAway\PutAwayController::class, 'alternativeCells'])
             ->name('alternative-cells');

@@ -1261,6 +1261,9 @@
             {{-- Right: bell + divider + user --}}
             <ul class="navbar-nav ml-auto align-items-center">
 
+                {{-- Per-page navbar actions (e.g. operator mode buttons) --}}
+                @stack('navbar_right')
+
                 {{-- ── Notification Bell Dropdown ── --}}
                 <li class="nav-item dropdown" id="notifDropdownItem">
                     <a class="nav-link position-relative" href="#"
@@ -1501,6 +1504,14 @@
                                         class="nav-link {{ request()->routeIs('putaway.queue') ? 'active' : '' }}">
                                         <i class="fas fa-stream nav-icon" style="font-size:12px;"></i>
                                         <p>Put-Away Queue</p>
+                                    </a>
+                                </li>
+                                <li class="nav-item">
+                                    <a href="{{ route('putaway.operator') }}"
+                                        class="nav-link {{ request()->routeIs('putaway.operator') ? 'active' : '' }}"
+                                        style="{{ request()->routeIs('putaway.operator') ? '' : 'color:#34d399;' }}">
+                                        <i class="fas fa-hard-hat nav-icon" style="font-size:12px;"></i>
+                                        <p>Mode Operator <span class="badge badge-success ml-1" style="font-size:9px;">TABLET</span></p>
                                     </a>
                                 </li>
                             </ul>
