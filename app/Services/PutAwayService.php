@@ -457,9 +457,13 @@ class PutAwayService
      */
     private function upsertStock(InboundOrderItem $detail, Cell $cell, int $qty): void
     {
+        // Match by inbound_order_item_id so each DO lot keeps its own row and
+        // inbound_date. Different lots going to the same cell get separate rows
+        // (proper FIFO with per-lot "tidak gerak" tracking).
         $existing = Stock::where('item_id', $detail->item_id)
             ->where('cell_id', $cell->id)
             ->where('status', 'available')
+            ->where('inbound_order_item_id', $detail->id)
             ->when(
                 $detail->lpn === null,
                 fn($q) => $q->whereNull('lpn'),

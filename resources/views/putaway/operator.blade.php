@@ -2,6 +2,7 @@
 @section('title', 'Mode Operator — Put-Away')
 
 @push('styles')
+<link rel="stylesheet" href="{{ asset('adminlte/plugins/toastr/toastr.min.css') }}">
 <style>
 body { background: #f0f2f5; }
 
@@ -102,6 +103,28 @@ body { background: #f0f2f5; }
 /* All done state */
 .all-done-screen { text-align: center; padding: 70px 20px; }
 
+/* Toastr custom size for operator */
+#toast-container.toast-top-center { top: 20px; }
+#toast-container.toast-top-center > .toast {
+    font-size: 16px;
+    padding: 16px 20px;
+    min-width: 280px;
+    max-width: 420px;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+#toast-container .toast-success { background-color: #0d8564 !important; }
+#toast-container .toast-title { font-size: 14px; font-weight: 700; }
+#toast-container .toast-message { margin-top: 4px; line-height: 1.4; }
+
+/* Counter bump animation */
+@keyframes counterBump {
+    0%   { transform: scale(1); }
+    35%  { transform: scale(1.18); color: #a8e6cf; }
+    100% { transform: scale(1); }
+}
+#itemCounter.bumping { animation: counterBump 0.5s ease; }
+
 /* ── Mobile (< 576px) ───────────────────────────────────────── */
 @media (max-width: 575px) {
     .op-header { padding: 14px 14px 12px; }
@@ -129,7 +152,7 @@ body { background: #f0f2f5; }
 @endpush
 
 @section('content')
-<div class="container-fluid px-2 px-md-3" id="mainContent" style="padding-bottom:160px;">
+<div class="container-fluid px-2 px-md-3" id="mainContent">
 
     {{-- ── Nav tombol ──────────────────────────────────────────────────── --}}
     <div class="d-flex justify-content-end mb-3" style="gap:8px;">
@@ -277,6 +300,9 @@ body { background: #f0f2f5; }
             @endforeach
         </div>
 
+        {{-- Spacer so the last card can scroll fully above the fixed scan bar --}}
+        <div id="scrollSpacer" style="height:200px;"></div>
+
     @endif
 </div>
 
@@ -320,8 +346,7 @@ body { background: #f0f2f5; }
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">
                     <i class="fas fa-times mr-1"></i> Batal
                 </button>
-                <button type="button" id="btnDoConfirm" class="btn btn-success btn-lg" disabled
-                    style="font-size:17px;font-weight:700;min-width:180px;">
+                <button type="button" id="btnDoConfirm" class="btn" style="background:#0d8564;color:#fff;border-color:#0d8564;font-weight:700;" disabled
                     <i class="fas fa-check mr-1"></i>
                     Konfirmasi (<span id="confirmCount">0</span> item)
                 </button>
@@ -351,6 +376,7 @@ body { background: #f0f2f5; }
 @endsection
 
 @push('scripts')
+<script src="{{ asset('adminlte/plugins/toastr/toastr.min.js') }}"></script>
 <script src="{{ asset('adminlte/plugins/html5-qrcode/html5-qrcode.min.js') }}"></script>
 <script>
 var batchScanUrl    = '{{ route('putaway.batch-scan') }}';
@@ -434,14 +460,22 @@ function buildConfirmModal(res) {
         var splitNote = item.requires_split && item.split_quantity > 0
             ? '<div class="text-warning small"><i class="fas fa-info-circle mr-1"></i>Kapasitas sebagian: ' + item.primary_quantity + ' dari ' + item.quantity + ' item</div>'
             : '';
-        html += '<li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0">'
+        var cellCode  = item.cell_code || item.ga_cell_code || '';
+        var barisNote = cellCode
+            ? '<div style="margin-top:4px;">'
+              + '<span style="background:#0d8564;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;">'
+              + '<i class="fas fa-map-marker-alt mr-1"></i>' + cellCode
+              + '</span></div>'
+            : '';
+        html += '<li class="list-group-item d-flex justify-content-between align-items-start py-2 px-0">'
               + '<div>'
               +   '<div style="font-size:15px;font-weight:700;">' + (item.item_name || '-') + '</div>'
               +   '<div class="text-muted small">' + (item.item_sku || '-') + '</div>'
               +   '<div class="text-muted" style="font-size:11px;">DO: ' + (item.do_number || '-') + '</div>'
+              +   barisNote
               +   splitNote
               + '</div>'
-              + '<span class="badge badge-success" style="font-size:17px;padding:8px 14px;font-weight:800;">'
+              + '<span class="badge badge-success ml-2 flex-shrink-0" style="font-size:17px;padding:8px 14px;font-weight:800;background:#0d8564;">'
               +   item.primary_quantity + ' <span style="font-size:11px;font-weight:400;">' + item.unit + '</span>'
               + '</span>'
               + '</li>';
@@ -479,8 +513,18 @@ $('#btnDoConfirm').on('click', function() {
             $('#modalConfirm').modal('hide');
 
             if (res.status === 'success') {
-                // Collect unique cell_ids from confirmed items
                 var cellIds = [...new Set(pendingItems.map(function(i) { return i.cell_id; }))];
+                var cellIdStrs = cellIds.map(String);
+
+                // Find NEXT location BEFORE removing groups
+                var nextLocation = null;
+                $('#itemList .loc-group').each(function() {
+                    var cid = String($(this).data('cell-id'));
+                    if (cellIdStrs.indexOf(cid) === -1) {
+                        nextLocation = $(this).find('.loc-code').first().text().trim();
+                        return false; // break
+                    }
+                });
 
                 // Remove item rows
                 pendingItems.forEach(function(item) {
@@ -498,18 +542,35 @@ $('#btnDoConfirm').on('click', function() {
                     });
                 }, 250);
 
-                // Update counter
-                totalRemaining -= res.confirmed_count || pendingItems.length;
+                // Update counter with bump animation
+                var confirmed = res.confirmed_count || pendingItems.length;
+                totalRemaining -= confirmed;
                 if (totalRemaining <= 0) {
                     setTimeout(showAllDone, 700);
                 } else {
-                    $('#itemCounter').text(totalRemaining + ' item menunggu');
+                    var $ctr = $('#itemCounter');
+                    $ctr.text(totalRemaining + ' item menunggu')
+                        .addClass('bumping');
+                    setTimeout(function() { $ctr.removeClass('bumping'); }, 600);
                 }
 
-                setScanMsg(
-                    '<i class="fas fa-check-circle mr-1 text-success"></i>' + res.message,
-                    'text-success'
-                );
+                // Toast: success + next location
+                var toastMsg = confirmed + ' item berhasil disimpan.';
+                if (nextLocation) {
+                    toastMsg += '<br><strong style="font-size:18px;">→ ' + nextLocation + '</strong>';
+                }
+                toastr.success(toastMsg, 'Put-Away Berhasil', {
+                    timeOut: 4000,
+                    extendedTimeOut: 2000,
+                    closeButton: true,
+                    progressBar: true,
+                    positionClass: 'toast-top-center',
+                    enableHtml: true,
+                    toastClass: 'toast',
+                    titleClass: 'toast-title',
+                    messageClass: 'toast-message',
+                });
+                resetScanMsg();
                 pendingItems = null;
                 focusScan();
             } else {
@@ -584,15 +645,24 @@ $('#modalConfirm').on('hidden.bs.modal', function() {
     focusScan();
 });
 
-// Dynamically match padding-bottom to actual scan bar height
-function adjustBottomPadding() {
-    var barH = $('#scanBar').outerHeight(true) || 0;
-    $('#mainContent').css('padding-bottom', (barH + 24) + 'px');
+// Size the spacer element to match the scan bar height so the last card
+// is always fully scrollable above the fixed scan bar.
+// Uses a real DOM element (not padding) so AdminLTE cannot reset it.
+function adjustSpacer() {
+    var barH = document.getElementById('scanBar').offsetHeight || 0;
+    var spacer = document.getElementById('scrollSpacer');
+    if (spacer) spacer.style.height = Math.max(200, barH + 80) + 'px';
 }
-$(document).ready(function() {
-    adjustBottomPadding();
-    $(window).on('resize', adjustBottomPadding);
-    $('#scanInput').focus();
-});
+
+(function() {
+    adjustSpacer();
+    if (window.ResizeObserver) {
+        new ResizeObserver(adjustSpacer).observe(document.getElementById('scanBar'));
+    }
+    window.addEventListener('resize', adjustSpacer);
+    [100, 300, 700, 1500].forEach(function(t) { setTimeout(adjustSpacer, t); });
+})();
+
+$(document).ready(function() { $('#scanInput').focus(); });
 </script>
 @endpush

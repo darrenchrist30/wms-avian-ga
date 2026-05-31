@@ -534,7 +534,9 @@ class PutAwayController extends Controller
             $displayCode = $exactCell->physical_code;
             $displayRack = $exactCell->rack?->code ?? '-';
 
-            // Column-level cell (baris=null) → expand to all shelf cells in this column
+            // Column-level cell (baris=null) → expand to all shelf cells in this column.
+            // Do NOT filter by is_active — GA may have assigned items to cells that
+            // were later deactivated; we still need to surface those pending details.
             if (!$isOverride
                 && $exactCell->blok !== null
                 && $exactCell->grup !== null
@@ -545,7 +547,6 @@ class PutAwayController extends Controller
                     ->whereRaw('UPPER(CAST(grup AS CHAR)) = ?', [strtoupper((string) $exactCell->grup)])
                     ->where('kolom', $exactCell->kolom)
                     ->whereNotNull('baris')
-                    ->where('is_active', true)
                     ->pluck('id');
                 if ($shelfIds->isNotEmpty()) {
                     $cellIds     = $shelfIds;
@@ -658,7 +659,9 @@ class PutAwayController extends Controller
               });
         })
         ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
-        ->get();
+        ->get()
+        ->sortBy(fn($d) => (int) ($d->cell?->baris ?? 9999))
+        ->values();
 
         $capacityService = app(CellCapacityService::class);
         $overrideRemaining = $targetCell ? $capacityService->remainingPoints($targetCell) : 0;

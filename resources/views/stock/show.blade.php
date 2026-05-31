@@ -84,9 +84,9 @@
 </div>
 
 {{-- Summary mini cards --}}
-<div class="row mb-3">
-    <div class="col-6 mb-2">
-        <div class="small-box mb-0" style="background-color:{{ $sCls }}; color:#fff;">
+<div class="row mb-3" style="align-items:stretch;">
+    <div class="col-6 mb-2 d-flex">
+        <div class="small-box mb-0 w-100" style="background-color:{{ $sCls }}; color:#fff;">
             <div class="inner">
                 <h4 style="color:#fff;">{{ number_format($totalQty) }}</h4>
                 <p>Total Qty Tersedia</p>
@@ -94,8 +94,8 @@
             <div class="icon"><i class="fas fa-cubes"></i></div>
         </div>
     </div>
-    <div class="col-6 mb-2">
-        <div class="small-box mb-0 {{ $cellCount > 1 ? 'bg-warning' : 'bg-info' }}">
+    <div class="col-6 mb-2 d-flex">
+        <div class="small-box mb-0 w-100 {{ $cellCount > 1 ? 'bg-warning' : 'bg-info' }}">
             <div class="inner">
                 <h4>{{ $cellCount }}</h4>
                 <p>
