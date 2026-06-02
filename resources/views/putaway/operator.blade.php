@@ -62,7 +62,7 @@ body { background: #f0f2f5; }
 .item-row:last-child { border-bottom: 0; }
 .item-name { font-size: 17px; font-weight: 700; line-height: 1.2; }
 .item-sku  { font-size: 12px; color: #6c757d; margin-top: 3px; }
-.item-do   { font-size: 11px; color: #adb5bd; margin-top: 2px; }
+.item-do   { font-size: 12px; color: #fff; background: #6c757d; border-radius: 4px; padding: 1px 7px; margin-top: 4px; display: inline-block; font-weight: 600; letter-spacing: .3px; }
 .qty-box {
     background: #0d8564;
     color: #fff;
@@ -91,10 +91,21 @@ body { background: #f0f2f5; }
 /* Sidebar collapsed (icon-only mode) */
 .sidebar-collapse #scanBar { left: 70px; }
 /* Mobile — sidebar jadi overlay, scan bar full width */
-@media (max-width: 991px) {
-    #scanBar { left: 0; }
+@media (max-width: 1199.98px) {
+    #scanBar,
+    .sidebar-collapse #scanBar {
+        left: 0 !important;
+        right: 0 !important;
+        width: auto;
+    }
 }
-#scanBar .inner { max-width: 100%; }
+.scan-controls {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) auto auto;
+    gap: 8px;
+    align-items: center;
+    max-width: 100%;
+}
 #scanInput { height: 54px; font-size: 20px; font-weight: 700; border-radius: 8px; }
 #btnCamera { width: 54px; height: 54px; border-radius: 8px; font-size: 19px; flex-shrink: 0; }
 #btnScan   { height: 54px; font-size: 16px; font-weight: 700; border-radius: 8px; padding: 0 20px; flex-shrink: 0; }
@@ -107,7 +118,7 @@ body { background: #f0f2f5; }
 #toast-container.toast-top-center { top: 20px; }
 #toast-container.toast-top-center > .toast {
     font-size: 16px;
-    padding: 16px 20px;
+    padding: 14px 20px 14px 52px;
     min-width: 280px;
     max-width: 420px;
     border-radius: 10px;
@@ -117,6 +128,30 @@ body { background: #f0f2f5; }
 #toast-container .toast-title { font-size: 14px; font-weight: 700; }
 #toast-container .toast-message { margin-top: 4px; line-height: 1.4; }
 
+/* Filter toggle */
+.btn-avian-filter {
+    border: 2px solid #ced4da;
+    color: #6c757d;
+    background: #fff;
+    font-weight: 600;
+    transition: background .15s, color .15s, border-color .15s;
+}
+.btn-avian-filter:hover,
+.btn-avian-filter:focus {
+    border-color: #0d8564;
+    color: #0d8564;
+    background: #f0faf7;
+    text-decoration: none;
+}
+.btn-avian-filter.active {
+    background: #0d8564;
+    border-color: #0d8564;
+    color: #fff;
+}
+.btn-group .btn-avian-filter.active:not(:last-child) {
+    border-right-color: #0a6e52;
+}
+
 /* Counter bump animation */
 @keyframes counterBump {
     0%   { transform: scale(1); }
@@ -124,6 +159,27 @@ body { background: #f0f2f5; }
     100% { transform: scale(1); }
 }
 #itemCounter.bumping { animation: counterBump 0.5s ease; }
+
+/* Quick confirm toggle button */
+#btnQuickConfirm {
+    height: 54px;
+    padding: 0 20px;
+    font-size: 16px;
+    font-weight: 700;
+    border-radius: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background .2s, border-color .2s, color .2s;
+    border: 2px solid #ced4da;
+    color: #6c757d;
+    background: #fff;
+}
+#btnQuickConfirm.qc-on {
+    border-color: #0d8564;
+    color: #fff;
+    background: #0d8564;
+}
+#scanBar.qc-active { border-top-color: #0d8564; }
 
 /* ── Mobile (< 576px) ───────────────────────────────────────── */
 @media (max-width: 575px) {
@@ -139,6 +195,8 @@ body { background: #f0f2f5; }
     #btnCamera { width: 48px; height: 48px; font-size: 16px; }
     #btnScan   { height: 48px; font-size: 14px; padding: 0 12px; }
     #scanBar   { padding: 8px 12px 8px; }
+    .scan-controls { grid-template-columns: 48px minmax(0, 1fr) 58px auto; }
+    #btnQuickConfirm { height: 48px; padding: 0 14px; font-size: 14px; }
     .container-fluid { padding-left: 8px !important; padding-right: 8px !important; }
     .cap-bar { width: 70px; }
 }
@@ -147,6 +205,9 @@ body { background: #f0f2f5; }
 @media (min-width: 576px) and (max-width: 767px) {
     .loc-code { font-size: 32px; }
     .item-name { font-size: 16px; }
+    #scanBar { padding-left: 14px; padding-right: 14px; }
+    .scan-controls { grid-template-columns: 52px minmax(0, 1fr) 88px; }
+    #btnScan { padding-left: 14px; padding-right: 14px; }
 }
 </style>
 @endpush
@@ -154,52 +215,138 @@ body { background: #f0f2f5; }
 @section('content')
 <div class="container-fluid px-2 px-md-3" id="mainContent">
 
-    {{-- ── Nav tombol ──────────────────────────────────────────────────── --}}
-    <div class="d-flex justify-content-end mb-3" style="gap:8px;">
-        <a href="{{ route('putaway.queue') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-list mr-1"></i> Tampilan Lengkap
-        </a>
-        <a href="{{ route('putaway.index') }}" class="btn btn-sm btn-outline-secondary">
-            <i class="fas fa-arrow-left mr-1"></i> Kembali
-        </a>
+    {{-- ── Nav + Filter ────────────────────────────────────────────────── --}}
+    <div class="d-flex align-items-center justify-content-between mb-3" style="gap:8px;flex-wrap:wrap;">
+
+        {{-- Filter toggle kiri --}}
+        <div class="btn-group" role="group">
+            <a href="{{ route('putaway.operator') }}"
+               class="btn btn-sm btn-avian-filter {{ !$allActive && !$hasDateFilter ? 'active' : '' }}">
+                <i class="fas fa-calendar-day mr-1"></i>Hari Ini
+                @if(!$allActive && !$hasDateFilter && $items->isNotEmpty())
+                    <span class="badge ml-1" style="background:rgba(255,255,255,.3);color:#fff;font-size:11px;">{{ $items->count() }}</span>
+                @endif
+            </a>
+            <a href="{{ route('putaway.operator', ['all_active' => 1]) }}"
+               class="btn btn-sm btn-avian-filter {{ $allActive ? 'active' : '' }}">
+                <i class="fas fa-list mr-1"></i>Semua DO
+                @if($allActive && $items->isNotEmpty())
+                    <span class="badge ml-1" style="background:rgba(255,255,255,.3);color:#fff;font-size:11px;">{{ $items->count() }}</span>
+                @endif
+            </a>
+            <button type="button" id="btnToggleDateFilter"
+                    class="btn btn-sm btn-avian-filter {{ $hasDateFilter ? 'active' : '' }}">
+                <i class="fas fa-calendar-alt mr-1"></i>Pilih Tanggal
+                @if($hasDateFilter && $items->isNotEmpty())
+                    <span class="badge ml-1" style="background:rgba(255,255,255,.3);color:#fff;font-size:11px;">{{ $items->count() }}</span>
+                @endif
+            </button>
+        </div>
+
+        {{-- Nav kanan --}}
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+            <a href="{{ route('putaway.queue') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-list mr-1"></i><span class="d-none d-sm-inline">Tampilan Lengkap</span>
+            </a>
+            <a href="{{ route('putaway.index') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left mr-1"></i><span class="d-none d-sm-inline">Kembali</span>
+            </a>
+        </div>
+    </div>
+
+    {{-- ── Date filter form (collapsible) ─────────────────────────────── --}}
+    <div id="dateFilterForm" class="{{ $hasDateFilter ? '' : 'd-none' }} mb-3">
+        <form method="GET" action="{{ route('putaway.operator') }}"
+              class="d-flex align-items-center flex-wrap"
+              style="gap:8px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;padding:10px 14px;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:1;">
+                <label class="mb-0 text-muted" style="font-size:13px;white-space:nowrap;">
+                    <i class="fas fa-calendar mr-1"></i>Dari
+                </label>
+                <input type="date" name="start_date" class="form-control form-control-sm"
+                       style="width:150px;" value="{{ $startDate }}">
+                <label class="mb-0 text-muted" style="font-size:13px;white-space:nowrap;">s/d</label>
+                <input type="date" name="end_date" class="form-control form-control-sm"
+                       style="width:150px;" value="{{ $endDate }}">
+            </div>
+            <button type="submit" class="btn btn-sm" style="background:#0d8564;color:#fff;border-color:#0d8564;white-space:nowrap;">
+                <i class="fas fa-filter mr-1"></i>Filter
+            </button>
+            <a href="{{ route('putaway.operator') }}" class="btn btn-sm btn-outline-secondary" style="white-space:nowrap;">
+                <i class="fas fa-times mr-1"></i>Reset
+            </a>
+        </form>
     </div>
 
     {{-- ── Header ─────────────────────────────────────────────────────── --}}
     <div class="op-header">
-        <div>
-            <div style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:1px;">
-                <i class="fas fa-hard-hat mr-1"></i> Mode Operator — Put-Away
-            </div>
-            <h2 id="itemCounter">
-                @if($items->isEmpty())
-                    Semua selesai!
-                @else
-                    {{ $items->count() }} item menunggu
-                @endif
-            </h2>
-            <small>
-                <i class="fas fa-info-circle mr-1"></i>
-                Taruh barang → scan QR cell → konfirmasi
-            </small>
+        <div style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:1px;">
+            <i class="fas fa-hard-hat mr-1"></i> Mode Operator — Put-Away
         </div>
+        <h2 id="itemCounter" style="margin:4px 0 2px;">
+            @if($items->isEmpty())
+                @if($otherActiveCount > 0) Tidak ada DO hari ini @else Semua selesai! @endif
+            @else
+                {{ $items->count() }} item menunggu
+            @endif
+        </h2>
+        <small>
+            <i class="fas fa-calendar-day mr-1"></i>
+            @if($allActive)
+                Semua DO aktif
+            @elseif($hasDateFilter)
+                @if($startDate && $endDate)
+                    {{ \Carbon\Carbon::parse($startDate)->isoFormat('D MMM') }} — {{ \Carbon\Carbon::parse($endDate)->isoFormat('D MMM YYYY') }}
+                @elseif($startDate)
+                    Dari {{ \Carbon\Carbon::parse($startDate)->isoFormat('D MMM YYYY') }}
+                @else
+                    Sampai {{ \Carbon\Carbon::parse($endDate)->isoFormat('D MMM YYYY') }}
+                @endif
+            @else
+                DO Hari Ini &middot; {{ \Carbon\Carbon::parse($today)->isoFormat('D MMM YYYY') }}
+            @endif
+        </small>
     </div>
 
     @if($items->isEmpty())
 
         <div class="all-done-screen">
-            <i class="fas fa-check-circle fa-5x text-success mb-3" style="display:block;"></i>
-            <h3 class="text-success font-weight-bold">Tidak ada item yang perlu di-put-away</h3>
-            <p class="text-muted">Semua sudah dikonfirmasi atau belum ada DO aktif hari ini.</p>
-            <a href="{{ route('putaway.index') }}" class="btn btn-primary btn-lg mt-2">
-                <i class="fas fa-home mr-1"></i> Beranda Put-Away
-            </a>
+            @if($otherActiveCount > 0)
+                {{-- Tidak ada DO hari ini tapi ada DO lain yang aktif --}}
+                <i class="fas fa-calendar-times fa-4x text-warning mb-3" style="display:block;"></i>
+                <h3 class="font-weight-bold">Tidak ada DO untuk hari ini</h3>
+                <p class="text-muted">Tapi ada <strong>{{ $otherActiveCount }} item</strong> dari DO tanggal lain yang belum selesai.</p>
+                <a href="{{ route('putaway.operator', ['all_active' => 1]) }}"
+                   class="btn btn-warning btn-lg mt-2 mr-2">
+                    <i class="fas fa-list mr-1"></i> Tampilkan Semua DO Aktif
+                </a>
+                <a href="{{ route('putaway.index') }}" class="btn btn-outline-secondary btn-lg mt-2">
+                    <i class="fas fa-home mr-1"></i> Kembali
+                </a>
+            @else
+                {{-- Benar-benar semua selesai --}}
+                <i class="fas fa-check-circle fa-5x text-success mb-3" style="display:block;"></i>
+                <h3 class="text-success font-weight-bold">Semua selesai!</h3>
+                <p class="text-muted">Tidak ada item yang perlu di-put-away.</p>
+                <a href="{{ route('putaway.index') }}" class="btn btn-primary btn-lg mt-2">
+                    <i class="fas fa-home mr-1"></i> Beranda Put-Away
+                </a>
+            @endif
         </div>
 
     @else
 
+        @if($allActive)
+            <div class="alert alert-warning border-0 py-2 mb-3" style="font-size:13px;">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                <strong>Semua DO aktif</strong> — termasuk DO dari tanggal sebelumnya.
+                <a href="{{ route('putaway.operator') }}" class="ml-2 alert-link">Tampilkan hari ini saja</a>
+            </div>
+        @endif
+
         <div class="alert alert-info border-0 py-2 mb-3" style="font-size:13px;">
             <i class="fas fa-route mr-1"></i>
-            Item diurutkan berdasarkan lokasi fisik — ikuti urutan ini untuk jalur tercepat di gudang.
+            Ikuti urutan lokasi untuk jalur tercepat.
         </div>
 
         {{-- ── Item groups per lokasi ──────────────────────────────────── --}}
@@ -309,20 +456,27 @@ body { background: #f0f2f5; }
 {{-- ── Fixed scan bar ─────────────────────────────────────────────────── --}}
 @if($items->isNotEmpty())
 <div id="scanBar">
-    <div class="d-flex" style="gap:8px;">
+    <div class="scan-controls">
         <button type="button" id="btnCamera" class="btn btn-outline-secondary" title="Scan dengan kamera">
             <i class="fas fa-camera"></i>
         </button>
         <input type="text" id="scanInput" class="form-control"
-            placeholder="Scan / ketik kode QR cell..." autocomplete="off" inputmode="text"
-            style="min-width:0;">
+            placeholder="Scan QR atau ketik kode cell..."
+            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            inputmode="text" style="min-width:0;">
         <button type="button" id="btnScan" class="btn" style="background:#0d8564;color:#fff;border-color:#0d8564;">
             <i class="fas fa-search d-sm-none"></i>
             <span class="d-none d-sm-inline"><i class="fas fa-search mr-1"></i> Cari</span>
         </button>
+        <button type="button" id="btnQuickConfirm" class="btn"
+                title="Auto konfirmasi: scan langsung simpan tanpa muncul modal">
+            <div style="line-height:1.1;">
+                <div style="font-size:16px;font-weight:700;">Auto</div>
+                <div style="font-size:10px;font-weight:500;opacity:.7;letter-spacing:.3px;">konfirmasi</div>
+            </div>
+        </button>
     </div>
-    <div id="scanMsg" class="text-muted" style="font-size:12px;margin-top:5px;text-align:center;">
-        <i class="fas fa-qrcode mr-1"></i> Siap scan — taruh barang lalu scan QR label cell
+    <div id="scanMsg" class="text-muted" style="font-size:12px;margin-top:5px;text-align:center;min-height:0;">
     </div>
 </div>
 @endif
@@ -346,7 +500,7 @@ body { background: #f0f2f5; }
                 <button type="button" class="btn btn-secondary" data-dismiss="modal">
                     <i class="fas fa-times mr-1"></i> Batal
                 </button>
-                <button type="button" id="btnDoConfirm" class="btn" style="background:#0d8564;color:#fff;border-color:#0d8564;font-weight:700;" disabled
+                <button type="button" id="btnDoConfirm" class="btn" style="background:#0d8564;color:#fff;border-color:#0d8564;font-weight:700;" disabled>
                     <i class="fas fa-check mr-1"></i>
                     Konfirmasi (<span id="confirmCount">0</span> item)
                 </button>
@@ -384,6 +538,10 @@ var batchConfirmUrl = '{{ route('putaway.batch-confirm') }}';
 var csrfToken       = $('meta[name="csrf-token"]').attr('content');
 var pendingItems    = null;
 var totalRemaining  = {{ $items->count() }};
+var filterAllActive = {{ $allActive ? 1 : 0 }};
+var filterStartDate = '{{ $startDate }}';
+var filterEndDate   = '{{ $endDate }}';
+var quickConfirm    = localStorage.getItem('putaway_quick_confirm') === '1';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -403,12 +561,16 @@ $('#scanInput').on('keydown', function(e) {
 $('#btnScan').on('click', function() { doScan($('#scanInput').val().trim()); });
 
 function resetScanMsg() {
-    setScanMsg('<i class="fas fa-qrcode mr-1"></i> Siap scan — taruh barang lalu scan QR label cell', 'text-muted');
+    if (quickConfirm) {
+        setScanMsg('Auto konfirmasi aktif', 'text-muted');
+    } else {
+        setScanMsg('', 'text-muted');
+    }
 }
 
 function doScan(code) {
     if (!code) {
-        setScanMsg('<i class="fas fa-exclamation-triangle mr-1"></i>Masukkan kode terlebih dahulu.', 'text-warning');
+        setScanMsg('<i class="fas fa-exclamation-triangle mr-1"></i> Kode kosong.', 'text-warning');
         return;
     }
     // Strip full URL from camera scan (e.g. http://host/c/1-A-1 → 1-A-1)
@@ -416,31 +578,43 @@ function doScan(code) {
         code = code.split('/c/').pop().replace(/\/+$/, '').trim();
         $('#scanInput').val(code);
     }
-    setScanMsg('<i class="fas fa-spinner fa-spin mr-1"></i>Mencari...', 'text-muted');
+    setScanMsg('<i class="fas fa-spinner fa-spin mr-1"></i> Mencari...', 'text-muted');
     $('#confirmBody').html('<div class="text-center py-5"><i class="fas fa-spinner fa-spin fa-2x text-muted"></i></div>');
     $('#btnDoConfirm').prop('disabled', true);
 
-    $.getJSON(batchScanUrl, { qr_code: code, override: 0, all_active: 1 })
+    $.getJSON(batchScanUrl, { qr_code: code, override: 0, all_active: filterAllActive, start_date: filterStartDate, end_date: filterEndDate })
         .done(function(res) {
             if (res.status !== 'found' || !res.items || !res.items.length) {
                 setScanMsg(
-                    '<i class="fas fa-times-circle mr-1 text-danger"></i>' +
-                    (res.message || 'Tidak ada item untuk cell ini.'),
+                    '<i class="fas fa-times-circle mr-1"></i> ' +
+                    (res.message || 'Tidak ada item aktif di cell ini.'),
                     'text-danger'
                 );
                 return;
             }
             pendingItems = res.items;
-            buildConfirmModal(res);
-            $('#modalConfirm').modal('show');
-            resetScanMsg();
+
+            // Cek apakah ada item yang perlu split kapasitas
+            var hasSplit = res.items.some(function(i) { return i.requires_split && i.split_quantity > 0; });
+
+            if (quickConfirm && !hasSplit) {
+                // Quick confirm: langsung POST tanpa tampilkan modal
+                doQuickConfirm(res);
+            } else {
+                // Normal flow: tampilkan modal konfirmasi
+                if (quickConfirm && hasSplit) {
+                    // Ada split — wajib manual, beri tahu operator
+                    setScanMsg('<i class="fas fa-exclamation-circle mr-1"></i> Ada item dengan kapasitas sebagian — perlu konfirmasi manual.', 'text-warning');
+                } else {
+                    resetScanMsg();
+                }
+                buildConfirmModal(res);
+                $('#modalConfirm').modal('show');
+            }
         })
         .fail(function(xhr) {
-            setScanMsg(
-                '<i class="fas fa-times-circle mr-1"></i>' +
-                (xhr.responseJSON?.message || 'Gagal memuat data. Coba lagi.'),
-                'text-danger'
-            );
+            var msg = xhr.responseJSON?.message || 'Gagal. Coba scan ulang.';
+            setScanMsg('<i class="fas fa-times-circle mr-1"></i> ' + msg, 'text-danger');
         });
 }
 
@@ -487,6 +661,127 @@ function buildConfirmModal(res) {
     $('#btnDoConfirm').prop('disabled', false);
 }
 
+// ── Shared: handle sukses setelah konfirmasi (modal maupun quick) ─────────
+
+function handleConfirmSuccess(serverRes, confirmedItems) {
+    var cellIds    = [...new Set(confirmedItems.map(function(i) { return i.cell_id; }))];
+    var cellIdStrs = cellIds.map(String);
+
+    // Cari lokasi BERIKUTNYA sebelum menghapus group
+    var nextLocation = null;
+    $('#itemList .loc-group').each(function() {
+        var cid = String($(this).data('cell-id'));
+        if (cellIdStrs.indexOf(cid) === -1) {
+            nextLocation = $(this).find('.loc-code').first().text().trim();
+            return false; // break
+        }
+    });
+
+    // Hapus baris item yang sudah dikonfirmasi
+    confirmedItems.forEach(function(item) {
+        $('#row-' + item.ga_detail_id).fadeOut(200, function() { $(this).remove(); });
+    });
+
+    // Hapus group yang sudah kosong setelah baris hilang
+    setTimeout(function() {
+        cellIds.forEach(function(cid) {
+            var grp = $('#group-' + cid);
+            if (grp.find('.item-row').length === 0) {
+                grp.addClass('removing');
+                setTimeout(function() { grp.remove(); }, 320);
+            }
+        });
+    }, 250);
+
+    // Update counter dengan animasi bump
+    var confirmed = serverRes.confirmed_count || confirmedItems.length;
+    totalRemaining -= confirmed;
+    var $ctr = $('#itemCounter');
+    if (totalRemaining <= 0) {
+        $ctr.text('0 item menunggu').addClass('bumping');
+        setTimeout(function() {
+            $ctr.removeClass('bumping');
+            showAllDone();
+        }, 900);
+    } else {
+        $ctr.text(totalRemaining + ' item menunggu').addClass('bumping');
+        setTimeout(function() { $ctr.removeClass('bumping'); }, 600);
+    }
+
+    // Toast: sukses + lokasi berikutnya
+    Swal.fire({
+        icon:              'success',
+        toast:             true,
+        position:          'top-end',
+        showConfirmButton: false,
+        timer:             6000,
+        timerProgressBar:  true,
+        title:             'Put-Away Berhasil',
+        html:              confirmed + ' item berhasil disimpan.'
+                           + (nextLocation ? '<br><b>Lanjut ke ' + nextLocation + '</b>' : ''),
+    });
+    resetScanMsg();
+    pendingItems = null;
+    focusScan();
+}
+
+// ── Quick confirm: langsung POST tanpa modal ──────────────────────────────
+
+function doQuickConfirm(scanRes) {
+    setScanMsg('<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...', 'text-muted');
+
+    var payload = scanRes.items.map(function(item) {
+        return {
+            cell_id:      item.cell_id,
+            order_id:     item.order_id,
+            detail_id:    item.detail_id,
+            ga_detail_id: item.ga_detail_id || null,
+            quantity:     item.primary_quantity,
+            is_override:  0,
+        };
+    });
+
+    $.ajax({
+        url:  batchConfirmUrl,
+        type: 'POST',
+        data: { _token: csrfToken, items: payload },
+        success: function(res) {
+            if (res.status === 'success') {
+                handleConfirmSuccess(res, pendingItems);
+            } else {
+                Swal.fire('Gagal', res.message || 'Terjadi kesalahan.', 'error');
+                resetScanMsg();
+                pendingItems = null;
+            }
+        },
+        error: function(xhr) {
+            Swal.fire('Error', xhr.responseJSON?.message || 'Gagal menyimpan. Coba lagi.', 'error');
+            resetScanMsg();
+            pendingItems = null;
+        }
+    });
+}
+
+// ── Quick confirm toggle ──────────────────────────────────────────────────
+
+function applyQuickConfirmUI() {
+    if (quickConfirm) {
+        $('#btnQuickConfirm').addClass('qc-on');
+        $('#scanBar').addClass('qc-active');
+    } else {
+        $('#btnQuickConfirm').removeClass('qc-on');
+        $('#scanBar').removeClass('qc-active');
+    }
+    resetScanMsg();
+}
+
+$('#btnQuickConfirm').on('click', function() {
+    quickConfirm = !quickConfirm;
+    localStorage.setItem('putaway_quick_confirm', quickConfirm ? '1' : '0');
+    applyQuickConfirmUI();
+    focusScan();
+});
+
 // ── Confirm submit ────────────────────────────────────────────────────────
 
 $('#btnDoConfirm').on('click', function() {
@@ -513,69 +808,7 @@ $('#btnDoConfirm').on('click', function() {
             $('#modalConfirm').modal('hide');
 
             if (res.status === 'success') {
-                var cellIds = [...new Set(pendingItems.map(function(i) { return i.cell_id; }))];
-                var cellIdStrs = cellIds.map(String);
-
-                // Find NEXT location BEFORE removing groups
-                var nextLocation = null;
-                $('#itemList .loc-group').each(function() {
-                    var cid = String($(this).data('cell-id'));
-                    if (cellIdStrs.indexOf(cid) === -1) {
-                        nextLocation = $(this).find('.loc-code').first().text().trim();
-                        return false; // break
-                    }
-                });
-
-                // Remove item rows
-                pendingItems.forEach(function(item) {
-                    $('#row-' + item.ga_detail_id).fadeOut(200, function() { $(this).remove(); });
-                });
-
-                // Remove empty groups after rows are gone
-                setTimeout(function() {
-                    cellIds.forEach(function(cid) {
-                        var grp = $('#group-' + cid);
-                        if (grp.find('.item-row').length === 0) {
-                            grp.addClass('removing');
-                            setTimeout(function() { grp.remove(); }, 320);
-                        }
-                    });
-                }, 250);
-
-                // Update counter with bump animation
-                var confirmed = res.confirmed_count || pendingItems.length;
-                totalRemaining -= confirmed;
-                var $ctr = $('#itemCounter');
-                if (totalRemaining <= 0) {
-                    $ctr.text('0 item menunggu').addClass('bumping');
-                    setTimeout(function() {
-                        $ctr.removeClass('bumping');
-                        showAllDone();
-                    }, 900);
-                } else {
-                    $ctr.text(totalRemaining + ' item menunggu').addClass('bumping');
-                    setTimeout(function() { $ctr.removeClass('bumping'); }, 600);
-                }
-
-                // Toast: success + next location
-                var toastMsg = confirmed + ' item berhasil disimpan.';
-                if (nextLocation) {
-                    toastMsg += '<br><strong style="font-size:18px;">→ ' + nextLocation + '</strong>';
-                }
-                toastr.success(toastMsg, 'Put-Away Berhasil', {
-                    timeOut: 4000,
-                    extendedTimeOut: 2000,
-                    closeButton: true,
-                    progressBar: true,
-                    positionClass: 'toast-top-center',
-                    enableHtml: true,
-                    toastClass: 'toast',
-                    titleClass: 'toast-title',
-                    messageClass: 'toast-message',
-                });
-                resetScanMsg();
-                pendingItems = null;
-                focusScan();
+                handleConfirmSuccess(res, pendingItems);
             } else {
                 Swal.fire('Gagal', res.message || 'Terjadi kesalahan.', 'error');
                 btn.prop('disabled', false)
@@ -675,20 +908,33 @@ $('#modalConfirm').on('hidden.bs.modal', function() {
 // is always fully scrollable above the fixed scan bar.
 // Uses a real DOM element (not padding) so AdminLTE cannot reset it.
 function adjustSpacer() {
-    var barH = document.getElementById('scanBar').offsetHeight || 0;
+    var bar    = document.getElementById('scanBar');
+    var barH   = bar ? bar.offsetHeight : 0;
     var spacer = document.getElementById('scrollSpacer');
     if (spacer) spacer.style.height = Math.max(200, barH + 80) + 'px';
 }
 
 (function() {
+    var bar = document.getElementById('scanBar');
+    if (!bar) return;
     adjustSpacer();
     if (window.ResizeObserver) {
-        new ResizeObserver(adjustSpacer).observe(document.getElementById('scanBar'));
+        new ResizeObserver(adjustSpacer).observe(bar);
     }
     window.addEventListener('resize', adjustSpacer);
     [100, 300, 700, 1500].forEach(function(t) { setTimeout(adjustSpacer, t); });
 })();
 
-$(document).ready(function() { $('#scanInput').focus(); });
+$('#btnToggleDateFilter').on('click', function() {
+    $('#dateFilterForm').toggleClass('d-none');
+    if (!$('#dateFilterForm').hasClass('d-none')) {
+        $('#dateFilterForm input[name="start_date"]').focus();
+    }
+});
+
+$(document).ready(function() {
+    applyQuickConfirmUI();
+    $('#scanInput').focus();
+});
 </script>
 @endpush

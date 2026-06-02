@@ -80,7 +80,6 @@
                 <select class="form-control form-control-sm" id="filterStatus">
                     <option value="">Semua Status Stok</option>
                     <option value="critical">Kritis (≤ Min Stock)</option>
-                    <option value="reorder">Perlu Reorder</option>
                 </select>
             </div>
             <div class="col-md-3 mb-2">

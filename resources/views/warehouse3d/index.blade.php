@@ -298,8 +298,11 @@
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header py-2 bg-dark text-white">
-                <h6 class="modal-title mb-0">
-                    <i class="fas fa-cube mr-2"></i>Detail Cell — <span id="modalCellCode">—</span>
+                <h6 class="modal-title mb-0 d-flex align-items-center">
+                    <button type="button" id="btnModalBack" class="btn btn-sm btn-outline-light mr-2 py-0 px-2 d-none" title="Kembali ke daftar kolom">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <i class="fas fa-cube mr-2" id="modalHeaderIcon"></i><span id="modalCellCode">—</span>
                 </h6>
                 <button type="button" class="close text-white" data-dismiss="modal"><span>&times;</span></button>
             </div>
@@ -1469,7 +1472,19 @@ renderer.domElement.addEventListener('mouseleave', function () {
 // ── Click → Modal ─────────────────────────────────────────────────────────
 const DETAIL_BASE = '{{ rtrim(url("warehouse-3d/cell"), "/") }}';
 
+// Track previous modal state untuk tombol back
+let _modalPrevState = null;
+
+$('#btnModalBack').on('click', function () {
+    if (_modalPrevState) {
+        showMspartRowDetail(_modalPrevState.blok, _modalPrevState.grup);
+    }
+});
+
 function showMspartColumnDetail(blok, grup, kolom) {
+    _modalPrevState = { blok, grup };
+    $('#btnModalBack').removeClass('d-none');
+    $('#modalHeaderIcon').removeClass('fa-th-large').addClass('fa-cube');
     $('#modalCellCode').text(`Blok ${blok} – Grup ${grup} – Kolom ${kolom}`);
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');
@@ -1545,6 +1560,9 @@ function showMspartColumnDetail(blok, grup, kolom) {
 }
 
 function showMspartRowDetail(blok, grup) {
+    _modalPrevState = null;
+    $('#btnModalBack').addClass('d-none');
+    $('#modalHeaderIcon').removeClass('fa-cube').addClass('fa-th-large');
     $('#modalCellCode').text(`Blok ${blok} – Grup ${grup}`);
     $('#cellModalBody').html('<div class="text-center py-3"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>');
     $('#cellModal').modal('show');

@@ -2,7 +2,8 @@
 ga/fitness.py — Fungsi fitness multi-objektif untuk warehouse slotting.
 
 Fitness Function:
-    F(chromosome) = FC_CAP + FC_CAT + FC_AFF + FC_SPLIT   (maks 100)
+    F(chromosome) = FC_CAP + FC_CAT + FC_AFF + FC_SPLIT + FC_MOV
+    Maksimum = 30 + 25 + 20 + 15 + 10 = 100
 
 Referensi:
     - Goldberg, D.E. (1989). Genetic Algorithms in Search, Optimization,
@@ -317,7 +318,7 @@ def fc_affinity(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# FC_SPLIT — Fitness Anti-Split + Jarak Lokasi (maks 20)
+# FC_SPLIT — Fitness Anti-Split + Jarak Lokasi (maks 15)
 # ─────────────────────────────────────────────────────────────────────────────
 
 def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> float:
@@ -328,11 +329,11 @@ def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> f
     Rack distance diberi bobot ×10 karena berpindah rack jauh lebih
     melelahkan daripada berpindah cell dalam satu rack.
 
-    Skala hasil:
-        1-F ke 1-G : abs(1-1)×10 + abs(6-7) = 1   (sangat dekat)
-        1-F ke 1-A : abs(1-1)×10 + abs(6-1) = 5   (satu rack)
-        1-F ke 2-F : abs(1-2)×10 + abs(6-6) = 10  (rack sebelah)
-        1-F ke 10-G: abs(1-10)×10 + abs(6-7) = 91 (sangat jauh)
+    Skala bobot default:
+        beda blok  = 10 poin jarak
+        beda grup  = 5 poin jarak
+        beda kolom = 2 poin jarak
+        beda baris = 1 poin jarak
     """
     if cell_a is None or cell_b is None:
         return 9999.0
@@ -352,9 +353,9 @@ def cell_distance(cell_a: Optional[CellInput], cell_b: Optional[CellInput]) -> f
 
         return (
             abs(cell_a.blok - cell_b.blok) * 10
-            + abs(grup_a - grup_b) * 3
+            + abs(grup_a - grup_b) * 5
             + abs(cell_a.kolom - cell_b.kolom) * 2
-            + abs(cell_a.baris - cell_b.baris) * 0.5
+            + abs(cell_a.baris - cell_b.baris) * 1
         )
 
     rack_a = cell_a.rack_index if cell_a.rack_index is not None else 9999
@@ -387,10 +388,10 @@ def fc_split(
     Menggunakan cell_distance() yang mempertimbangkan rack_index dan cell_index,
     sehingga 1-F + 1-G (jarak 1) jauh lebih baik dari 1-F + 10-G (jarak 91).
 
-        jarak ≤ 1  → 10  (sel bersebelahan)
-        jarak ≤ 5  →  7  (dalam satu rack)
-        jarak ≤ 10 →  4  (rack tetangga)
-        jarak > 10 →  0  (terlalu jauh)
+        jarak <= 1  -> 7.5 (sel bersebelahan)
+        jarak <= 5  -> 5.0 (dalam area dekat)
+        jarak <= 10 -> 3.0 (masih cukup dekat)
+        jarak > 10  -> 0.0 (terlalu jauh)
 
     Referensi: Van den Berg, J.P. (1999). A literature survey on planning and
                control of warehousing systems. IIE Transactions, 31(8), 751-762.
@@ -463,7 +464,7 @@ def fc_movement(item: ItemInput, cell: CellInput) -> float:
     mov  = item.movement_type
 
     if blok is None or mov is None:
-        return 10.0  # neutral: no movement data → full score, 4 aturan utama yg menentukan
+        return 5.0  # neutral: no movement/coordinate data, not full reward
 
     if mov == 'fast_moving':
         # Reward dekat pintu (blok rendah)
@@ -495,6 +496,8 @@ def evaluate_chromosome(
     items:      List[ItemInput],
     cells_dict: Dict[int, CellInput],
     aff_map:    AffinityMap,
+    item_racks: Optional[Dict[int, set]] = None,
+    item_cells: Optional[Dict[int, set]] = None,
 ) -> Tuple[float, List[dict]]:
     """
     Hitung fitness keseluruhan kromosom dan breakdown FC per gen.
@@ -502,6 +505,9 @@ def evaluate_chromosome(
     Fitness kromosom = rata-rata gene_fitness semua gen.
     Gene_fitness_i   = FC_CAP_i + FC_CAT_i + FC_AFF_i + FC_SPLIT_i + FC_MOV_i
                        (maks 30+25+20+15+10 = 100)
+
+    item_racks / item_cells bisa di-pass dari luar agar tidak dibangun ulang
+    setiap evaluasi (pre-built sekali di __init__ engine, tidak berubah selama GA).
 
     Returns:
         total_fitness  : float, rata-rata fitness (0-100)
@@ -512,8 +518,10 @@ def evaluate_chromosome(
         return 0.0, []
 
     gene_details: List[dict] = []
-    item_racks = build_item_rack_map(cells_dict)
-    item_cells = build_item_cell_map(cells_dict)
+    if item_racks is None:
+        item_racks = build_item_rack_map(cells_dict)
+    if item_cells is None:
+        item_cells = build_item_cell_map(cells_dict)
 
     for i in range(n):
         cell = cells_dict.get(chromosome[i])

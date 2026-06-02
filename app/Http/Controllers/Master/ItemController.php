@@ -209,7 +209,7 @@ class ItemController extends Controller
     // ─── AJAX Lookup item berdasarkan barcode / SKU ──────────────────────────
     public function lookup(Request $request)
     {
-        $code = trim($request->input('barcode', ''));
+        $code = $this->normalizeScannedItemCode((string) $request->input('barcode', ''));
         if (!$code) {
             return response()->json(['found' => false, 'message' => 'Kode tidak boleh kosong.']);
         }
@@ -269,6 +269,21 @@ class ItemController extends Controller
             ],
             'locations' => $locations,
         ]);
+    }
+
+    private function normalizeScannedItemCode(string $code): string
+    {
+        $code = trim(urldecode($code));
+        if ($code === '') {
+            return '';
+        }
+
+        if (str_contains($code, '/i/')) {
+            $code = trim(last(explode('/i/', $code)), "/ \t\n\r\0\x0B");
+            $code = preg_split('/[?#]/', $code)[0] ?? $code;
+        }
+
+        return strtoupper(trim(urldecode($code)));
     }
 
     public function datatable(Request $request)

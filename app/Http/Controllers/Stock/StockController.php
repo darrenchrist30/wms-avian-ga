@@ -104,6 +104,7 @@ class StockController extends Controller
                     $q->havingRaw('COALESCE(SUM(stk.qty), 0) > items.min_stock AND COALESCE(SUM(stk.qty), 0) <= items.reorder_point AND items.reorder_point > 0');
                 }
             })
+            ->orderBy('items.name', 'asc')
             ;
 
         return DataTables::of($query)

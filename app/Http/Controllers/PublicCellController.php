@@ -11,10 +11,7 @@ class PublicCellController extends Controller
 {
     public function show(string $code, Request $request)
     {
-        // URL-encoded QR labels contain the full URL; extract just the code segment.
-        if (str_contains($code, '/c/')) {
-            $code = trim(last(explode('/c/', $code)), '/ ');
-        }
+        $code = $this->normalizePublicScanCode($request->query('code', $code), 'cell');
 
         $cell = Cell::where('is_active', true)
             ->where(fn($q) => $q->where('code', $code)->orWhere('qr_code', $code)->orWhere('label', $code))
@@ -235,5 +232,87 @@ class PublicCellController extends Controller
         }
 
         return view('public.cell', compact('cell', 'stocks'));
+    }
+
+    public function showItem(string $code, Request $request)
+    {
+        $code = $this->normalizePublicScanCode($request->query('sku', $code), 'item');
+        $item = $this->findPublicItem($code);
+
+        if (!$item) {
+            if ($request->expectsJson()) {
+                return response()->json(['success' => false, 'message' => "Barang '{$code}' tidak ditemukan."], 404);
+            }
+
+            return view('public.not-found', compact('code'));
+        }
+
+        $itemStocks = $this->publicItemStocks($item);
+
+        if ($request->expectsJson()) {
+            return $this->publicItemJson($item, $itemStocks);
+        }
+
+        return view('public.item', compact('item', 'itemStocks'));
+    }
+
+    private function findPublicItem(string $code): ?Item
+    {
+        return Item::with('category', 'unit')
+            ->where('is_active', true)
+            ->where(fn($q) => $q->where('sku', $code)->orWhere('barcode', $code)->orWhere('erp_item_code', $code))
+            ->first();
+    }
+
+    private function publicItemStocks(Item $item)
+    {
+        return Stock::with(['cell.rack.warehouse'])
+            ->where('item_id', $item->id)
+            ->where('status', 'available')
+            ->where('quantity', '>', 0)
+            ->orderBy('inbound_date', 'asc')
+            ->get();
+    }
+
+    private function publicItemJson(Item $item, $itemStocks)
+    {
+        return response()->json([
+            'success' => true,
+            'type'    => 'item',
+            'item'    => [
+                'name'           => $item->name,
+                'sku'            => $item->sku,
+                'category'       => $item->category?->name,
+                'category_color' => $item->category?->color_code ?? '#6c757d',
+                'unit'           => $item->unit?->code ?? $item->unit?->name,
+                'merk'           => $item->merk,
+                'total_qty'      => $itemStocks->sum('quantity'),
+            ],
+            'stocks'  => $itemStocks->map(fn($s) => [
+                'cell_code'    => $s->cell?->physical_code ?? $s->cell?->code ?? '—',
+                'rack_code'    => ($s->cell && $s->cell->blok !== null && $s->cell->grup !== null)
+                    ? $s->cell->blok . '-' . strtoupper((string) $s->cell->grup)
+                    : ($s->cell?->rack?->code ?? '—'),
+                'quantity'     => $s->quantity,
+                'unit'         => $item->unit?->code ?? $item->unit?->name ?? '',
+                'inbound_date' => $s->inbound_date?->format('d M Y') ?? '—',
+            ])->values(),
+        ]);
+    }
+
+    private function normalizePublicScanCode(string $code, string $type): string
+    {
+        $code = trim(urldecode($code));
+        if ($code === '') {
+            return '';
+        }
+
+        $pathMarker = $type === 'item' ? '/i/' : '/c/';
+        if (str_contains($code, $pathMarker)) {
+            $code = trim(last(explode($pathMarker, $code)), "/ \t\n\r\0\x0B");
+            $code = preg_split('/[?#]/', $code)[0] ?? $code;
+        }
+
+        return strtoupper(trim(urldecode($code)));
     }
 }

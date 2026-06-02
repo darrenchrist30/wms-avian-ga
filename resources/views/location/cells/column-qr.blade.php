@@ -9,9 +9,9 @@
             <h5 class="mb-0 font-weight-bold">
                 <i class="fas fa-qrcode text-success mr-2"></i>Label QR Kolom
             </h5>
-            <small class="text-muted">
+            {{-- <small class="text-muted">
                 {{ $columns->count() }} kolom &nbsp;·&nbsp; Tempel 1 label per kolom di tiang rak
-            </small>
+            </small> --}}
         </div>
         <div class="d-flex" style="gap:6px;">
             <a href="{{ url()->previous() }}" class="btn btn-sm btn-light border">
@@ -52,11 +52,11 @@
                             <small class="d-block" style="font-size:10px;opacity:.8;">Scanner fisik/pistol</small>
                         </button>
                     </div>
-                    <div class="text-center mt-2">
+                    {{-- <div class="text-center mt-2">
                         <small class="text-muted" id="formatNote">
                             QR Code cocok untuk scan via kamera tablet — bisa dari berbagai sudut
                         </small>
-                    </div>
+                    </div> --}}
                 </div>
             </div>
 
@@ -136,12 +136,12 @@
                         </tr>
                     </table>
 
-                    <div class="alert alert-success mt-3 mb-0" style="font-size:12px;">
+                    {{-- <div class="alert alert-success mt-3 mb-0" style="font-size:12px;">
                         <i class="fas fa-info-circle mr-1"></i>
                         Label ini mewakili <strong>satu kolom</strong>. Tempel di tiang rak.
                         Saat di-scan, sistem menampilkan pilihan baris
                         ({{ $columnCells->pluck('baris')->implode(', ') }}).
-                    </div>
+                    </div> --}}
                 </div>
             </div>
         </div>

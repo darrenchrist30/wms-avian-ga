@@ -39,8 +39,8 @@ import numpy as np
 import pygad
 
 from schemas import CellInput, GARequest, GAResponse, GeneResult
-from ga.fitness import AffinityMap, build_affinity_map, cell_distance, evaluate_chromosome
-from ga.operators import category_compatible, feasible_cell_pool, repair_category_invalid_genes
+from ga.fitness import AffinityMap, build_affinity_map, build_item_cell_map, build_item_rack_map, cell_distance, evaluate_chromosome
+from ga.operators import category_compatible, feasible_cell_pool
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,13 @@ class PyGadGeneticAlgorithmEngine:
 
         self.cells_dict: Dict[int, CellInput] = {c.cell_id: c for c in request.cells}
         self.cell_ids: List[int] = [c.cell_id for c in request.cells]
-        self.gene_space: List[List[int]] = self._build_gene_space()
+        self.gene_space: List[List[int]] = []
+
+        # Build once — cells_dict tidak berubah selama GA berjalan
+        self._item_rack_map = build_item_rack_map(self.cells_dict)
+        self._item_cell_map = build_item_cell_map(self.cells_dict)
+        self._candidate_cache = self._build_candidate_cache()
+        self.gene_space = self._build_gene_space()
 
         # Seed both Python stdlib random (used by our custom operators) and
         # numpy random (used internally by PyGAD) for full reproducibility.
@@ -127,6 +133,8 @@ class PyGadGeneticAlgorithmEngine:
             self.items,
             self.cells_dict,
             self.aff_map,
+            self._item_rack_map,
+            self._item_cell_map,
         )
 
         chromosome_result: List[GeneResult] = [
@@ -191,7 +199,8 @@ class PyGadGeneticAlgorithmEngine:
                 else:
                     pool = self.gene_space[i]
                     chromosome.append(random.choice(pool) if pool else self.cell_ids[0])
-            population.append(chromosome)
+            chromosome = self._repair_category_invalid_genes(chromosome)
+            population.append(self._repair_capacity_overflow(chromosome))
 
         # ── b) Greedy: within each gene's pool, prefer highest capacity ───────
         cap_map: Dict[int, int] = {c.cell_id: c.capacity_remaining for c in self.cells}
@@ -212,7 +221,8 @@ class PyGadGeneticAlgorithmEngine:
                         # Pick from the top quarter for greedy bias with diversity.
                         top_n = max(1, len(sorted_pool) // 4)
                         chromosome.append(random.choice(sorted_pool[:top_n]))
-            population.append(chromosome)
+            chromosome = self._repair_category_invalid_genes(chromosome)
+            population.append(self._repair_capacity_overflow(chromosome))
 
         return np.array(population, dtype=int)
 
@@ -252,7 +262,8 @@ class PyGadGeneticAlgorithmEngine:
                 child = parent1.copy()
 
             chromosome = [int(v) for v in child]
-            repaired = repair_category_invalid_genes(chromosome, self.items, self.cells_dict)
+            repaired = self._repair_category_invalid_genes(chromosome)
+            repaired = self._repair_capacity_overflow(repaired)
             offspring[k] = np.array(repaired, dtype=int)
 
         return offspring
@@ -297,12 +308,105 @@ class PyGadGeneticAlgorithmEngine:
 
             # Apply category repair once per child after all genes are mutated.
             chromosome = [int(v) for v in offspring[i_child]]
-            repaired = repair_category_invalid_genes(chromosome, self.items, self.cells_dict)
+            repaired = self._repair_category_invalid_genes(chromosome)
+            repaired = self._repair_capacity_overflow(repaired)
             offspring[i_child] = np.array(repaired, dtype=int)
 
         return offspring
 
     # ─── Candidate Pool Builder ───────────────────────────────────────────────
+
+    def _item_cache_key(self, item) -> tuple:
+        return (
+            int(item.inbound_detail_id),
+            int(item.item_id),
+            int(item.quantity),
+            int(item.capacity_demand),
+            int(item.preferred_cell_id or 0),
+        )
+
+    def _build_candidate_cache(self) -> Dict[tuple, Dict[str, List[CellInput]]]:
+        """
+        Build reusable candidate pools per inbound line.
+
+        Repair and gene-space generation call the same category/capacity checks
+        many times during GA. Caching these pools once keeps the GA search logic
+        unchanged while avoiding repeated scans over every candidate cell.
+        """
+        cache: Dict[tuple, Dict[str, List[CellInput]]] = {}
+
+        for item in self.items:
+            feasible = [
+                cell for cell in self.cells
+                if int(cell.capacity_remaining) >= int(item.capacity_demand)
+            ]
+            anchors = [
+                cell for cell in self.cells
+                if item.item_id in cell.existing_item_ids
+            ]
+            same_sku = [
+                cell for cell in feasible
+                if item.item_id in cell.existing_item_ids
+            ]
+            exact_category = [
+                cell for cell in feasible
+                if self._category_tier(item, cell) <= 1
+            ]
+            neutral = [
+                cell for cell in feasible
+                if cell.dominant_category_id is None
+            ]
+
+            cache[self._item_cache_key(item)] = {
+                "feasible": feasible,
+                "anchors": anchors,
+                "same_sku": self._sort_by_capacity_then_position(same_sku),
+                "exact_category": self._sort_by_category_then_capacity(exact_category, item),
+                "neutral": self._sort_by_capacity_then_position(neutral),
+                "nearby": (
+                    self._sort_by_distance_then_capacity(feasible, anchors)
+                    if anchors else self._sort_by_category_then_capacity(feasible, item)
+                ),
+            }
+
+        return cache
+
+    def _repair_category_invalid_genes(self, chromosome: List[int]) -> List[int]:
+        """
+        Cached category repair.
+
+        This is equivalent to repair_category_invalid_genes in operators.py, but
+        it reuses per-item pools instead of rebuilding exact/neutral pools from
+        the full cell list for every chromosome.
+        """
+        repaired = [int(cell_id) for cell_id in chromosome]
+
+        for idx, item in enumerate(self.items):
+            if item.preferred_cell_id is not None:
+                repaired[idx] = int(item.preferred_cell_id)
+                continue
+
+            cache = self._candidate_cache.get(self._item_cache_key(item), {})
+            exact_pool = cache.get("exact_category", [])
+            neutral_pool = cache.get("neutral", [])
+            current_cell = self.cells_dict.get(repaired[idx])
+
+            if (
+                current_cell is not None
+                and int(current_cell.capacity_remaining) >= int(item.capacity_demand)
+                and (
+                    self._category_tier(item, current_cell) <= 1
+                    or (not exact_pool and current_cell.dominant_category_id is None)
+                )
+            ):
+                continue
+
+            if exact_pool:
+                repaired[idx] = int(exact_pool[0].cell_id)
+            elif neutral_pool:
+                repaired[idx] = int(neutral_pool[0].cell_id)
+
+        return repaired
 
     def _build_gene_space(self) -> List[List[int]]:
         spaces: List[List[int]] = []
@@ -331,103 +435,170 @@ class PyGadGeneticAlgorithmEngine:
         3. category-compatible nearby cells,
         4. a small capacity backup set.
         """
-        feasible = [
-            cell for cell in self.cells
-            if int(cell.capacity_remaining) >= int(item.capacity_demand)
-        ]
+        cache = self._candidate_cache.get(self._item_cache_key(item), {})
+        feasible = list(cache.get("feasible", []))
         if not feasible:
             return feasible_cell_pool(item, self.cells)
 
-        same_sku_feasible = [
-            cell for cell in feasible
-            if item.item_id in cell.existing_item_ids
-        ]
+        same_sku_feasible = list(cache.get("same_sku", []))
         if same_sku_feasible:
             return self._unique_cell_ids(
-                self._sort_by_capacity_then_position(same_sku_feasible)
+                same_sku_feasible
             )
 
-        anchors = [
-            cell for cell in self.cells
-            if item.item_id in cell.existing_item_ids
-        ]
-
-        compatible = [
-            cell for cell in feasible
-            if category_compatible(item, cell)
-        ]
-        neutral = [
-            cell for cell in feasible
-            if cell.dominant_category_id is None
-        ]
-        backup = self._sort_by_capacity_then_position(feasible)[:20]
+        anchors = list(cache.get("anchors", []))
+        exact_category = list(cache.get("exact_category", []))
+        neutral = list(cache.get("neutral", []))
 
         if anchors:
-            # Strong continuity rule:
-            # If exact SKU cells are already full, do not let a broad category
-            # match pull the item to a far rack. If any close physical fallback
-            # exists, keep the search local. Only widen when local cells cannot
-            # receive the item.
+            # P0: same blok + same grup + same kolom (expand within exact column)
             same_column_pool = self._same_column_expansion_pool(item, feasible, anchors)
             if same_column_pool:
                 return self._unique_cell_ids(same_column_pool)
 
-            nearby_all = self._sort_by_distance_then_capacity(feasible, anchors)
-            nearby_compatible = self._sort_by_distance_then_capacity(compatible, anchors)
-            nearby_neutral = self._sort_by_distance_then_capacity(neutral, anchors)
+            # Collect anchor coordinates for explicit P2/P3 matching
+            anchor_blok_grups = {
+                (a.blok, str(a.grup).upper())
+                for a in anchors
+                if a.blok is not None and a.grup is not None
+            }
+            anchor_bloks = {
+                a.blok for a in anchors if a.blok is not None
+            }
 
-            close_compatible = [
-                cell for cell in nearby_compatible
-                if self._nearest_distance(cell, anchors) <= 5
-            ][:40]
-            adjacent_compatible = [
-                cell for cell in nearby_compatible
-                if self._nearest_distance(cell, anchors) <= 10
-            ][:40]
-            close_neutral = [
-                cell for cell in nearby_neutral
-                if self._nearest_distance(cell, anchors) <= 5
-            ][:20]
-            close_any = [
-                cell for cell in nearby_all
-                if self._nearest_distance(cell, anchors) <= 5
-            ][:20]
-            close_pool = self._unique_cell_ids(
-                close_compatible + close_neutral + close_any
-            )
-            if close_pool:
-                return close_pool
+            # P2: same blok + same grup — stays in the exact zone as existing stock
+            p2 = [
+                c for c in exact_category
+                if c.blok is not None
+                and c.grup is not None
+                and (c.blok, str(c.grup).upper()) in anchor_blok_grups
+            ]
+            if p2:
+                return self._unique_cell_ids(
+                    self._sort_by_distance_then_capacity(p2, anchors)
+                )
 
-            adjacent_neutral = [
-                cell for cell in nearby_neutral
-                if self._nearest_distance(cell, anchors) <= 10
-            ][:20]
-            adjacent_any = [
-                cell for cell in nearby_all
-                if self._nearest_distance(cell, anchors) <= 10
-            ][:20]
-            adjacent_pool = self._unique_cell_ids(
-                adjacent_compatible + adjacent_neutral + adjacent_any
-            )
-            if adjacent_pool:
-                return adjacent_pool
+            # P3: same blok, any grup — stay in same rack block before crossing blocks
+            p3 = [
+                c for c in exact_category
+                if c.blok is not None and c.blok in anchor_bloks
+            ]
+            if p3:
+                return self._unique_cell_ids(
+                    self._sort_by_distance_then_capacity(p3, anchors)
+                )
 
+            # P4: same category in other bloks. Category beats distance, but
+            # candidates are still ordered by distance from the SKU's anchors.
+            if exact_category:
+                return self._unique_cell_ids(
+                    self._sort_by_distance_then_capacity(exact_category, anchors)[:60]
+                )
+
+            # P5: neutral nearby cells. Use these only when no category/same-SKU
+            # cell can receive the item, so empty cells become expansion space
+            # instead of category-mismatched racks.
+            neutral_same_blok = [
+                c for c in neutral
+                if c.blok is not None and c.blok in anchor_bloks
+            ]
+            if neutral_same_blok:
+                return self._unique_cell_ids(
+                    self._sort_by_distance_then_capacity(neutral_same_blok, anchors)[:40]
+                )
+            if neutral:
+                return self._unique_cell_ids(
+                    self._sort_by_distance_then_capacity(neutral, anchors)[:40]
+                )
+
+            # Last resort: any feasible cell, still nearest-first.
             return self._unique_cell_ids(
-                nearby_all[:30]
-                + nearby_compatible[:50]
-                + backup
+                self._sort_by_distance_then_capacity(feasible, anchors)[:30]
             )
 
-        if compatible:
+        if exact_category:
             return self._unique_cell_ids(
-                self._sort_by_capacity_then_position(compatible)[:60] + backup
+                self._sort_by_category_then_capacity(exact_category, item)[:60]
             )
 
-        return self._unique_cell_ids(
-            self._sort_by_capacity_then_position(neutral)[:40] + backup
-        )
+        if neutral:
+            return self._unique_cell_ids(
+                self._sort_by_capacity_then_position(neutral)[:40]
+            )
+
+        return self._unique_cell_ids(self._sort_by_capacity_then_position(feasible)[:30])
 
     # ─── Sorting Helpers ──────────────────────────────────────────────────────
+
+    def _repair_capacity_overflow(self, chromosome: List[int]) -> List[int]:
+        """
+        Reassign non-locked genes when a chromosome overbooks a cell.
+
+        Each gene_space entry is filtered by per-item capacity, but multiple
+        genes can still choose the same cell and exceed its remaining capacity
+        as a group. This repair keeps the search space closer to a valid
+        warehouse assignment before fitness evaluation.
+        """
+        repaired = [int(cell_id) for cell_id in chromosome]
+        remaining: Dict[int, int] = {
+            cell.cell_id: int(cell.capacity_remaining)
+            for cell in self.cells
+        }
+
+        # Preferred cells represent existing/home continuity chosen by Laravel,
+        # so reserve them first and only move flexible genes when overflow occurs.
+        ordered_gene_indexes = sorted(
+            range(len(repaired)),
+            key=lambda idx: 0 if self.items[idx].preferred_cell_id is not None else 1,
+        )
+
+        for idx in ordered_gene_indexes:
+            item = self.items[idx]
+            current_cell_id = int(repaired[idx])
+            demand = int(item.capacity_demand)
+
+            if remaining.get(current_cell_id, 0) >= demand:
+                remaining[current_cell_id] -= demand
+                continue
+
+            replacement_id = self._best_capacity_replacement(idx, remaining)
+            if replacement_id is not None:
+                repaired[idx] = replacement_id
+                remaining[replacement_id] -= demand
+            else:
+                remaining[current_cell_id] = remaining.get(current_cell_id, 0) - demand
+
+        return repaired
+
+    def _best_capacity_replacement(
+        self,
+        gene_idx: int,
+        remaining: Dict[int, int],
+    ) -> int | None:
+        item = self.items[gene_idx]
+        demand = int(item.capacity_demand)
+        candidate_ids = list(self.gene_space[gene_idx])
+
+        if item.preferred_cell_id is not None:
+            candidate_ids.extend(self._ranked_cell_pool(item))
+
+        seen = set()
+
+        for cell_id in candidate_ids:
+            if int(cell_id) in seen:
+                continue
+            seen.add(int(cell_id))
+            cell = self.cells_dict.get(int(cell_id))
+            if cell is None:
+                continue
+            if remaining.get(int(cell_id), 0) < demand:
+                continue
+            if not category_compatible(item, cell):
+                continue
+
+            return int(cell_id)
+
+        return None
 
     def _sort_by_distance_then_capacity(
         self,
@@ -438,6 +609,22 @@ class PyGadGeneticAlgorithmEngine:
             cells,
             key=lambda cell: (
                 self._nearest_distance(cell, anchors),
+                -int(cell.capacity_remaining),
+                int(cell.rack_index if cell.rack_index is not None else 9999),
+                int(cell.cell_index if cell.cell_index is not None else 9999),
+                int(cell.cell_id),
+            ),
+        )
+
+    def _sort_by_category_then_capacity(
+        self,
+        cells: List[CellInput],
+        item,
+    ) -> List[CellInput]:
+        return sorted(
+            cells,
+            key=lambda cell: (
+                self._category_tier(item, cell),
                 -int(cell.capacity_remaining),
                 int(cell.rack_index if cell.rack_index is not None else 9999),
                 int(cell.cell_index if cell.cell_index is not None else 9999),
@@ -500,6 +687,20 @@ class PyGadGeneticAlgorithmEngine:
         )
 
     @staticmethod
+    def _category_tier(item, cell: CellInput) -> int:
+        if item.item_id in cell.existing_item_ids:
+            return 0
+        if (
+            item.category_id is not None
+            and cell.dominant_category_id is not None
+            and item.category_id == cell.dominant_category_id
+        ):
+            return 1
+        if cell.dominant_category_id is None:
+            return 2
+        return 3
+
+    @staticmethod
     def _sort_by_capacity_then_position(cells: List[CellInput]) -> List[CellInput]:
         return sorted(
             cells,
@@ -541,6 +742,8 @@ class PyGadGeneticAlgorithmEngine:
             self.items,
             self.cells_dict,
             self.aff_map,
+            self._item_rack_map,
+            self._item_cell_map,
         )
         return float(score)
 
@@ -564,4 +767,5 @@ class PyGadGeneticAlgorithmEngine:
 
             chromosome.append(cell_id)
 
-        return chromosome
+        chromosome = self._repair_category_invalid_genes(chromosome)
+        return self._repair_capacity_overflow(chromosome)

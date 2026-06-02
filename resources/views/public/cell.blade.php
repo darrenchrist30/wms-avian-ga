@@ -222,6 +222,7 @@
         padding-top: 8px;
         border-top: 1px solid #ebebeb;
     }
+    .foot a { display: none; }
 </style>
 </head>
 <body>

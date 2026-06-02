@@ -189,6 +189,11 @@ class PutAwayService
             throw new \Exception("Item '{$detail->item->name}' sudah di-put-away sebelumnya.");
         }
 
+        // Validasi: cell harus aktif — tolak cell yang dinonaktifkan
+        if (!$cell->is_active) {
+            throw new \Exception("Sel {$cell->code} tidak aktif dan tidak dapat digunakan.");
+        }
+
         $remainingCapacity = $this->remainingCapacityForPlacement($cell);
         $capacityDemand = $this->capacityDemandForPlacement($detail, $cell, $quantityStored);
 

@@ -272,9 +272,9 @@
         </form>
     </div>
 
-    <div class="card-foot">
+    {{-- <div class="card-foot">
         &copy; {{ date('Y') }} Avian Brands · WMS v1.0
-    </div>
+    </div> --}}
 
 </div>
 

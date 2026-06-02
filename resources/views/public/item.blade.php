@@ -75,10 +75,7 @@
     }
 
     .login-hint {
-        margin: 8px 12px 16px;
-        background: #e8f4fd; border-radius: 10px;
-        padding: 12px 14px; font-size: 12px; color: #1565c0;
-        display: flex; align-items: center; gap: 8px;
+        display: none;
     }
     .page-footer {
         text-align: center; padding: 20px 16px;

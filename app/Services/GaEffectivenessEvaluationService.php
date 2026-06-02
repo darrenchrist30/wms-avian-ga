@@ -682,7 +682,7 @@ class GaEffectivenessEvaluationService
             return self::FC_SPLIT;
         }
 
-        $countScore = 7.0 / $locCount;
+        $countScore = 7.5 / $locCount;
         $current = $cellsById->get($cellId);
         $otherIds = $locations->reject(fn($id) => (int) $id === (int) $cellId);
         $minDistance = $otherIds
@@ -690,9 +690,9 @@ class GaEffectivenessEvaluationService
             ->min();
 
         if ($minDistance <= 1) {
-            $distanceScore = 8.0;
+            $distanceScore = 7.5;
         } elseif ($minDistance <= 5) {
-            $distanceScore = 6.0;
+            $distanceScore = 5.0;
         } elseif ($minDistance <= 10) {
             $distanceScore = 3.0;
         } else {
@@ -704,18 +704,31 @@ class GaEffectivenessEvaluationService
 
     private function scoreMovement(?string $movementType, Cell $cell): float
     {
-        if (!$movementType) {
+        if (!$movementType || $cell->blok === null) {
             return self::FC_MOV * 0.5;
         }
 
-        $distance = $this->distanceFromOrigin($cell);
-        $nearScore = max(0, self::FC_MOV - min(self::FC_MOV, $distance / 3));
-        $farScore = min(self::FC_MOV, $distance / 3);
+        $blok = (int) $cell->blok;
 
         return match ($movementType) {
-            'fast_moving' => round($nearScore, 4),
-            'slow_moving' => round(($nearScore + $farScore) / 2, 4),
-            'non_moving' => round($farScore, 4),
+            'fast_moving' => match (true) {
+                $blok <= 1 => 10.0,
+                $blok <= 2 => 8.0,
+                $blok <= 3 => 5.0,
+                default => 2.0,
+            },
+            'slow_moving' => match (true) {
+                $blok >= 4 => 10.0,
+                $blok >= 3 => 8.0,
+                $blok >= 2 => 6.0,
+                default => 3.0,
+            },
+            'non_moving' => match (true) {
+                $blok >= 5 => 10.0,
+                $blok >= 4 => 7.0,
+                $blok >= 3 => 4.0,
+                default => 1.0,
+            },
             default => self::FC_MOV * 0.5,
         };
     }

@@ -169,26 +169,43 @@ class PutAwayController extends Controller
 
     public function operatorMode(Request $request)
     {
-        $user = auth()->user();
+        $user          = auth()->user();
+        $today         = now()->toDateString();
+        $allActive     = $request->boolean('all_active', false);
+        $startDate     = $request->input('start_date', '');
+        $endDate       = $request->input('end_date', '');
+        $hasDateFilter = !$allActive && ($startDate !== '' || $endDate !== '');
 
-        $items = GaRecommendationDetail::with([
-            'gaRecommendation.inboundOrder',
-            'inboundOrderItem.item.unit',
-            'cell.rack',
-        ])
-        ->whereHas('gaRecommendation', function ($q) use ($user) {
-            $q->where('status', 'accepted')
-              ->whereHas('inboundOrder', function ($q2) use ($user) {
-                  $q2->where('status', 'put_away');
-                  if ($user->warehouse_id) {
-                      $q2->where('warehouse_id', $user->warehouse_id);
-                  }
-              });
-        })
-        ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
-        ->whereDoesntHave('putAwayConfirmations')
-        ->get()
-        ->sortBy(function ($d) {
+        // mode: 'today' | 'range' | 'all'
+        $mode = $allActive ? 'all' : ($hasDateFilter ? 'range' : 'today');
+
+        $buildQuery = function (string $m, string $s = '', string $e = '') use ($user, $today) {
+            return GaRecommendationDetail::with([
+                'gaRecommendation.inboundOrder',
+                'inboundOrderItem.item.unit',
+                'cell.rack',
+            ])
+            ->whereHas('gaRecommendation', function ($q) use ($user, $m, $today, $s, $e) {
+                $q->where('status', 'accepted')
+                  ->whereHas('inboundOrder', function ($q2) use ($user, $m, $today, $s, $e) {
+                      $q2->where('status', 'put_away');
+                      if ($user->warehouse_id) {
+                          $q2->where('warehouse_id', $user->warehouse_id);
+                      }
+                      if ($m === 'today') {
+                          $q2->whereDate('do_date', $today);
+                      } elseif ($m === 'range') {
+                          if ($s !== '') $q2->whereDate('do_date', '>=', $s);
+                          if ($e !== '') $q2->whereDate('do_date', '<=', $e);
+                      }
+                      // mode 'all': tanpa filter tanggal
+                  });
+            })
+            ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
+            ->whereDoesntHave('putAwayConfirmations');
+        };
+
+        $sortFn = function ($d) {
             $c = $d->cell;
             if (!$c) return '99999-Z-999-999';
             return sprintf('%05d-%s-%03d-%03d',
@@ -197,10 +214,18 @@ class PutAwayController extends Controller
                 (int)($c->kolom ?? 999),
                 (int)($c->baris ?? 999)
             );
-        })
-        ->values();
+        };
 
-        return view('putaway.operator', compact('items'));
+        $items = $buildQuery($mode, $startDate, $endDate)->get()->sortBy($sortFn)->values();
+
+        $otherActiveCount = ($mode === 'today' && $items->isEmpty())
+            ? $buildQuery('all')->count()
+            : 0;
+
+        return view('putaway.operator', compact(
+            'items', 'allActive', 'today', 'otherActiveCount',
+            'startDate', 'endDate', 'hasDateFilter'
+        ));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

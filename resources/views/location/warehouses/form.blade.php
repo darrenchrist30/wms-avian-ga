@@ -214,9 +214,9 @@
                 @endif
 
                 {{-- ============================================================ --}}
-                {{-- Generate Layout Otomatis (hanya saat create)                  --}}
+                {{-- Generate Layout Otomatis — disembunyikan sementara           --}}
                 {{-- ============================================================ --}}
-                @if($typeForm == 'create')
+                @if(false && $typeForm == 'create')
                 <hr class="my-4">
 
                 <div class="d-flex align-items-center mb-3">
@@ -229,7 +229,7 @@
                             <i class="fas fa-magic mr-1 text-primary"></i> Generate Layout Otomatis
                         </label>
                     </div>
-                    <small class="text-muted ml-3">Buat rak &amp; sel sekaligus saat gudang disimpan.</small>
+                    {{-- <small class="text-muted ml-3">Buat rak &amp; sel sekaligus saat gudang disimpan.</small> --}}
                 </div>
 
                 <div id="layoutSection" style="display:none;">

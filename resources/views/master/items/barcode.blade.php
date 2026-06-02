@@ -30,6 +30,7 @@
                                 <small class="text-muted font-weight-bold">{{ config('app.name') }}</small>
                             </div>
                             <div class="font-weight-bold mb-1">{{ $item->name }}</div>
+                            <canvas id="itemQr" class="mb-2"></canvas>
                             <svg id="barcode"></svg>
                             <div class="mt-1">
                                 <small class="text-muted">SKU: {{ $item->sku }}</small><br>
@@ -56,9 +57,20 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('js/qrious.min.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script>
+        var publicItemUrl = '{{ route('public.item', rawurlencode($item->barcode ?? $item->sku)) }}';
         var barcodeValue = '{{ $item->barcode ?? $item->sku }}';
+        new QRious({
+            element: document.getElementById('itemQr'),
+            value: publicItemUrl,
+            size: 110,
+            level: 'H',
+            background: '#ffffff',
+            foreground: '#1a2332',
+            padding: 4
+        });
         JsBarcode('#barcode', barcodeValue, {
             format: 'CODE128',
             width: 2,

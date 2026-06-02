@@ -71,7 +71,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\" -Force)",
       "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\resources\\\\views\" -Directory)",
       "Bash(Select-Object -ExpandProperty Name)",
-      "Bash(Get-ChildItem -Directory)"
+      "Bash(Get-ChildItem -Directory)",
+      "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\" -Name)"
     ]
   }
 }

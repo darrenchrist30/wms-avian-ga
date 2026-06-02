@@ -21,6 +21,12 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 */
 Route::get('/c/{code}', [\App\Http\Controllers\PublicCellController::class, 'show'])
     ->name('public.cell')
+    ->where('code', '.*')
+    ->middleware('throttle:60,1');
+
+Route::get('/i/{code}', [\App\Http\Controllers\PublicCellController::class, 'showItem'])
+    ->name('public.item')
+    ->where('code', '.*')
     ->middleware('throttle:60,1');
 
 /*

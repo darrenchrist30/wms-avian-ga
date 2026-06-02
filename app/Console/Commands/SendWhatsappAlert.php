@@ -96,56 +96,63 @@ class SendWhatsappAlert extends Command
 
         // ── Susun Pesan ─────────────────────────────────────────────────────
         $lines = [];
-        $lines[] = "🏭 *WMS AVIAN — Ringkasan Alert*";
-        $lines[] = "📅 {$now}";
-        $lines[] = str_repeat('─', 30);
-
-        // Low Stock
+        $lines[] = "*WMS AVIAN - Laporan Stok Mingguan*";
+        $lines[] = $now;
         $lines[] = "";
-        $lines[] = "⚠️ *STOK MENIPIS* ({$lowStockItems->count()} item)";
+        $lines[] = "Berikut ringkasan kondisi stok gudang sparepart:";
+
+        // ── [1] Stok Menipis ────────────────────────────────────────────────
+        $lines[] = "";
+        $lines[] = "*STOK DI BAWAH MINIMUM*";
+
         if ($lowStockItems->isEmpty()) {
-            $lines[] = "  ✅ Semua stok dalam batas normal";
+            $lines[] = "Semua stok dalam batas normal.";
         } else {
-            foreach ($lowStockItems as $item) {
+            $lines[] = "Total : {$lowStockItems->count()} item";
+            foreach ($lowStockItems as $i => $item) {
                 $currentQty = \Illuminate\Support\Facades\DB::table('stock_records')
                     ->where('item_id', $item->id)
                     ->where('status', 'available')
                     ->sum('quantity');
-                $lines[] = "  • {$item->sku} — {$item->name}";
-                $lines[] = "    Stok: {$currentQty} / Min: {$item->min_stock} unit";
+                $kurang = max(0, $item->min_stock - $currentQty);
+                $no = $i + 1;
+                $lines[] = "";
+                $lines[] = "{$no}. {$item->name}";
+                $lines[] = "```";
+                $lines[] = sprintf("%-8s: %s", "SKU",     $item->sku);
+                $lines[] = sprintf("%-8s: %d unit", "Stok",    $currentQty);
+                $lines[] = sprintf("%-8s: %d unit", "Minimum", $item->min_stock);
+                $lines[] = sprintf("%-8s: %d unit", "Kurang",  $kurang);
+                $lines[] = "```";
             }
         }
 
-        // Deadstock
+        // ── [2] Deadstock ───────────────────────────────────────────────────
         $lines[] = "";
-        $lines[] = "🕰️ *DEADSTOCK* (≥{$deadstockDays} hari tidak bergerak, {$deadstockItems->count()} record)";
+        $lines[] = "*BARANG TIDAK BERGERAK (>= {$deadstockDays} HARI)*";
+
         if ($deadstockItems->isEmpty()) {
-            $lines[] = "  ✅ Tidak ada item deadstock";
+            $lines[] = "Tidak ada barang deadstock.";
         } else {
-            foreach ($deadstockItems as $ds) {
-                $sku  = $ds->item?->sku ?? '–';
-                $name = $ds->item?->name ?? '–';
+            $lines[] = "Total : {$deadstockItems->count()} item";
+            foreach ($deadstockItems as $i => $ds) {
+                $no   = $i + 1;
+                $sku  = $ds->item?->sku ?? '-';
+                $name = $ds->item?->name ?? '-';
                 $days = $ds->days_since_last_movement ?? 0;
                 $qty  = $ds->quantity;
-                $lines[] = "  • {$sku} — {$name}";
-                $lines[] = "    Qty: {$qty} unit | Diam: {$days} hari";
-            }
-        }
-
-        // Zona Kritis
-        $lines[] = "";
-        $lines[] = "📦 *KAPASITAS KRITIS* (≥85%)";
-        if ($criticalZones->isEmpty()) {
-            $lines[] = "  ✅ Semua zona dalam kapasitas normal";
-        } else {
-            foreach ($criticalZones as $z) {
-                $lines[] = "  • {$z['name']}: {$z['pct']}% penuh";
+                $lines[] = "";
+                $lines[] = "{$no}. {$name}";
+                $lines[] = "```";
+                $lines[] = sprintf("%-14s: %s",      "SKU",           $sku);
+                $lines[] = sprintf("%-14s: %d unit",  "Qty",           $qty);
+                $lines[] = sprintf("%-14s: %d hari",  "Tidak bergerak", $days);
+                $lines[] = "```";
             }
         }
 
         $lines[] = "";
-        $lines[] = str_repeat('─', 30);
-        $lines[] = "🔗 Cek dashboard: " . config('app.url');
+        $lines[] = "_Pesan ini dikirim otomatis oleh sistem._";
 
         return implode("\n", $lines);
     }

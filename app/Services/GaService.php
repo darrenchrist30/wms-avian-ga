@@ -7,6 +7,7 @@ use App\Models\GaRecommendation;
 use App\Services\CellCapacityService;
 use App\Models\GaRecommendationDetail;
 use App\Models\InboundOrder;
+use App\Models\Item;
 use App\Models\ItemAffinity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -291,7 +292,11 @@ class GaService
                         $cell['cell_id'] === $detail->item->home_cell_id
                         && (int) $cell['capacity_remaining'] >= $capacityDemand
                     );
-                if ($homeCell) {
+                // MSpart home location is an anchor, not an absolute rule.
+                // If the home cell already has a different dominant category,
+                // leave the gene unlocked so GA can choose a neutral/category-safe
+                // expansion cell instead of being forced into FC_CAT = 0.
+                if ($homeCell && $this->isCategorySafePreferredCell($detail->item, $homeCell)) {
                     $preferredCellId = $homeCell['cell_id'];
                 }
             }
@@ -359,6 +364,11 @@ class GaService
         }
 
         $items = $expandedItems;
+
+        // Send only operationally relevant cells to Python. This preserves GA
+        // quality because the removed cells are far/category-mismatched cells
+        // that should only be considered after all meaningful candidates fail.
+        $cells = $this->buildOperationalCellSubset($cells, $items);
 
         // Final feasibility check — each chunk must now fit in at least one cell.
         foreach ($items as $item) {
@@ -549,6 +559,217 @@ class GaService
             )
             ->values()
             ->all();
+    }
+
+    private function buildOperationalCellSubset(array $cells, array $items): array
+    {
+        $byId = collect($cells)->keyBy(fn(array $cell) => (int) $cell['cell_id']);
+        $selectedIds = collect();
+
+        foreach ($items as $item) {
+            $itemId = (int) $item['item_id'];
+            $demand = (int) $item['capacity_demand'];
+            $preferredCellId = $item['preferred_cell_id'] ?? null;
+            $anchors = collect($cells)
+                ->filter(fn(array $cell) => in_array($itemId, array_map('intval', $cell['existing_item_ids'] ?? []), true))
+                ->values();
+            $feasible = collect($cells)
+                ->filter(fn(array $cell) => $this->cellFitsDemand($cell, $demand))
+                ->values();
+            $exactCategory = $feasible
+                ->filter(fn(array $cell) => $this->isExactCategoryCandidate($item, $cell))
+                ->values();
+            $neutral = $feasible
+                ->filter(fn(array $cell) => $this->isNeutralCandidate($cell))
+                ->values();
+
+            if ($preferredCellId && $byId->has((int) $preferredCellId)) {
+                $selectedIds->push((int) $preferredCellId);
+            }
+
+            // Keep all same-SKU locations as anchors, including full cells.
+            $selectedIds = $selectedIds->merge($anchors->pluck('cell_id')->map(fn($id) => (int) $id));
+
+            $sameSkuFeasible = $feasible
+                ->filter(fn(array $cell) => in_array($itemId, array_map('intval', $cell['existing_item_ids'] ?? []), true))
+                ->values();
+            $selectedIds = $selectedIds->merge($sameSkuFeasible->pluck('cell_id')->map(fn($id) => (int) $id));
+
+            if ($anchors->isNotEmpty()) {
+                $sameColumn = $feasible
+                    ->filter(fn(array $cell) =>
+                        $this->isCategorySafeCellForItem($item, $cell)
+                        && $this->isSamePhysicalColumnAsAny($cell, $anchors)
+                    )
+                    ->values();
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($sameColumn, $anchors, 30));
+
+                $sameBlockGroup = $exactCategory
+                    ->filter(fn(array $cell) => $this->isSameBlockGroupAsAny($cell, $anchors))
+                    ->values();
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($sameBlockGroup, $anchors, 80));
+
+                $sameBlock = $exactCategory
+                    ->filter(fn(array $cell) => $this->isSameBlockAsAny($cell, $anchors))
+                    ->values();
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($sameBlock, $anchors, 120));
+
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($exactCategory, $anchors, 220));
+
+                $neutralSameBlock = $neutral
+                    ->filter(fn(array $cell) => $this->isSameBlockAsAny($cell, $anchors))
+                    ->values();
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($neutralSameBlock, $anchors, 80));
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($neutral, $anchors, 120));
+
+                // Last operational fallback: nearest feasible cells regardless
+                // of category, kept small so category-safe options dominate.
+                $selectedIds = $selectedIds->merge($this->takeNearestCellIds($feasible, $anchors, 80));
+            } else {
+                $selectedIds = $selectedIds->merge($this->takePositionCellIds($exactCategory, 220));
+                $selectedIds = $selectedIds->merge($this->takePositionCellIds($neutral, 140));
+                $selectedIds = $selectedIds->merge($this->takePositionCellIds($feasible, 80));
+            }
+        }
+
+        return $byId
+            ->only($selectedIds->unique()->values()->all())
+            ->values()
+            ->all();
+    }
+
+    private function cellFitsDemand(array $cell, int $demand): bool
+    {
+        return (int) ($cell['capacity_remaining'] ?? 0) >= $demand;
+    }
+
+    private function isExactCategoryCandidate(array $item, array $cell): bool
+    {
+        $itemId = (int) $item['item_id'];
+
+        if (in_array($itemId, array_map('intval', $cell['existing_item_ids'] ?? []), true)) {
+            return true;
+        }
+
+        return $item['category_id'] !== null
+            && ($cell['dominant_category_id'] ?? null) !== null
+            && (int) $item['category_id'] === (int) $cell['dominant_category_id'];
+    }
+
+    private function isNeutralCandidate(array $cell): bool
+    {
+        $dominantCategoryId = $cell['dominant_category_id'] ?? null;
+
+        return $dominantCategoryId === null || $dominantCategoryId === '';
+    }
+
+    private function isCategorySafeCellForItem(array $item, array $cell): bool
+    {
+        return $this->isExactCategoryCandidate($item, $cell)
+            || $this->isNeutralCandidate($cell);
+    }
+
+    private function takeNearestCellIds($cells, $anchors, int $limit)
+    {
+        return collect($cells)
+            ->sortBy(fn(array $cell) => sprintf(
+                '%08.2f-%06d-%06d-%08d',
+                $this->nearestCellDistance($cell, $anchors),
+                -1 * (int) ($cell['capacity_remaining'] ?? 0),
+                (int) ($cell['cell_index'] ?? 9999),
+                (int) $cell['cell_id']
+            ))
+            ->take($limit)
+            ->pluck('cell_id')
+            ->map(fn($id) => (int) $id)
+            ->values();
+    }
+
+    private function takePositionCellIds($cells, int $limit)
+    {
+        return collect($cells)
+            ->sortBy(fn(array $cell) => sprintf(
+                '%06d-%06d-%06d-%08d',
+                (int) ($cell['rack_index'] ?? 9999),
+                (int) ($cell['cell_index'] ?? 9999),
+                -1 * (int) ($cell['capacity_remaining'] ?? 0),
+                (int) $cell['cell_id']
+            ))
+            ->take($limit)
+            ->pluck('cell_id')
+            ->map(fn($id) => (int) $id)
+            ->values();
+    }
+
+    private function nearestCellDistance(array $cell, $anchors): float
+    {
+        $distances = collect($anchors)
+            ->map(fn(array $anchor) => $this->cellDistance($cell, $anchor))
+            ->filter(fn($distance) => $distance !== null);
+
+        return $distances->isEmpty() ? 99999.0 : (float) $distances->min();
+    }
+
+    private function cellDistance(array $a, array $b): ?float
+    {
+        if (
+            ($a['blok'] ?? null) === null || ($b['blok'] ?? null) === null
+            || ($a['grup'] ?? null) === null || ($b['grup'] ?? null) === null
+            || ($a['kolom'] ?? null) === null || ($b['kolom'] ?? null) === null
+            || ($a['baris'] ?? null) === null || ($b['baris'] ?? null) === null
+        ) {
+            return null;
+        }
+
+        $grupA = ord(strtoupper((string) $a['grup'])[0]) - ord('A') + 1;
+        $grupB = ord(strtoupper((string) $b['grup'])[0]) - ord('A') + 1;
+
+        return abs((int) $a['blok'] - (int) $b['blok']) * 10
+            + abs($grupA - $grupB) * 5
+            + abs((int) $a['kolom'] - (int) $b['kolom']) * 2
+            + abs((int) $a['baris'] - (int) $b['baris']);
+    }
+
+    private function isSamePhysicalColumnAsAny(array $cell, $anchors): bool
+    {
+        return collect($anchors)->contains(fn(array $anchor) =>
+            ($cell['blok'] ?? null) === ($anchor['blok'] ?? null)
+            && strtoupper((string) ($cell['grup'] ?? '')) === strtoupper((string) ($anchor['grup'] ?? ''))
+            && ($cell['kolom'] ?? null) === ($anchor['kolom'] ?? null)
+        );
+    }
+
+    private function isSameBlockGroupAsAny(array $cell, $anchors): bool
+    {
+        return collect($anchors)->contains(fn(array $anchor) =>
+            ($cell['blok'] ?? null) === ($anchor['blok'] ?? null)
+            && strtoupper((string) ($cell['grup'] ?? '')) === strtoupper((string) ($anchor['grup'] ?? ''))
+        );
+    }
+
+    private function isSameBlockAsAny(array $cell, $anchors): bool
+    {
+        return collect($anchors)->contains(fn(array $anchor) =>
+            ($cell['blok'] ?? null) === ($anchor['blok'] ?? null)
+        );
+    }
+
+    private function isCategorySafePreferredCell(Item $item, array $cell): bool
+    {
+        $existingItemIds = array_map('intval', $cell['existing_item_ids'] ?? []);
+
+        if (in_array((int) $item->id, $existingItemIds, true)) {
+            return true;
+        }
+
+        $dominantCategoryId = $cell['dominant_category_id'] ?? null;
+
+        if ($dominantCategoryId === null || $dominantCategoryId === '') {
+            return true;
+        }
+
+        return $item->category_id !== null
+            && (int) $dominantCategoryId === (int) $item->category_id;
     }
 
     private function physicalLocationKey(Cell $cell): string

@@ -1441,13 +1441,7 @@
                                         <p>Satuan (Unit)</p>
                                     </a>
                                 </li>
-                                <li class="nav-item">
-                                    <a href="{{ route('master.affinities.index') }}"
-                                        class="nav-link {{ request()->routeIs('master.affinities*') ? 'active' : '' }}">
-                                        <i class="fas fa-project-diagram nav-icon" style="font-size:12px;"></i>
-                                        <p>Co-Occurrence</p>
-                                    </a>
-                                </li>
+                                {{-- Co-Occurrence disembunyikan --}}
                             </ul>
                         </li>
 

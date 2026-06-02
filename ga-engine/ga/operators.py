@@ -36,8 +36,8 @@ def _coord_dist(a: CellInput, b: CellInput) -> float:
             a.baris is not None and b.baris is not None):
         ga = ord(str(a.grup).upper()[0]) - ord('A') + 1
         gb = ord(str(b.grup).upper()[0]) - ord('A') + 1
-        return (abs(a.blok - b.blok) * 10 + abs(ga - gb) * 3
-                + abs(a.kolom - b.kolom) * 2 + abs(a.baris - b.baris) * 0.5)
+        return (abs(a.blok - b.blok) * 10 + abs(ga - gb) * 5
+                + abs(a.kolom - b.kolom) * 2 + abs(a.baris - b.baris) * 1)
     ra = a.rack_index if a.rack_index is not None else 9999
     rb = b.rack_index if b.rack_index is not None else 9999
     ia = a.cell_index if a.cell_index is not None else 9999
@@ -67,14 +67,74 @@ def category_compatible(item: ItemInput, cell: CellInput) -> bool:
     )
 
 
+def _category_tier(item: ItemInput, cell: CellInput) -> int:
+    if item.item_id in cell.existing_item_ids:
+        return 0
+    if (
+        item.category_id is not None
+        and cell.dominant_category_id is not None
+        and item.category_id == cell.dominant_category_id
+    ):
+        return 1
+    if cell.dominant_category_id is None:
+        return 2
+    return 3
+
+
+def _sort_category_capacity(cells: List[CellInput], item: ItemInput) -> List[CellInput]:
+    return sorted(
+        cells,
+        key=lambda c: (
+            _category_tier(item, c),
+            -int(c.capacity_remaining),
+            int(c.rack_index if c.rack_index is not None else 9999),
+            int(c.cell_index if c.cell_index is not None else 9999),
+            int(c.cell_id),
+        ),
+    )
+
+
+def _to_pool(
+    candidates: List[CellInput],
+    item:       ItemInput,
+    all_cells:  List[CellInput],
+) -> List[int]:
+    """
+    Kembalikan cell_id dari candidates, dibatasi MAX_FEASIBLE_POOL.
+    Jika kandidat terlalu banyak, persempit ke yang terdekat ke stok existing item.
+    """
+    if len(candidates) <= MAX_FEASIBLE_POOL:
+        return [c.cell_id for c in candidates]
+
+    existing = [c for c in all_cells if item.item_id in c.existing_item_ids]
+    if existing:
+        sorted_c = sorted(
+            candidates,
+            key=lambda c: min(_coord_dist(c, e) for e in existing),
+        )
+    else:
+        sorted_c = random.sample(candidates, len(candidates))
+
+    return [c.cell_id for c in sorted_c[:MAX_FEASIBLE_POOL]]
+
+
 def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
     """
-    Kembalikan daftar cell_id yang layak untuk item ini.
+    Kembalikan daftar cell_id yang layak untuk item ini berdasarkan
+    prioritas hierarkis:
 
-    Jika pool terlalu besar (>MAX_FEASIBLE_POOL), pool dipersempit ke sel-sel
-    terdekat ke stok existing item. Ini mencegah GA mengeksplorasi ribuan sel
-    secara acak sehingga sel-sel optimal (dekat stok existing) memiliki
-    probabilitas sampling yang cukup tinggi.
+    P1: Same-SKU cell yang aktif dan tidak penuh
+        → Konsolidasi SKU di satu lokasi, minimasi split.
+    P2: Same category + same blok + same grup dengan lokasi existing
+        → Ekspansi ke cell terdekat dalam zona yang sama.
+    P3: Same category + same blok (grup bersebelahan)
+        → Masih dalam area yang sama, jarak fisik terjangkau.
+    P4: Same category, blok lain (fallback)
+        → Terakhir: cari di seluruh gudang.
+
+    Referensi: Frazelle, E.H. (2002). World-Class Warehousing and Material
+               Handling. McGraw-Hill. (zone slotting principle)
+               Van den Berg, J.P. (1999). IIE Transactions, 31(8), 751-762.
     """
     feasible = [
         c for c in cells
@@ -83,37 +143,54 @@ def feasible_cell_pool(item: ItemInput, cells: List[CellInput]) -> List[int]:
     if not feasible:
         return [c.cell_id for c in cells]
 
-    same_sku_cells = [
-        c.cell_id for c in feasible
-        if item.item_id in c.existing_item_ids
-    ]
-    if same_sku_cells:
-        return same_sku_cells
+    # ── P1: Same-SKU existing cell ────────────────────────────────────────────
+    same_sku = [c.cell_id for c in feasible if item.item_id in c.existing_item_ids]
+    if same_sku:
+        return same_sku
 
-    category_valid = [
-        c for c in feasible
-        if category_compatible(item, c)
-    ]
-    if not category_valid:
-        category_valid = feasible
+    # Prefer committed category cells first. Neutral cells are expansion
+    # fallback only when no same-SKU/category cell can receive the item.
+    exact_category = [c for c in feasible if _category_tier(item, c) <= 1]
+    neutral = [c for c in feasible if c.dominant_category_id is None]
+    category_valid = exact_category or neutral or feasible
 
-    if len(category_valid) <= MAX_FEASIBLE_POOL:
-        return [c.cell_id for c in category_valid]
+    # Koordinat lokasi existing item (referensi P2 & P3)
+    existing_cells     = [c for c in cells if item.item_id in c.existing_item_ids]
+    existing_blok_grups = {
+        (c.blok, c.grup)
+        for c in existing_cells
+        if c.blok is not None and c.grup is not None
+    }
+    existing_bloks = {c.blok for c in existing_cells if c.blok is not None}
 
-    # Pool terlalu besar — persempit ke MAX_FEASIBLE_POOL sel terdekat
-    # ke stok existing item agar GA dapat mengeksplorasi area yang relevan.
-    existing = [c for c in cells if item.item_id in c.existing_item_ids]
-    if existing:
-        sorted_cv = sorted(
-            category_valid,
-            key=lambda c: min(_coord_dist(c, e) for e in existing),
-        )
-    else:
-        # Item baru tanpa stok existing — ambil sampel acak agar GA
-        # tetap menjelajahi seluruh ruang solusi secara merata.
-        sorted_cv = random.sample(category_valid, len(category_valid))
+    # ── P2: Same category + same blok + same grup ─────────────────────────────
+    if existing_blok_grups:
+        p2 = [
+            c for c in exact_category
+            if c.blok is not None
+            and c.grup is not None
+            and (c.blok, c.grup) in existing_blok_grups
+        ]
+        if p2:
+            return _to_pool(p2, item, cells)
 
-    return [c.cell_id for c in sorted_cv[:MAX_FEASIBLE_POOL]]
+    # ── P3: Same category + same blok (grup bersebelahan) ────────────────────
+    if existing_bloks:
+        p3 = [
+            c for c in exact_category
+            if c.blok is not None and c.blok in existing_bloks
+        ]
+        if p3:
+            return _to_pool(p3, item, cells)
+
+    # ── P4: Fallback — blok lain ──────────────────────────────────────────────
+    if exact_category:
+        return _to_pool(_sort_category_capacity(exact_category, item), item, cells)
+
+    if neutral:
+        return _to_pool(_sort_category_capacity(neutral, item), item, cells)
+
+    return _to_pool(_sort_category_capacity(category_valid, item), item, cells)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -381,38 +458,41 @@ def repair_category_invalid_genes(
             repaired[idx] = item.preferred_cell_id
             continue
 
+        exact_pool = [
+            cell
+            for cell in cells
+            if cell.capacity_remaining >= item.capacity_demand
+            and _category_tier(item, cell) <= 1
+        ]
+        neutral_pool = [
+            cell
+            for cell in cells
+            if cell.capacity_remaining >= item.capacity_demand
+            and cell.dominant_category_id is None
+        ]
+
         current_cell = cells_dict.get(repaired[idx])
         if (
             current_cell is not None
             and (
                 current_cell.capacity_remaining >= item.capacity_demand
             )
-            and category_compatible(item, current_cell)
+            and (
+                _category_tier(item, current_cell) <= 1
+                or (not exact_pool and current_cell.dominant_category_id is None)
+            )
         ):
             continue
 
-        compatible_pool = [
-            cell.cell_id
-            for cell in cells
-            if (
-                cell.capacity_remaining >= item.capacity_demand
-            )
-            and category_compatible(item, cell)
-        ]
+        compatible_pool = _sort_category_capacity(exact_pool, item)
 
         if compatible_pool:
-            repaired[idx] = random.choice(compatible_pool)
+            repaired[idx] = compatible_pool[0].cell_id
         else:
             # Tier 2: tidak ada cell kategori cocok — pilih cell kosong (netral)
             # daripada mempertahankan cell dengan kategori salah
-            neutral_pool = [
-                cell.cell_id
-                for cell in cells
-                if cell.capacity_remaining >= item.capacity_demand
-                and cell.dominant_category_id is None
-            ]
             if neutral_pool:
-                repaired[idx] = random.choice(neutral_pool)
+                repaired[idx] = _sort_category_capacity(neutral_pool, item)[0].cell_id
 
     return repaired
 
