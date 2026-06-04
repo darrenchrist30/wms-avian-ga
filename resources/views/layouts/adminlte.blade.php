@@ -911,9 +911,10 @@
         .table thead th {
             background: #f8f9fa;
             font-size: 12px;
-            font-weight: 600;
+            font-weight: 700 !important;
             letter-spacing: .5px;
             text-transform: uppercase;
+            text-align: center !important;
             color: #6b7280;
             border-bottom: 2px solid #e9ecef !important;
             border-top: none !important;
@@ -1504,8 +1505,8 @@
                                     <a href="{{ route('putaway.operator') }}"
                                         class="nav-link {{ request()->routeIs('putaway.operator') ? 'active' : '' }}"
                                         style="{{ request()->routeIs('putaway.operator') ? '' : 'color:#34d399;' }}">
-                                        <i class="fas fa-hard-hat nav-icon" style="font-size:12px;"></i>
-                                        <p>Mode Operator <span class="badge badge-success ml-1" style="font-size:9px;">TABLET</span></p>
+                                        <i class="fas fa-qrcode nav-icon" style="font-size:12px;"></i>
+                                        <p>Scan Put-Away</p>
                                     </a>
                                 </li>
                             </ul>

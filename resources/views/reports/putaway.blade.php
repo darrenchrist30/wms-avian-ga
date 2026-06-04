@@ -9,9 +9,9 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-map-marker-alt text-warning mr-2"></i>Laporan Put-Away
         </h5>
-        <small class="text-muted">
+        {{-- <small class="text-muted">
             {{ auth()->user()->isOperator() ? 'Ringkasan dan riwayat konfirmasi put-away' : 'Analisis penempatan barang dan performa algoritma GA' }}
-        </small>
+        </small> --}}
     </div>
     <div class="d-flex align-items-center" style="gap:6px;">
         <form method="GET" class="d-flex align-items-center" style="gap:6px;">
@@ -29,25 +29,25 @@
     @if(auth()->user()->isOperator())
         <div class="col-6 col-md-3 mb-2">
             <div class="small-box bg-success mb-0">
-                <div class="inner"><h4>{{ number_format($traceSummary->confirmation_count ?? 0) }}</h4><p>Konfirmasi Put-Away</p></div>
+                <div class="inner"><h4>{{ number_format($traceSummary->confirmation_count ?? 0) }} <small>kali</small></h4><p>Konfirmasi Put-Away</p></div>
                 <div class="icon"><i class="fas fa-check-double"></i></div>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-2">
             <div class="small-box bg-info mb-0">
-                <div class="inner"><h4>{{ number_format($traceSummary->total_qty ?? 0) }}</h4><p>Total Qty Disimpan</p></div>
+                <div class="inner"><h4>{{ number_format($traceSummary->total_qty ?? 0) }} <small>unit</small></h4><p>Total Qty Disimpan</p></div>
                 <div class="icon"><i class="fas fa-boxes"></i></div>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-2">
             <div class="small-box bg-primary mb-0">
-                <div class="inner"><h4>{{ number_format($traceSummary->do_count ?? 0) }}</h4><p>DO Diproses</p></div>
+                <div class="inner"><h4>{{ number_format($traceSummary->do_count ?? 0) }} <small>SJ</small></h4><p>SJ Diproses</p></div>
                 <div class="icon"><i class="fas fa-file-alt"></i></div>
             </div>
         </div>
         <div class="col-6 col-md-3 mb-2">
             <div class="small-box bg-secondary mb-0">
-                <div class="inner"><h4>{{ number_format($traceSummary->sku_count ?? 0) }}</h4><p>SKU Diproses</p></div>
+                <div class="inner"><h4>{{ number_format($traceSummary->sku_count ?? 0) }} <small>SKU</small></h4><p>SKU Diproses</p></div>
                 <div class="icon"><i class="fas fa-barcode"></i></div>
             </div>
         </div>
@@ -109,7 +109,7 @@
             </div>
             <div class="col-md-3 col-12 mb-2">
                 <div class="d-flex" style="gap:6px;">
-                    <button class="btn btn-sm btn-success flex-grow-1">
+                    <button class="btn btn-sm btn-primary flex-grow-1">
                         <i class="fas fa-search mr-1"></i>Tampilkan
                     </button>
                     <a href="{{ route('reports.putaway') }}" class="btn btn-sm btn-outline-secondary" title="Reset filter">
@@ -143,11 +143,10 @@
                     <tr>
                         <th>Waktu</th>
                         <th>Operator</th>
-                        <th>DO</th>
+                        <th>SJ</th>
                         <th>Item</th>
-                        <th class="text-center">Qty</th>
+                        <th>Qty</th>
                         <th>Cell</th>
-                        <th class="text-center">GA</th>
                         <th>Catatan</th>
                     </tr>
                 </thead>
@@ -163,21 +162,11 @@
                                 <strong>{{ $log->item_name }}</strong><br>
                                 <small class="text-muted">{{ $log->sku }}</small>
                             </td>
-                            <td class="text-center font-weight-bold text-nowrap">
+                            <td class="text-center text-nowrap">
                                 {{ number_format($log->quantity_stored) }} {{ $log->unit_code }}
                             </td>
                             <td class="text-nowrap">
                                 <span class="badge badge-primary">{{ $log->cell_code }}</span>
-                                <small class="text-muted d-block">
-                                    {{ $log->blok }}-{{ $log->grup }}-{{ $log->kolom }}-{{ $log->baris }}
-                                </small>
-                            </td>
-                            <td class="text-center">
-                                @if($log->follow_recommendation)
-                                    <span class="badge badge-success">Sesuai</span>
-                                @else
-                                    <span class="badge badge-warning text-dark">Override</span>
-                                @endif
                             </td>
                             <td>
                                 <small class="text-muted">{{ $log->notes ?: '-' }}</small>
@@ -336,9 +325,12 @@ $(function () {
         scrollX: true,
         autoWidth: false,
         columnDefs: [
-            { targets: [4, 6], className: 'text-center' },
-            { targets: [7], orderable: false },
+            { targets: '_all', className: 'text-center' },
+            { targets: [6], orderable: false },
         ],
+        headerCallback: function(thead) {
+            $(thead).find('th').css({ 'font-weight': '700', 'text-align': 'center' });
+        },
     });
 
     // Trend Put-Away

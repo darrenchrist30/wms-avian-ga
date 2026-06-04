@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-boxes text-primary mr-2"></i>Laporan Inventaris
         </h5>
-        <small class="text-muted">Kondisi stok real-time — distribusi, utilisasi, dan peringatan</small>
+        {{-- <small class="text-muted">Kondisi stok real-time — distribusi, utilisasi, dan peringatan</small> --}}
     </div>
     <div class="d-flex" style="gap:6px;">
         <a href="{{ route('stock.index') }}" class="btn btn-sm btn-outline-primary">
@@ -25,25 +25,37 @@
 <div class="row mb-3">
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-info mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_skus']) }}</h4><p>Total SKU Aktif</p></div>
+            <div class="inner">
+                <h4>{{ number_format($summary['total_skus']) }} <small>SKU</small></h4>
+                <p>Total SKU Aktif</p>
+            </div>
             <div class="icon"><i class="fas fa-list"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-primary mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_qty']) }}</h4><p>Total Qty di Gudang</p></div>
+            <div class="inner">
+                <h4>{{ number_format($summary['total_qty']) }} <small>unit</small></h4>
+                <p>Total Qty di Gudang</p>
+            </div>
             <div class="icon"><i class="fas fa-cubes"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box {{ $summary['below_min'] > 0 ? 'bg-danger' : 'bg-success' }} mb-0">
-            <div class="inner"><h4>{{ $summary['below_min'] }}</h4><p>Di Bawah Minimum</p></div>
+            <div class="inner">
+                <h4>{{ number_format($summary['below_min']) }} <small>SKU</small></h4>
+                <p>Di Bawah Minimum</p>
+            </div>
             <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box {{ $summary['deadstock'] > 0 ? 'bg-warning' : 'bg-secondary' }} mb-0">
-            <div class="inner"><h4>{{ $summary['deadstock'] }}</h4><p>Deadstock</p></div>
+            <div class="inner">
+                <h4>{{ number_format($summary['deadstock']) }} <small>SKU</small></h4>
+                <p>Deadstock &ge;{{ $summary['deadstock_days'] ?? 90 }} hari</p>
+            </div>
             <div class="icon"><i class="fas fa-archive"></i></div>
         </div>
     </div>
@@ -70,7 +82,7 @@
     <div class="col-md-7 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-chart-bar mr-1"></i>Top 10 Item — Stok Terbanyak</strong>
+                <strong><i class="fas fa-chart-bar mr-1"></i>Top 10 Item Stok Terbanyak</strong>
             </div>
             <div class="card-body">
                 @if($topItems->isEmpty())
@@ -173,6 +185,13 @@
 </div>
 @endsection
 
+@push('styles')
+<style>
+.row.mb-3 .small-box { min-height: 90px; }
+.row.mb-3 .small-box .inner { display: flex; flex-direction: column; justify-content: center; }
+</style>
+@endpush
+
 @push('scripts')
 <script src="{{ asset('js/highcharts.min.js') }}"></script>
 <script>
@@ -218,7 +237,11 @@ $(function () {
         },
         yAxis: { title: { text: 'Total Qty' }, min: 0 },
         tooltip: { valueSuffix: ' pcs' },
-        plotOptions: { bar: { dataLabels: { enabled: true } } },
+        plotOptions: { bar: { dataLabels: {
+            enabled: true,
+            align: 'right',
+            formatter: function() { return Highcharts.numberFormat(this.y, 0, ',', '.'); }
+        } } },
         series: [{
             name: 'Total Qty',
             color: '#007bff',

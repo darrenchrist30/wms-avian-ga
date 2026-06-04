@@ -66,8 +66,7 @@
                                     <th width="100">Kode Rak</th>
                                     <th width="120">Nama</th>
                                     <th>Gudang</th>
-                                    <th width="140">Kategori Dominan</th>
-                                    <th width="70" class="text-center">Level</th>
+                                    <th width="170">Kategori Dominan</th>
                                     <th width="60" class="text-center">Sel</th>
                                     <th width="80" class="text-center">Status</th>
                                 </tr>
@@ -123,7 +122,6 @@
                     },
                     { data: 'lokasi',   name: 'warehouse.name', orderable: false },
                     { data: 'kategori', name: 'dominantCategory.name', orderable: false, searchable: false },
-                    { data: 'total_levels', name: 'total_levels', className: 'text-center' },
                     { data: 'cells_count',  name: 'cells_count',  className: 'text-center', orderable: false },
                     {
                         data: 'status_badge',

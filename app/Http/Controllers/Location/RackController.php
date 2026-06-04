@@ -217,7 +217,13 @@ class RackController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = Rack::with(['warehouse', 'dominantCategory'])->withCount('cells');
+        $query = Rack::with([
+            'warehouse',
+            'cells' => fn($q) => $q
+                ->where('is_active', true)
+                ->whereNotNull('dominant_category_id')
+                ->with('dominantCategory'),
+        ])->withCount('cells');
         if ($request->filled('warehouse_id')) {
             $query->where('warehouse_id', $request->warehouse_id);
         }
@@ -226,14 +232,29 @@ class RackController extends Controller
         }
         return DataTables::of($query)
             ->addIndexColumn()
+            ->orderColumn('code', 'CAST(code AS UNSIGNED) $1, code $1')
             ->addColumn('lokasi', function ($row) {
                 $wh = $row->warehouse->name ?? '-';
                 return '<small class="text-muted">' . e($wh) . '</small>';
             })
             ->addColumn('kategori', function ($row) {
-                if (!$row->dominantCategory) return '<span class="text-muted">-</span>';
-                $color = $row->dominantCategory->color_code ?? '#6c757d';
-                $name  = e($row->dominantCategory->name);
+                $categorizedCells = $row->cells->filter(fn($cell) => $cell->dominantCategory);
+                if ($categorizedCells->isEmpty()) {
+                    return '<span class="text-muted">-</span>';
+                }
+
+                $categoryGroups = $categorizedCells->groupBy('dominant_category_id')
+                    ->map(fn($cells) => [
+                        'count' => $cells->count(),
+                        'category' => $cells->first()->dominantCategory,
+                    ])
+                    ->sortByDesc('count');
+
+                $dominant = $categoryGroups->first();
+                $category = $dominant['category'];
+                $color = $category->color_code ?? '#6c757d';
+                $name = e($category->name);
+
                 return '<span class="badge" style="background:' . $color . ';color:#fff;">' . $name . '</span>';
             })
             ->addColumn('status_badge', function ($row) {

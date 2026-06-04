@@ -1,6 +1,46 @@
 ﻿@extends('layouts.adminlte')
 @section('title', 'Laporan Penerimaan Barang')
 
+@push('styles')
+<style>
+    .inbound-summary-card {
+        min-height: 80px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+    }
+
+    .inbound-summary-card .inner {
+        width: 100%;
+        min-height: 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-right: 72px;
+    }
+
+    .inbound-summary-card .inner h4 {
+        line-height: 1;
+        margin-bottom: 8px;
+    }
+
+    .inbound-summary-card .inner p {
+        min-height: 34px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 0;
+        line-height: 1.25;
+    }
+
+    .small-box.inbound-summary-card > .icon {
+        font-size: 70px !important;
+        opacity: 0.5 !important;
+        top: -20px !important;
+        bottom: auto !important;
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid pb-4">
 
@@ -29,26 +69,26 @@
 {{-- Summary Cards --}}
 <div class="row mb-3">
     <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-primary mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_orders']) }}</h4><p>Total DO {{ $year }}</p></div>
+        <div class="small-box inbound-summary-card bg-primary mb-0">
+            <div class="inner"><h4>{{ number_format($summary['total_orders']) }} <small>SJ</small></h4><p>Total SJ {{ $year }}</p></div>
             <div class="icon"><i class="fas fa-file-alt"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-success mb-0">
-            <div class="inner"><h4>{{ number_format($summary['processed_orders']) }}</h4><p>Selesai (Completed)</p></div>
+        <div class="small-box inbound-summary-card bg-success mb-0">
+            <div class="inner"><h4>{{ number_format($summary['processed_orders']) }} <small>SJ</small></h4><p>Selesai (Completed)</p></div>
             <div class="icon"><i class="fas fa-check-circle"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-warning mb-0">
-            <div class="inner"><h4>{{ number_format($summary['received_orders']) }}</h4><p>Rekomendasi / Put-Away</p></div>
+        <div class="small-box inbound-summary-card bg-warning mb-0">
+            <div class="inner"><h4>{{ number_format($summary['received_orders']) }} <small>SJ</small></h4><p>Sedang Put-Away</p></div>
             <div class="icon"><i class="fas fa-box-open"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
-        <div class="small-box bg-info mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_warehouses']) }}</h4><p>Gudang Aktif</p></div>
+        <div class="small-box inbound-summary-card bg-info mb-0">
+            <div class="inner"><h4>{{ number_format($summary['total_warehouses']) }} <small>Gudang</small></h4><p>Gudang Aktif</p></div>
             <div class="icon"><i class="fas fa-warehouse"></i></div>
         </div>
     </div>
@@ -71,7 +111,7 @@
     <div class="col-md-4 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-chart-pie mr-1"></i>Status DO</strong>
+                <strong><i class="fas fa-chart-pie mr-1"></i>Status SJ</strong>
             </div>
             <div class="card-body">
                 @if($statusDist->isEmpty())
@@ -89,7 +129,7 @@
     <div class="col-md-6 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-stopwatch mr-1"></i>Rata-rata Waktu Proses DO (Jam) {{ $year }}</strong>
+                <strong><i class="fas fa-stopwatch mr-1"></i>Rata-rata Waktu Proses SJ (Jam) {{ $year }}</strong>
             </div>
             <div class="card-body">
                 <div id="chartAvgProcessing" style="height:260px;"></div>
@@ -130,13 +170,13 @@ $(function () {
         title: { text: null },
         xAxis: { categories: monthNames },
         yAxis: [
-            { title: { text: 'Jumlah DO' }, min: 0 },
+            { title: { text: 'Jumlah SJ' }, min: 0 },
             { title: { text: 'Total Qty' }, opposite: true, min: 0 }
         ],
         tooltip: { shared: true },
         series: [
             {
-                name: 'Jumlah DO',
+                name: 'Jumlah SJ',
                 type: 'column',
                 color: '#28a745',
                 data: {!! json_encode($chartOrders) !!}
@@ -158,7 +198,7 @@ $(function () {
     Highcharts.chart('chartStatusPie', {
         chart: { type: 'pie', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
         title: { text: null },
-        tooltip: { pointFormat: '<b>{point.name}</b>: {point.y} DO ({point.percentage:.1f}%)' },
+        tooltip: { pointFormat: '<b>{point.name}</b>: {point.y} SJ ({point.percentage:.1f}%)' },
         plotOptions: {
             pie: {
                 allowPointSelect: true, cursor: 'pointer',
@@ -166,7 +206,7 @@ $(function () {
             }
         },
         series: [{
-            name: 'DO',
+            name: 'SJ',
             data: [
                 @foreach($statusDist as $s)
                 { name: '{{ $s->label }}', y: {{ $s->total }},
@@ -178,7 +218,7 @@ $(function () {
     });
     @endif
 
-    // Rata-rata Waktu Proses DO
+    // Rata-rata Waktu Proses SJ
     Highcharts.chart('chartAvgProcessing', {
         chart: { type: 'column', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
         title: { text: null },

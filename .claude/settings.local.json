@@ -72,7 +72,9 @@
       "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\resources\\\\views\" -Directory)",
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(Get-ChildItem -Directory)",
-      "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\" -Name)"
+      "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\" -Name)",
+      "Bash(php -r \"echo 'APP_KEY exists: ' . \\(getenv\\('APP_KEY'\\) ? 'YES' : 'NO'\\) . PHP_EOL;\")",
+      "Bash(del bootstrap\\\\cache\\\\serAA47.tmp)"
     ]
   }
 }

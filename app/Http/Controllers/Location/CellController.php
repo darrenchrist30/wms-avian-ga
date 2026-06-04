@@ -8,6 +8,7 @@ use App\Models\ItemCategory;
 use App\Models\Rack;
 use App\Models\Stock;
 use App\Models\Warehouse;
+use App\Services\ColumnCategoryAssignmentService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
@@ -297,6 +298,12 @@ class CellController extends Controller
         $rack  = Rack::with('warehouse')->findOrFail($rackId);
         $cells = Cell::where('rack_id', $rackId)
             ->where('is_active', true)
+            ->where(function ($q) {
+                // Hanya cetak cell level kolom (3 format: blok-grup-kolom, baris=null)
+                // atau cell non-MSpart (blok=null)
+                $q->whereNull('baris')
+                  ->orWhereNull('blok');
+            })
             ->orderBy('level')
             ->get();
 
@@ -357,6 +364,50 @@ class CellController extends Controller
         $columns = $cells->groupBy(fn($c) => $c->blok . '-' . strtoupper($c->grup) . '-' . $c->kolom);
 
         return view('location.cells.column-qr', compact('columns', 'rack'));
+    }
+
+    public function columnCategoryPreview(Request $request, ColumnCategoryAssignmentService $service)
+    {
+        $data = $request->validate([
+            'blok'      => 'required|integer|min:1',
+            'grup'      => 'required|string|size:1',
+            'kolom'     => 'required|integer|min:1',
+            'threshold' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        return response()->json($service->preview(
+            $data['blok'],
+            $data['grup'],
+            $data['kolom'],
+            (float) ($data['threshold'] ?? ColumnCategoryAssignmentService::DEFAULT_THRESHOLD)
+        ));
+    }
+
+    public function applyColumnCategory(Request $request, ColumnCategoryAssignmentService $service)
+    {
+        $data = $request->validate([
+            'blok'                 => 'required|integer|min:1',
+            'grup'                 => 'required|string|size:1',
+            'kolom'                => 'required|integer|min:1',
+            'dominant_category_id' => 'required|exists:item_categories,id',
+            'mode'                 => 'required|in:neutral_only,overwrite',
+            'threshold'            => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        $result = $service->apply(
+            $data['blok'],
+            $data['grup'],
+            $data['kolom'],
+            (int) $data['dominant_category_id'],
+            $data['mode'],
+            (float) ($data['threshold'] ?? ColumnCategoryAssignmentService::DEFAULT_THRESHOLD)
+        );
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => "Kategori kolom berhasil diterapkan ke {$result['updated_count']} cell.",
+            'result'  => $result,
+        ]);
     }
 
     // ─── Print QR Label untuk Cell ───────────────────────────────────────────────
@@ -432,7 +483,9 @@ class CellController extends Controller
             ->selectRaw('blok, UPPER(grup) as grup, kolom,
                          SUM(capacity_used) as used, SUM(capacity_max) as cap_max, COUNT(*) as cnt,
                          SUM(CASE WHEN status="full" THEN 1 ELSE 0 END) as cnt_full,
-                         SUM(CASE WHEN status="available" THEN 1 ELSE 0 END) as cnt_avail')
+                         SUM(CASE WHEN status="available" THEN 1 ELSE 0 END) as cnt_avail,
+                         SUM(CASE WHEN dominant_category_id IS NULL THEN 1 ELSE 0 END) as cnt_neutral,
+                         SUM(CASE WHEN dominant_category_id IS NOT NULL THEN 1 ELSE 0 END) as cnt_categorized')
             ->groupBy('blok', 'grup', 'kolom')
             ->get()
             ->keyBy(fn($r) => $r->blok . '-' . strtoupper($r->grup) . '-' . $r->kolom);
@@ -514,10 +567,22 @@ class CellController extends Controller
                 $cls = $map[$row->status] ?? 'badge-secondary';
                 return '<span class="badge ' . $cls . '">' . ucfirst($row->status) . '</span>';
             })
-            ->addColumn('action', function ($row) {
+            ->addColumn('action', function ($row) use ($columnAggByKey) {
                 if ($row->isColumnCell()) {
                     $colQrUrl = route('location.cells.column-qr') . '?column=' . urlencode($row->code);
+                    $columnCode = e($row->code);
+                    $key = $row->blok . '-' . strtoupper($row->grup) . '-' . $row->kolom;
+                    $agg = $columnAggByKey->get($key);
+                    $alreadyApplied = $agg
+                        && (int) $agg->cnt > 0
+                        && (int) $agg->cnt_neutral === 0
+                        && (int) $agg->cnt_categorized > 0;
+                    $categoryButton = $alreadyApplied
+                        ? '<button type="button" class="btn btn-xs btn-secondary" disabled title="Kategori kolom sudah diterapkan"><i class="fas fa-check"></i></button>'
+                        : '<button type="button" class="btn btn-xs btn-success btnColumnCategory" data-column="' . $columnCode . '" title="Set Kategori Kolom"><i class="fas fa-tags"></i></button>';
+
                     return '<div style="display:flex;gap:3px;flex-wrap:nowrap;">'
+                        . $categoryButton
                         . '<a href="' . $colQrUrl . '" class="btn btn-xs btn-success" title="Print QR Kolom"><i class="fas fa-qrcode"></i></a>'
                         . '</div>';
                 }

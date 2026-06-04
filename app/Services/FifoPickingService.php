@@ -31,16 +31,22 @@ class FifoPickingService
             if ($remaining <= 0) break;
 
             $takeQty = min($remaining, $stock->quantity);
+            $cell    = $stock->cell;
+            $isMspart = $cell && $cell->blok !== null && $cell->grup !== null
+                     && $cell->kolom !== null && $cell->baris !== null;
+            $location = $isMspart
+                ? "Blok {$cell->blok} · Grp {$cell->grup} · Kol {$cell->kolom} · Brs {$cell->baris}"
+                : ($cell?->rack?->code ? 'Rak ' . $cell->rack->code : '–');
+
             $picks[] = [
-                'stock_id'     => $stock->id,
-                'cell_id'      => $stock->cell_id,
-                'cell_code'    => $stock->cell?->code ?? '–',
-                'rack_code'    => $stock->cell?->rack?->code ?? '–',
-                'warehouse_name'=> $stock->cell?->rack?->warehouse?->name ?? '–',
-                'inbound_date' => $stock->inbound_date?->format('d M Y') ?? '–',
-                'lpn'          => $stock->lpn,
-                'available_qty'=> $stock->quantity,
-                'take_qty'     => $takeQty,
+                'stock_id'      => $stock->id,
+                'cell_id'       => $stock->cell_id,
+                'cell_code'     => $cell?->code ?? '–',
+                'location'      => $location,
+                'inbound_date'  => $stock->inbound_date?->format('d M Y') ?? '–',
+                'lpn'           => $stock->lpn,
+                'available_qty' => $stock->quantity,
+                'take_qty'      => $takeQty,
             ];
             $remaining -= $takeQty;
         }

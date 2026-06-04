@@ -5,13 +5,13 @@
 @section('content')
     <div class="container-fluid">
 
-        <div class="row mb-2 align-items-center">
+        <div class="row mb-3 align-items-center">
             <div class="col">
                 <h4 class="mt-2 mb-0">
                     <i class="fas fa-dolly-flatbed mr-2 text-primary"></i>
                     Put-Away — Penempatan Barang
                 </h4>
-                <p class="text-muted mb-0 mt-1">Daftar inbound order yang sudah disetujui GA dan siap di-put-away oleh operator.</p>
+                {{-- <p class="text-muted mb-0 mt-1">Daftar inbound order yang sudah disetujui GA dan siap di-put-away oleh operator.</p> --}}
             </div>
             <div class="col-auto mt-2">
                 <a href="{{ route('putaway.queue') }}" class="btn btn-primary btn-sm shadow-sm">

@@ -17,7 +17,7 @@
                             </a>
                         </div>
                     </div>
-                    <div class="card-body text-center">
+                    <div class="card-body text-center pt-2">
                         @if(session('success'))
                             <div class="alert alert-success alert-dismissible text-left">
                                 <button type="button" class="close" data-dismiss="alert">&times;</button>
@@ -25,22 +25,12 @@
                             </div>
                         @endif
 
-                        <div id="barcode-label" class="p-3 border rounded d-inline-block" style="min-width:300px;">
+                        <div id="barcode-label" class="p-3 border rounded text-center mx-auto" style="width:300px;">
                             <div class="mb-1">
                                 <small class="text-muted font-weight-bold">{{ config('app.name') }}</small>
                             </div>
-                            <div class="font-weight-bold mb-1">{{ $item->name }}</div>
-                            <canvas id="itemQr" class="mb-2"></canvas>
-                            <svg id="barcode"></svg>
-                            <div class="mt-1">
-                                <small class="text-muted">SKU: {{ $item->sku }}</small><br>
-                                @if ($item->category)
-                                    <small class="text-muted">Kategori: {{ $item->category->name }}</small><br>
-                                @endif
-                                @if ($item->unit)
-                                    <small class="text-muted">Satuan: {{ $item->unit->code }}</small>
-                                @endif
-                            </div>
+                            <div class="font-weight-bold mb-2">{{ $item->name }}</div>
+                            <canvas id="itemQr" style="margin-bottom:8px;"></canvas>
                         </div>
 
                         <div class="mt-3">
@@ -58,26 +48,16 @@
 
 @push('scripts')
     <script src="{{ asset('js/qrious.min.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
     <script>
-        var publicItemUrl = '{{ route('public.item', rawurlencode($item->barcode ?? $item->sku)) }}';
-        var barcodeValue = '{{ $item->barcode ?? $item->sku }}';
+        var skuValue = '{{ $item->barcode ?? $item->sku }}';
         new QRious({
             element: document.getElementById('itemQr'),
-            value: publicItemUrl,
-            size: 110,
+            value: skuValue,
+            size: 160,
             level: 'H',
             background: '#ffffff',
             foreground: '#1a2332',
             padding: 4
-        });
-        JsBarcode('#barcode', barcodeValue, {
-            format: 'CODE128',
-            width: 2,
-            height: 60,
-            displayValue: true,
-            fontSize: 14,
-            margin: 8
         });
     </script>
     <style>

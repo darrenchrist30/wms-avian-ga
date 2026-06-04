@@ -343,7 +343,11 @@ window.addEventListener('beforeunload', stopCamera);
 
 // ─── LOOKUP ───────────────────────────────────────────────────────────────────
 function doLookup(code) {
-    if (!code.trim()) return;
+    code = code.trim();
+    if (!code) return;
+    // Jika QR encode URL publik item, ekstrak SKU-nya saja
+    var urlMatch = code.match(/\/i\/([^/?#]+)$/);
+    if (urlMatch) code = decodeURIComponent(urlMatch[1]);
     $('#resultArea, #notFoundArea').hide();
     $('#btnLookup').html('<i class="fas fa-spinner fa-spin"></i>').prop('disabled', true);
 

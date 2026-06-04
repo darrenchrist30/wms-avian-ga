@@ -179,11 +179,12 @@ class PutAwayController extends Controller
         // mode: 'today' | 'range' | 'all'
         $mode = $allActive ? 'all' : ($hasDateFilter ? 'range' : 'today');
 
-        $buildQuery = function (string $m, string $s = '', string $e = '') use ($user, $today) {
+        $buildBaseQuery = function (string $m, string $s = '', string $e = '') use ($user, $today) {
             return GaRecommendationDetail::with([
                 'gaRecommendation.inboundOrder',
                 'inboundOrderItem.item.unit',
                 'cell.rack',
+                'putAwayConfirmations',
             ])
             ->whereHas('gaRecommendation', function ($q) use ($user, $m, $today, $s, $e) {
                 $q->where('status', 'accepted')
@@ -200,7 +201,11 @@ class PutAwayController extends Controller
                       }
                       // mode 'all': tanpa filter tanggal
                   });
-            })
+            });
+        };
+
+        $buildQuery = function (string $m, string $s = '', string $e = '') use ($buildBaseQuery) {
+            return $buildBaseQuery($m, $s, $e)
             ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
             ->whereDoesntHave('putAwayConfirmations');
         };
@@ -217,6 +222,20 @@ class PutAwayController extends Controller
         };
 
         $items = $buildQuery($mode, $startDate, $endDate)->get()->sortBy($sortFn)->values();
+        $scopeDetails = $buildBaseQuery($mode, $startDate, $endDate)->get();
+        $operatorSummary = [
+            'sj_count'        => $scopeDetails
+                ->pluck('gaRecommendation.inboundOrder.id')
+                ->filter()
+                ->unique()
+                ->count(),
+            'total_lines'     => $scopeDetails->count(),
+            'total_qty'       => (int) $scopeDetails->sum('quantity'),
+            'completed_lines' => $scopeDetails
+                ->filter(fn($detail) => $detail->putAwayConfirmations->isNotEmpty())
+                ->count(),
+            'waiting_lines'   => $items->count(),
+        ];
 
         $otherActiveCount = ($mode === 'today' && $items->isEmpty())
             ? $buildQuery('all')->count()
@@ -224,7 +243,7 @@ class PutAwayController extends Controller
 
         return view('putaway.operator', compact(
             'items', 'allActive', 'today', 'otherActiveCount',
-            'startDate', 'endDate', 'hasDateFilter'
+            'startDate', 'endDate', 'hasDateFilter', 'operatorSummary'
         ));
     }
 

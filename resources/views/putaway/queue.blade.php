@@ -263,7 +263,7 @@
             @endif
         </div>
         <div class="col-auto d-flex" style="gap:8px;">
-            <a href="{{ route('putaway.operator') }}" class="btn btn-sm btn-success">
+            <a href="{{ route('putaway.operator') }}" class="btn btn-sm btn-primary">
                 <i class="fas fa-hard-hat mr-1"></i> Mode Operator
             </a>
             <button type="button" id="btnBatchScan" class="btn btn-sm btn-outline-success">

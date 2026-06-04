@@ -11,9 +11,9 @@
                 <i class="fas fa-{{ $typeForm == 'create' ? 'warehouse' : 'edit' }} mr-2 text-primary"></i>
                 {{ $typeForm == 'create' ? 'Tambah Warehouse' : 'Edit Warehouse' }}
             </h5>
-            <small class="text-muted">
+            {{-- <small class="text-muted">
                 {{ $typeForm == 'create' ? 'Daftarkan gudang baru ke sistem WMS' : 'Perbarui data gudang: ' . ($data->name ?? '') }}
-            </small>
+            </small> --}}
         </div>
         <a href="{{ route('location.warehouses.index') }}" class="btn btn-sm btn-outline-secondary">
             <i class="fas fa-arrow-left mr-1"></i> Kembali
@@ -141,7 +141,7 @@
                                 {{ old('is_active', $data->is_active ?? 1) ? 'checked' : '' }}>
                             <label class="custom-control-label" for="isActive">Aktif</label>
                         </div>
-                        <small class="text-muted ml-3">Warehouse nonaktif tidak muncul di pilihan lokasi.</small>
+                        {{-- <small class="text-muted ml-3">Warehouse nonaktif tidak muncul di pilihan lokasi.</small> --}}
                     </div>
                 </div>
 
@@ -163,7 +163,7 @@
                         <h6 class="font-weight-bold mb-0">
                             <i class="fas fa-layer-group mr-1 text-primary"></i> Denah &amp; Manajemen Rak
                         </h6>
-                        <small class="text-muted">Klik area kosong di denah untuk menambah rak di posisi tersebut.</small>
+                        {{-- <small class="text-muted">Klik area kosong di denah untuk menambah rak di posisi tersebut.</small> --}}
                     </div>
                     <a href="{{ route('location.racks.create', ['warehouse_id' => $data->id]) }}"
                        class="btn btn-sm btn-primary">
@@ -195,10 +195,10 @@
                             </div>
                         </div>
 
-                        <p class="small text-muted mb-3">
+                        {{-- <p class="small text-muted mb-3">
                             <i class="fas fa-mouse-pointer mr-1"></i>
                             Klik di area kosong pada denah untuk langsung membuka form tambah rak dengan posisi tersebut sudah terisi.
-                        </p>
+                        </p> --}}
 
                         <a href="{{ route('location.racks.create', ['warehouse_id' => $data->id]) }}"
                            class="btn btn-primary btn-sm btn-block mb-2">

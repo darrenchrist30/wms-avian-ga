@@ -13,7 +13,7 @@ body { background: #f0f2f5; }
     border-radius: 10px;
     margin-bottom: 14px;
 }
-.op-header h2 { font-size: 26px; font-weight: 800; margin: 4px 0; }
+.op-header h2 { font-size: 22px; font-weight: 500; margin: 4px 0; }
 .op-header small { font-size: 12px; opacity: .75; }
 
 /* Location group card */
@@ -32,34 +32,175 @@ body { background: #f0f2f5; }
     pointer-events: none;
 }
 
-/* Location header */
-.loc-header {
-    background: linear-gradient(90deg, #0d8564, #0a6e52);
-    color: #fff;
-    padding: 14px 18px;
+.operator-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
 }
-.loc-code {
-    font-size: 38px;
-    font-weight: 900;
-    letter-spacing: 3px;
-    line-height: 1;
-    text-shadow: 0 1px 3px rgba(0,0,0,.2);
-}
-.loc-sub  { font-size: 13px; opacity: .85; margin-top: 5px; }
-.loc-cap  { font-size: 12px; opacity: .7;  margin-top: 3px; }
-.cap-bar  { height: 5px; background: rgba(255,255,255,.25); border-radius: 3px; margin-top: 5px; overflow: hidden; width: 90px; }
-.cap-fill { height: 5px; border-radius: 3px; }
-
-/* Item row */
-.item-row {
-    padding: 14px 18px;
-    border-bottom: 1px solid #f0f0f0;
+.operator-summary-card {
+    background: #fff;
+    border: 1px solid #dfe5ec;
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-height: 84px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
 }
-.item-row:last-child { border-bottom: 0; }
+.operator-summary-card .label {
+    color: #6c757d;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+.operator-summary-card .value {
+    color: #13283f;
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 1;
+}
+.operator-summary-card .unit {
+    color: #6c757d;
+    font-size: 13px;
+    font-weight: 400;
+    margin-left: 3px;
+}
+.operator-summary-card .note {
+    color: #6c757d;
+    font-size: 12px;
+    margin-top: 4px;
+}
+.operator-summary-card .icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    background: #e9f8f3;
+    color: #0d8564;
+    font-size: 18px;
+}
+
+.operator-table-card {
+    background: #fff;
+    border: 1px solid #dfe5ec;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+}
+.operator-table-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f4f6f9;
+}
+.operator-search {
+    max-width: 420px;
+    flex: 1;
+}
+.operator-search .input-group-text {
+    background: #f7fafc;
+    border-color: #dfe5ec;
+}
+.operator-search input {
+    border-color: #dfe5ec;
+    font-weight: 400;
+}
+.operator-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+}
+.operator-table {
+    margin-bottom: 0;
+    min-width: 0;
+}
+.operator-table th {
+    background: #f4f6f9;
+    color: #43566c;
+    font-size: 12px;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    white-space: nowrap;
+    border-top: 0;
+    border-right: 1px solid #dee2e6;
+    text-align: center;
+}
+.operator-table th:last-child { border-right: 0; }
+.operator-table td {
+    vertical-align: middle;
+    border-right: 1px solid #f0f0f0;
+}
+.operator-table td:last-child { border-right: 0; }
+.cell-row td {
+    background: #eaf4f0;
+    border-top: 1px solid #c8e6de;
+    border-bottom: 1px solid #c8e6de;
+    padding: 8px 14px;
+}
+.operator-row-item {
+    font-size: 14px;
+    font-weight: 400;
+    color: #122238;
+    line-height: 1.2;
+}
+.operator-row-meta {
+    font-size: 12px;
+    color: #6c757d;
+}
+.operator-do {
+    color: #122238;
+    font-weight: 400;
+    font-size: 13px;
+    letter-spacing: 0;
+}
+.operator-cell-badge {
+    display: inline-block;
+    background: #0d8564;
+    color: #fff;
+    border-radius: 5px;
+    padding: 3px 9px;
+    font-weight: 900;
+    letter-spacing: .4px;
+    white-space: nowrap;
+}
+.qty-inline {
+    font-size: 14px;
+    font-weight: 400;
+    color: #122238;
+}
+.unit-inline {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 800;
+    margin-left: 2px;
+}
+.no-filter-result {
+    display: none;
+    padding: 30px 16px;
+    text-align: center;
+    color: #6c757d;
+}
+
+/* Location header */
+.loc-sub  { font-size: 12px; }
+.cap-bar  { height: 4px; background: #e9ecef; border-radius: 3px; overflow: hidden; width: 70px; display:inline-block; vertical-align:middle; }
+.cap-fill { height: 4px; border-radius: 3px; }
+
+/* Item row */
+.item-row td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    vertical-align: middle;
+}
+.item-row:last-child td { border-bottom: 0; }
 .item-name { font-size: 17px; font-weight: 700; line-height: 1.2; }
 .item-sku  { font-size: 12px; color: #6c757d; margin-top: 3px; }
 .item-do   { font-size: 12px; color: #fff; background: #6c757d; border-radius: 4px; padding: 1px 7px; margin-top: 4px; display: inline-block; font-weight: 600; letter-spacing: .3px; }
@@ -83,33 +224,40 @@ body { background: #f0f2f5; }
     bottom: 0; left: 250px; right: 0;
     background: #fff;
     border-top: 2px solid #dee2e6;
-    padding: 10px 16px 10px;
+    padding: 10px 16px;
     z-index: 1038;
     box-shadow: 0 -4px 16px rgba(0,0,0,.12);
     transition: left .3s ease;
 }
-/* Sidebar collapsed (icon-only mode) */
 .sidebar-collapse #scanBar { left: 70px; }
-/* Mobile — sidebar jadi overlay, scan bar full width */
 @media (max-width: 1199.98px) {
-    #scanBar,
-    .sidebar-collapse #scanBar {
-        left: 0 !important;
-        right: 0 !important;
-        width: auto;
-    }
+    #scanBar, .sidebar-collapse #scanBar { left: 0 !important; right: 0 !important; width: auto; }
 }
 .scan-controls {
-    display: grid;
-    grid-template-columns: 54px minmax(0, 1fr) auto auto;
-    gap: 8px;
+    display: flex;
     align-items: center;
-    max-width: 100%;
+    gap: 8px;
 }
-#scanInput { height: 54px; font-size: 20px; font-weight: 700; border-radius: 8px; }
-#btnCamera { width: 54px; height: 54px; border-radius: 8px; font-size: 19px; flex-shrink: 0; }
-#btnScan   { height: 54px; font-size: 16px; font-weight: 700; border-radius: 8px; padding: 0 20px; flex-shrink: 0; }
-#scanMsg   { font-size: 12px; margin-top: 5px; min-height: 0; text-align: center; }
+#btnCamera { width: 44px; height: 44px; border-radius: 8px; font-size: 16px; flex-shrink: 0; }
+#scanInput { height: 44px; font-size: 16px; font-weight: 400; border-radius: 8px; flex: 1; min-width: 0; }
+#btnScan   { height: 44px; font-size: 14px; font-weight: 500; border-radius: 8px; padding: 0 18px; flex-shrink: 0; }
+.auto-toggle-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 2px;
+}
+.auto-toggle-wrap label {
+    font-size: 10px;
+    color: #6c757d;
+    margin: 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+    white-space: nowrap;
+}
+#scanMsg { font-size: 11px; margin-top: 4px; text-align: center; min-height: 0; }
 
 /* All done state */
 .all-done-screen { text-align: center; padding: 70px 20px; }
@@ -130,10 +278,11 @@ body { background: #f0f2f5; }
 
 /* Filter toggle */
 .btn-avian-filter {
-    border: 2px solid #ced4da;
+    border: 1px solid #ced4da;
     color: #6c757d;
     background: #fff;
-    font-weight: 600;
+    font-weight: 400;
+    border-radius: 6px;
     transition: background .15s, color .15s, border-color .15s;
 }
 .btn-avian-filter:hover,
@@ -147,6 +296,7 @@ body { background: #f0f2f5; }
     background: #0d8564;
     border-color: #0d8564;
     color: #fff;
+    font-weight: 500;
 }
 .btn-group .btn-avian-filter.active:not(:last-child) {
     border-right-color: #0a6e52;
@@ -161,28 +311,16 @@ body { background: #f0f2f5; }
 #itemCounter.bumping { animation: counterBump 0.5s ease; }
 
 /* Quick confirm toggle button */
-#btnQuickConfirm {
-    height: 54px;
-    padding: 0 20px;
-    font-size: 16px;
-    font-weight: 700;
-    border-radius: 8px;
-    white-space: nowrap;
-    flex-shrink: 0;
-    transition: background .2s, border-color .2s, color .2s;
-    border: 2px solid #ced4da;
-    color: #6c757d;
-    background: #fff;
-}
-#btnQuickConfirm.qc-on {
-    border-color: #0d8564;
-    color: #fff;
-    background: #0d8564;
-}
 #scanBar.qc-active { border-top-color: #0d8564; }
+#btnQuickConfirm:checked ~ .custom-control-label::before { background-color: #0d8564; border-color: #0d8564; }
 
 /* ── Mobile (< 576px) ───────────────────────────────────────── */
 @media (max-width: 575px) {
+    .operator-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .operator-summary-card { padding: 10px; min-height: 76px; }
+    .operator-summary-card .value { font-size: 24px; }
+    .operator-table-toolbar { align-items: stretch; flex-direction: column; }
+    .operator-search { max-width: none; width: 100%; }
     .op-header { padding: 14px 14px 12px; }
     .op-header h2 { font-size: 20px; }
     .loc-code { font-size: 28px; letter-spacing: 1px; }
@@ -192,10 +330,10 @@ body { background: #f0f2f5; }
     .item-name { font-size: 15px; }
     .qty-box { font-size: 18px; min-width: 68px; padding: 6px 10px; }
     #scanInput { height: 48px; font-size: 15px; }
-    #btnCamera { width: 48px; height: 48px; font-size: 16px; }
-    #btnScan   { height: 48px; font-size: 14px; padding: 0 12px; }
-    #scanBar   { padding: 8px 12px 8px; }
-    .scan-controls { grid-template-columns: 48px minmax(0, 1fr) 58px auto; }
+    #btnCamera { width: 40px; height: 40px; font-size: 14px; }
+    #btnScan   { height: 40px; font-size: 13px; padding: 0 12px; }
+    #scanInput { height: 40px; font-size: 14px; }
+    #scanBar   { padding: 8px 12px; }
     #btnQuickConfirm { height: 48px; padding: 0 14px; font-size: 14px; }
     .container-fluid { padding-left: 8px !important; padding-right: 8px !important; }
     .cap-bar { width: 70px; }
@@ -203,6 +341,9 @@ body { background: #f0f2f5; }
 
 /* ── Tablet portrait (576–767px) ────────────────────────────── */
 @media (min-width: 576px) and (max-width: 767px) {
+    .operator-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .operator-table-toolbar { align-items: stretch; flex-direction: column; }
+    .operator-search { max-width: none; width: 100%; }
     .loc-code { font-size: 32px; }
     .item-name { font-size: 16px; }
     #scanBar { padding-left: 14px; padding-right: 14px; }
@@ -229,7 +370,7 @@ body { background: #f0f2f5; }
             </a>
             <a href="{{ route('putaway.operator', ['all_active' => 1]) }}"
                class="btn btn-sm btn-avian-filter {{ $allActive ? 'active' : '' }}">
-                <i class="fas fa-list mr-1"></i>Semua DO
+                <i class="fas fa-list mr-1"></i>Semua SJ
                 @if($allActive && $items->isNotEmpty())
                     <span class="badge ml-1" style="background:rgba(255,255,255,.3);color:#fff;font-size:11px;">{{ $items->count() }}</span>
                 @endif
@@ -278,47 +419,49 @@ body { background: #f0f2f5; }
         </form>
     </div>
 
-    {{-- ── Header ─────────────────────────────────────────────────────── --}}
-    <div class="op-header">
-        <div style="font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:1px;">
-            <i class="fas fa-hard-hat mr-1"></i> Mode Operator — Put-Away
+    <div class="operator-summary-grid">
+        <div class="operator-summary-card">
+            <div>
+                <div class="label">SJ Aktif</div>
+                <div><span class="value">{{ number_format($operatorSummary['sj_count'] ?? 0) }}</span><span class="unit">SJ</span></div>
+            </div>
+            <div class="icon"><i class="fas fa-file-alt"></i></div>
         </div>
-        <h2 id="itemCounter" style="margin:4px 0 2px;">
-            @if($items->isEmpty())
-                @if($otherActiveCount > 0) Tidak ada DO hari ini @else Semua selesai! @endif
-            @else
-                {{ $items->count() }} item menunggu
-            @endif
-        </h2>
-        <small>
-            <i class="fas fa-calendar-day mr-1"></i>
-            @if($allActive)
-                Semua DO aktif
-            @elseif($hasDateFilter)
-                @if($startDate && $endDate)
-                    {{ \Carbon\Carbon::parse($startDate)->isoFormat('D MMM') }} — {{ \Carbon\Carbon::parse($endDate)->isoFormat('D MMM YYYY') }}
-                @elseif($startDate)
-                    Dari {{ \Carbon\Carbon::parse($startDate)->isoFormat('D MMM YYYY') }}
-                @else
-                    Sampai {{ \Carbon\Carbon::parse($endDate)->isoFormat('D MMM YYYY') }}
-                @endif
-            @else
-                DO Hari Ini &middot; {{ \Carbon\Carbon::parse($today)->isoFormat('D MMM YYYY') }}
-            @endif
-        </small>
+        <div class="operator-summary-card">
+            <div>
+                <div class="label">Barang Masuk</div>
+                <div><span class="value">{{ number_format($operatorSummary['total_lines'] ?? 0) }}</span><span class="unit">item</span></div>
+                <div class="note">{{ number_format($operatorSummary['total_qty'] ?? 0) }} qty total</div>
+            </div>
+            <div class="icon"><i class="fas fa-boxes"></i></div>
+        </div>
+        <div class="operator-summary-card">
+            <div>
+                <div class="label">Sudah Put-Away</div>
+                <div><span class="value">{{ number_format($operatorSummary['completed_lines'] ?? 0) }}</span><span class="unit">item</span></div>
+            </div>
+            <div class="icon"><i class="fas fa-check"></i></div>
+        </div>
+        <div class="operator-summary-card">
+            <div>
+                <div class="label">Belum Put-Away</div>
+                <div><span class="value" id="summaryWaiting">{{ number_format($operatorSummary['waiting_lines'] ?? $items->count()) }}</span><span class="unit">item</span></div>
+            </div>
+            <div class="icon"><i class="fas fa-dolly"></i></div>
+        </div>
     </div>
 
     @if($items->isEmpty())
 
         <div class="all-done-screen">
             @if($otherActiveCount > 0)
-                {{-- Tidak ada DO hari ini tapi ada DO lain yang aktif --}}
-                <i class="fas fa-calendar-times fa-4x text-warning mb-3" style="display:block;"></i>
-                <h3 class="font-weight-bold">Tidak ada DO untuk hari ini</h3>
-                <p class="text-muted">Tapi ada <strong>{{ $otherActiveCount }} item</strong> dari DO tanggal lain yang belum selesai.</p>
+                {{-- Tidak ada SJ hari ini tapi ada SJ lain yang aktif --}}
+                <i class="fas fa-calendar-times fa-4x text-secondary mb-3" style="display:block;"></i>
+                <h3 class="font-weight-bold">Tidak ada SJ untuk hari ini</h3>
+                <p class="text-muted">Tapi ada <strong>{{ $otherActiveCount }} item</strong> dari SJ tanggal lain yang belum selesai.</p>
                 <a href="{{ route('putaway.operator', ['all_active' => 1]) }}"
-                   class="btn btn-warning btn-lg mt-2 mr-2">
-                    <i class="fas fa-list mr-1"></i> Tampilkan Semua DO Aktif
+                   class="btn btn-primary btn-lg mt-2 mr-2">
+                    <i class="fas fa-list mr-1"></i> Tampilkan Semua SJ Aktif
                 </a>
                 <a href="{{ route('putaway.index') }}" class="btn btn-outline-secondary btn-lg mt-2">
                     <i class="fas fa-home mr-1"></i> Kembali
@@ -339,112 +482,140 @@ body { background: #f0f2f5; }
         @if($allActive)
             <div class="alert alert-warning border-0 py-2 mb-3" style="font-size:13px;">
                 <i class="fas fa-exclamation-triangle mr-1"></i>
-                <strong>Semua DO aktif</strong> — termasuk DO dari tanggal sebelumnya.
+                <strong>Semua SJ aktif</strong> termasuk SJ dari tanggal sebelumnya.
                 <a href="{{ route('putaway.operator') }}" class="ml-2 alert-link">Tampilkan hari ini saja</a>
             </div>
         @endif
 
-        <div class="alert alert-info border-0 py-2 mb-3" style="font-size:13px;">
-            <i class="fas fa-route mr-1"></i>
-            Ikuti urutan lokasi untuk jalur tercepat.
-        </div>
-
-        {{-- ── Item groups per lokasi ──────────────────────────────────── --}}
-        <div id="itemList">
-            @php $groups = $items->groupBy('cell_id'); @endphp
-
-            @foreach($groups as $cellId => $groupItems)
-                @php
-                    $cell = $groupItems->first()->cell;
-                    $rack = $cell?->rack;
-
-                    // Location code + breakdown
-                    if ($cell && !is_null($cell->blok)) {
-                        $locCode = $cell->physical_code;
-                        $parts   = array_filter([
-                            'Blok '  . $cell->blok,
-                            'Grup '  . strtoupper($cell->grup ?? ''),
-                            !is_null($cell->kolom) ? 'Kolom ' . $cell->kolom : null,
-                            !is_null($cell->baris) ? 'Baris ' . $cell->baris  : null,
-                        ]);
-                        $locSub  = implode(' · ', $parts);
-                    } elseif ($rack) {
-                        $lvLetter = $cell?->level ? chr(64 + $cell->level) : '?';
-                        $lvCol    = $cell?->column ?? 1;
-                        $locCode  = $rack->code . '-' . $lvLetter
-                                  . ($rack->total_columns > 1 ? $lvCol : '');
-                        $locSub   = 'Rak ' . $rack->code . ' · Level ' . $lvLetter
-                                  . ($rack->total_columns > 1 ? ' · Kolom ' . $lvCol : '');
-                    } else {
-                        $locCode = $cell?->code ?? '—';
-                        $locSub  = '';
-                    }
-
-                    $zone     = $cell?->zone_category ?? null;
-                    $capUsed  = $cell?->capacity_used ?? 0;
-                    $capMax   = $cell?->capacity_max  ?? 100;
-                    $capPct   = $capMax > 0 ? min(100, round($capUsed / $capMax * 100)) : 0;
-                    $capColor = $capPct >= 80 ? '#ff6b6b' : ($capPct >= 40 ? '#ffc107' : '#a8e6cf');
-                    $statusLabel = match($cell?->status ?? 'available') {
-                        'available' => 'Tersedia',
-                        'partial'   => 'Sebagian terisi',
-                        'full'      => 'Penuh',
-                        default     => 'Diblokir',
-                    };
-                @endphp
-
-                <div class="loc-group" id="group-{{ $cellId }}" data-cell-id="{{ $cellId }}">
-
-                    {{-- Location header --}}
-                    <div class="loc-header d-flex align-items-start justify-content-between">
-                        <div>
-                            <div class="loc-code">{{ $locCode }}</div>
-                            @if($locSub)
-                                <div class="loc-sub">{{ $locSub }}</div>
-                            @endif
-                            @if($zone)
-                                <div class="mt-2">
-                                    <span style="background:rgba(255,255,255,.2);border-radius:4px;padding:3px 10px;font-size:12px;">
-                                        <i class="fas fa-tag mr-1"></i>{{ $zone }}
-                                    </span>
-                                </div>
-                            @endif
-                        </div>
-                        <div class="text-right" style="flex-shrink:0;margin-left:12px;">
-                            <div style="font-size:13px;">{{ $statusLabel }}</div>
-                            <div class="loc-cap">{{ $capUsed }}/{{ $capMax }}</div>
-                            <div class="cap-bar">
-                                <div class="cap-fill" style="background:{{ $capColor }};width:{{ $capPct }}%;"></div>
-                            </div>
-                            <div class="mt-2" style="font-size:13px;opacity:.85;">
-                                <i class="fas fa-box mr-1"></i>{{ $groupItems->count() }} item
-                            </div>
-                        </div>
+        {{-- Tabel ringkas per item, tetap dikelompokkan sesuai urutan lokasi --}}
+        <div class="operator-table-card" id="itemList">
+            <div class="operator-table-toolbar">
+                <div class="operator-search" style="max-width:100%;">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control" id="operatorSearchInput"
+                               placeholder="Cari SJ / SKU / item / cell...">
                     </div>
-
-                    {{-- Item rows --}}
-                    @foreach($groupItems as $item)
-                        @php
-                            $itm  = $item->inboundOrderItem?->item;
-                            $qty  = $item->quantity;
-                            $unit = $itm?->unit?->code ?? 'pcs';
-                            $do   = $item->gaRecommendation?->inboundOrder?->do_number ?? '-';
-                        @endphp
-                        <div class="item-row" id="row-{{ $item->id }}" data-ga-id="{{ $item->id }}">
-                            <div style="flex:1;min-width:0;">
-                                <div class="item-name">{{ $itm?->name ?? '-' }}</div>
-                                <div class="item-sku">SKU: {{ $itm?->sku ?? '-' }}</div>
-                                <div class="item-do"><i class="fas fa-file-alt mr-1"></i>DO: {{ $do }}</div>
-                            </div>
-                            <div class="qty-box">
-                                {{ $qty }}
-                                <div class="qty-unit">{{ $unit }}</div>
-                            </div>
-                        </div>
-                    @endforeach
-
                 </div>
-            @endforeach
+            </div>
+            <div id="searchSpinner" style="display:none;padding:40px 0;text-align:center;">
+                <i class="fas fa-spinner fa-spin" style="font-size:24px;color:#0d8564;"></i>
+                <div style="font-size:12px;color:#6c757d;margin-top:8px;">Mencari...</div>
+            </div>
+            <div class="operator-table-wrap" id="tableWrap">
+                <table class="table table-sm operator-table">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">#</th>
+                            <th style="width:220px;">SJ</th>
+                            <th>Item / SKU</th>
+                            <th style="width:90px;">Qty</th>
+                        </tr>
+                    </thead>
+                    @php
+                        $groups = $items->groupBy('cell_id');
+                        $rowNo = 1;
+                    @endphp
+
+                    @foreach($groups as $cellId => $groupItems)
+                        @php
+                            $cell = $groupItems->first()->cell;
+                            $rack = $cell?->rack;
+
+                            if ($cell && !is_null($cell->blok)) {
+                                $locCode = $cell->physical_code;
+                                $parts   = array_filter([
+                                    'Blok '  . $cell->blok,
+                                    'Grup '  . strtoupper($cell->grup ?? ''),
+                                    !is_null($cell->kolom) ? 'Kolom ' . $cell->kolom : null,
+                                    !is_null($cell->baris) ? 'Baris ' . $cell->baris  : null,
+                                ]);
+                                $locSub  = implode(' - ', $parts);
+                            } elseif ($rack) {
+                                $lvLetter = $cell?->level ? chr(64 + $cell->level) : '?';
+                                $lvCol    = $cell?->column ?? 1;
+                                $locCode  = $rack->code . '-' . $lvLetter
+                                          . ($rack->total_columns > 1 ? $lvCol : '');
+                                $locSub   = 'Rak ' . $rack->code . ' - Level ' . $lvLetter
+                                          . ($rack->total_columns > 1 ? ' - Kolom ' . $lvCol : '');
+                            } else {
+                                $locCode = $cell?->code ?? '-';
+                                $locSub  = '';
+                            }
+
+                            $zone     = $cell?->zone_category ?? null;
+                            $capUsed  = $cell?->capacity_used ?? 0;
+                            $capMax   = $cell?->capacity_max  ?? 100;
+                            $capPct   = $capMax > 0 ? min(100, round($capUsed / $capMax * 100)) : 0;
+                            $capColor = $capPct >= 80 ? '#ff6b6b' : ($capPct >= 40 ? '#6c757d' : '#a8e6cf');
+                            $statusLabel = match($cell?->status ?? 'available') {
+                                'available' => 'Tersedia',
+                                'partial'   => 'Sebagian terisi',
+                                'full'      => 'Penuh',
+                                default     => 'Diblokir',
+                            };
+                            $statusBadge = match($cell?->status ?? 'available') {
+                                'available' => 'success',
+                                'partial'   => 'warning',
+                                'full'      => 'danger',
+                                default     => 'secondary',
+                            };
+                            $groupSearch = strtolower(trim($locCode . ' ' . $locSub . ' ' . $statusLabel . ' ' . $zone));
+                        @endphp
+
+                        <tbody class="loc-group" id="group-{{ $cellId }}" data-cell-id="{{ $cellId }}" data-location-search="{{ e($groupSearch) }}">
+                            <tr class="cell-row">
+                                <td colspan="4">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div>
+                                            <span style="background:#0d8564;color:#fff;border-radius:5px;padding:3px 10px;font-size:15px;font-weight:700;letter-spacing:1px;">{{ $locCode }}</span>
+                                            @if($locSub)
+                                                <span style="color:#43566c;font-size:13px;margin-left:10px;">{{ $locSub }}</span>
+                                            @endif
+                                        </div>
+                                        <div class="d-flex align-items-center" style="gap:8px;">
+                                            <span class="badge badge-{{ $statusBadge }}" style="font-size:11px;">{{ $statusLabel }}</span>
+                                            <span style="font-size:12px;color:#6c757d;"><i class="fas fa-box mr-1"></i>{{ $groupItems->count() }} item</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            @foreach($groupItems as $item)
+                                @php
+                                    $itm  = $item->inboundOrderItem?->item;
+                                    $qty  = $item->quantity;
+                                    $unit = $itm?->unit?->code ?? 'pcs';
+                                    $do   = $item->gaRecommendation?->inboundOrder?->do_number ?? '-';
+                                    $searchText = strtolower(trim(implode(' ', [
+                                        $do,
+                                        $itm?->sku ?? '',
+                                        $itm?->name ?? '',
+                                        $locCode,
+                                        $locSub,
+                                        $unit,
+                                    ])));
+                                @endphp
+                                <tr class="item-row" id="row-{{ $item->id }}" data-ga-id="{{ $item->id }}" data-search="{{ e($searchText) }}">
+                                    <td class="text-center">{{ $rowNo++ }}</td>
+                                    <td><span class="operator-do">{{ $do }}</span></td>
+                                    <td>
+                                        <div class="operator-row-item">{{ $itm?->name ?? '-' }}</div>
+                                        <div class="operator-row-meta">SKU: {{ $itm?->sku ?? '-' }}</div>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="qty-inline">{{ $qty }}</span>
+                                        <span class="unit-inline">{{ $unit }}</span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    @endforeach
+                </table>
+            </div>
+            <div class="no-filter-result" id="operatorNoFilterResult">
+                <i class="fas fa-search fa-2x mb-2 d-block"></i>
+                Tidak ada item yang cocok dengan pencarian.
+            </div>
         </div>
 
         {{-- Spacer so the last card can scroll fully above the fixed scan bar --}}
@@ -463,21 +634,19 @@ body { background: #f0f2f5; }
         <input type="text" id="scanInput" class="form-control"
             placeholder="Scan QR atau ketik kode cell..."
             autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-            inputmode="text" style="min-width:0;">
+            inputmode="text">
         <button type="button" id="btnScan" class="btn" style="background:#0d8564;color:#fff;border-color:#0d8564;">
-            <i class="fas fa-search d-sm-none"></i>
-            <span class="d-none d-sm-inline"><i class="fas fa-search mr-1"></i> Cari</span>
+            <i class="fas fa-search mr-1"></i> Cari
         </button>
-        <button type="button" id="btnQuickConfirm" class="btn"
-                title="Auto konfirmasi: scan langsung simpan tanpa muncul modal">
-            <div style="line-height:1.1;">
-                <div style="font-size:16px;font-weight:700;">Auto</div>
-                <div style="font-size:10px;font-weight:500;opacity:.7;letter-spacing:.3px;">konfirmasi</div>
+        <div class="auto-toggle-wrap" title="Auto konfirmasi: scan langsung simpan tanpa muncul modal">
+            <label for="btnQuickConfirm">Auto</label>
+            <div class="custom-control custom-switch" style="padding-left:2.5rem;">
+                <input type="checkbox" class="custom-control-input" id="btnQuickConfirm">
+                <label class="custom-control-label" for="btnQuickConfirm"></label>
             </div>
-        </button>
+        </div>
     </div>
-    <div id="scanMsg" class="text-muted" style="font-size:12px;margin-top:5px;text-align:center;min-height:0;">
-    </div>
+    <div id="scanMsg" class="text-muted"></div>
 </div>
 @endif
 
@@ -542,6 +711,42 @@ var filterAllActive = {{ $allActive ? 1 : 0 }};
 var filterStartDate = '{{ $startDate }}';
 var filterEndDate   = '{{ $endDate }}';
 var quickConfirm    = localStorage.getItem('putaway_quick_confirm') === '1';
+
+function applyOperatorSearch() {
+    var term = ($('#operatorSearchInput').val() || '').toLowerCase().trim();
+    var visibleRows = 0;
+
+    $('#itemList .loc-group').each(function() {
+        var $group = $(this);
+        var groupText = String($group.data('location-search') || '').toLowerCase();
+        var groupMatches = !term || groupText.indexOf(term) !== -1;
+        var groupVisibleRows = 0;
+
+        $group.find('.item-row').each(function() {
+            var rowText = String($(this).data('search') || '').toLowerCase();
+            var rowVisible = groupMatches || rowText.indexOf(term) !== -1;
+            $(this).toggle(rowVisible);
+            if (rowVisible) groupVisibleRows++;
+        });
+
+        $group.find('.cell-row').toggle(groupVisibleRows > 0);
+        visibleRows += groupVisibleRows;
+    });
+
+    $('#operatorNoFilterResult').toggle(term !== '' && visibleRows === 0);
+}
+
+var searchDebounce = null;
+$('#operatorSearchInput').on('input', function() {
+    clearTimeout(searchDebounce);
+    $('#tableWrap').hide();
+    $('#searchSpinner').show();
+    searchDebounce = setTimeout(function() {
+        applyOperatorSearch();
+        $('#searchSpinner').hide();
+        $('#tableWrap').show();
+    }, 350);
+});
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -696,6 +901,8 @@ function handleConfirmSuccess(serverRes, confirmedItems) {
     // Update counter dengan animasi bump
     var confirmed = serverRes.confirmed_count || confirmedItems.length;
     totalRemaining -= confirmed;
+    totalRemaining = Math.max(totalRemaining, 0);
+    $('#summaryWaiting').text(totalRemaining.toLocaleString('id-ID'));
     var $ctr = $('#itemCounter');
     if (totalRemaining <= 0) {
         $ctr.text('0 item menunggu').addClass('bumping');
@@ -722,6 +929,7 @@ function handleConfirmSuccess(serverRes, confirmedItems) {
     });
     resetScanMsg();
     pendingItems = null;
+    applyOperatorSearch();
     focusScan();
 }
 
@@ -765,18 +973,13 @@ function doQuickConfirm(scanRes) {
 // ── Quick confirm toggle ──────────────────────────────────────────────────
 
 function applyQuickConfirmUI() {
-    if (quickConfirm) {
-        $('#btnQuickConfirm').addClass('qc-on');
-        $('#scanBar').addClass('qc-active');
-    } else {
-        $('#btnQuickConfirm').removeClass('qc-on');
-        $('#scanBar').removeClass('qc-active');
-    }
+    $('#btnQuickConfirm').prop('checked', quickConfirm);
+    $('#scanBar').toggleClass('qc-active', quickConfirm);
     resetScanMsg();
 }
 
-$('#btnQuickConfirm').on('click', function() {
-    quickConfirm = !quickConfirm;
+$('#btnQuickConfirm').on('change', function() {
+    quickConfirm = $(this).is(':checked');
     localStorage.setItem('putaway_quick_confirm', quickConfirm ? '1' : '0');
     applyQuickConfirmUI();
     focusScan();

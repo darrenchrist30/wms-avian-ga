@@ -29,25 +29,25 @@
 <div class="row mb-3">
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-info mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_skus']) }}</h4><p>Total SKU</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_skus']) }} <small>SKU</small></h4><p>Total SKU</p></div>
             <div class="icon"><i class="fas fa-list"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-primary mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_qty']) }}</h4><p>Total Qty</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_qty']) }} <small>unit</small></h4><p>Total Qty</p></div>
             <div class="icon"><i class="fas fa-cubes"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-success mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_cells']) }}</h4><p>Cell Terpakai</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_cells']) }} <small>cell</small></h4><p>Cell Terpakai</p></div>
             <div class="icon"><i class="fas fa-th-large"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box {{ $summary['below_min'] > 0 ? 'bg-danger' : 'bg-secondary' }} mb-0">
-            <div class="inner"><h4>{{ $summary['below_min'] }}</h4><p>Di Bawah Minimum</p></div>
+            <div class="inner"><h4>{{ number_format($summary['below_min']) }} <small>SKU</small></h4><p>Di Bawah Minimum</p></div>
             <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
         </div>
     </div>

@@ -1,5 +1,5 @@
 @extends('layouts.adminlte')
-@section('title', 'Outbound — Kasir')
+@section('title', 'Outbound')
 
 @push('styles')
 <style>
@@ -123,7 +123,7 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <div>
             <h4 class="mb-0 font-weight-bold">
-                <i class="fas fa-sign-out-alt mr-2 text-danger"></i>Outbound — Kasir
+                <i class="fas fa-sign-out-alt mr-2 text-danger"></i>Outbound
             </h4>
             <small class="text-muted">
                 <a href="{{ route('outbound.index') }}">Outbound</a>
@@ -267,7 +267,7 @@
             <div class="modal-header py-2" style="background:#fff3cd;border-bottom:1.5px solid #ffc107;">
                 <h6 class="modal-title font-weight-bold mb-0">
                     <i class="fas fa-clipboard-list mr-1 text-warning"></i>
-                    Preview FIFO — Rencana Pengambilan
+                    Pengambilan Berdasarkan FIFO
                 </h6>
             </div>
             <div class="modal-body py-3" id="previewBody">
@@ -576,7 +576,7 @@ $(function () {
                 rows += `<tr>
                     <td class="text-center">${i + 1}</td>
                     <td><strong>${escHtml(pick.cell_code)}</strong></td>
-                    <td><span class="text-muted">${escHtml(pick.zone_code)} / Rak ${escHtml(pick.rack_code)}</span></td>
+                    <td><span class="text-muted">${escHtml(pick.location ?? '–')}</span></td>
                     <td><span class="badge badge-light border">${escHtml(pick.inbound_date)}</span></td>
                     <td class="text-center">${pick.available_qty}</td>
                     <td class="text-center text-danger font-weight-bold">${pick.take_qty}</td>
@@ -593,7 +593,7 @@ $(function () {
                         <tr>
                             <th width="36" class="text-center">#</th>
                             <th>Cell</th>
-                            <th>Zona / Rak</th>
+                            <th>Lokasi</th>
                             <th>Inbound Date</th>
                             <th class="text-center" width="70">Tersedia</th>
                             <th class="text-center text-danger" width="60">Ambil</th>

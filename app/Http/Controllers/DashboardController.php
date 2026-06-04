@@ -284,6 +284,32 @@ class DashboardController extends Controller
                 'age_days'  => $order->created_at?->diffInDays(now()) ?? 0,
             ]);
 
+        // ── Progress Put-Away per SJ hari ini ────────────────────────────────
+        $today = now()->toDateString();
+        $putAwayProgressToday = InboundOrder::with(['items.putAwayConfirmations', 'items.item', 'warehouse'])
+            ->where('status', 'put_away')
+            ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
+            ->orderBy('do_date', 'asc')
+            ->take(8)
+            ->get()
+            ->map(function ($order) use ($today) {
+                $items = $order->items;
+                $total = $items->count();
+                $done  = $items->filter(fn($item) => $item->status === 'put_away')->count();
+                $pct   = $total > 0 ? round($done / $total * 100) : 0;
+                $lastActivity = $items->flatMap->putAwayConfirmations
+                    ->sortByDesc('confirmed_at')->first()?->confirmed_at?->format('H:i');
+                return [
+                    'id'         => $order->id,
+                    'do_number'  => $order->do_number,
+                    'warehouse'  => $order->warehouse?->name ?? '-',
+                    'total'      => $total,
+                    'done'       => $done,
+                    'pct'        => $pct,
+                    'last_activity' => $lastActivity,
+                ];
+            });
+
         // ── GA analytics for thesis and operational monitoring ─────────────
         $gaBestFitness  = round(GaRecommendation::max('fitness_score') ?? 0, 1);
         $gaWorstFitness = round(GaRecommendation::min('fitness_score') ?? 0, 1);
@@ -440,7 +466,7 @@ class DashboardController extends Controller
             // Actionable
             'inboundHariIni', 'inboundHariIniTotal', 'pendingQtyConfirm', 'pendingGaRun', 'pendingGaAccept', 'pendingPutAway',
             // Process control
-            'processFunnel', 'bottleneckSummary', 'oldestOpenOrders',
+            'processFunnel', 'bottleneckSummary', 'oldestOpenOrders', 'putAwayProgressToday',
             // GA analytics
             'gaBestFitness', 'gaWorstFitness', 'gaAvgGen', 'gaOverrideRate',
             'gaFitnessDistribution', 'gaTrendLabels', 'gaTrendRuns', 'gaTrendFitness',

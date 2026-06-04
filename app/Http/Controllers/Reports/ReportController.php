@@ -18,6 +18,8 @@ class ReportController extends Controller
     // ─── 1. Laporan Inventaris (Stok) ───────────────────────────────────────
     public function inventory(Request $request)
     {
+        $deadstockDays = max(1, (int) $request->input('deadstock_days', 90));
+
         // Stok per kategori (pie chart)
         $stockByCategory = DB::table('stock_records as sr')
             ->join('items', 'items.id', '=', 'sr.item_id')
@@ -74,14 +76,8 @@ class ReportController extends Controller
             'total_skus'   => Stock::where('status', 'available')->distinct('item_id')->count('item_id'),
             'total_qty'    => Stock::where('status', 'available')->sum('quantity'),
             'below_min'    => $this->countBelowMin(),
-            'deadstock'    => DB::table('stock_records as sr')
-                                ->where('sr.status', 'available')
-                                ->whereNotExists(function ($q) {
-                                    $q->from('stock_movements as sm')
-                                      ->whereColumn('sm.item_id', 'sr.item_id')
-                                      ->where('sm.created_at', '>=', now()->subMonths(6));
-                                })
-                                ->distinct('sr.item_id')->count('sr.item_id'),
+            'deadstock'    => Stock::deadstock($deadstockDays)->distinct('item_id')->count('item_id'),
+            'deadstock_days' => $deadstockDays,
         ];
 
         return view('reports.inventory', compact('stockByCategory', 'topItems', 'warehouseUtil', 'summary'));
@@ -327,7 +323,7 @@ class ReportController extends Controller
         // Top 10 item paling aktif
         $topActive = DB::table('stock_movements as sm')
             ->join('items', 'items.id', '=', 'sm.item_id')
-            ->selectRaw('items.name, items.sku, COUNT(*) as txn_count, SUM(sm.quantity) as total_qty')
+            ->selectRaw('items.id as item_id, items.name, items.sku, COUNT(*) as txn_count, SUM(sm.quantity) as total_qty')
             ->whereYear('sm.created_at', $year)
             ->groupBy('items.id', 'items.name', 'items.sku')
             ->orderByDesc('txn_count')

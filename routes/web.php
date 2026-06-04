@@ -91,6 +91,8 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::get('cells/lookup',    [\App\Http\Controllers\Location\CellController::class, 'lookup'])->name('cells.lookup');
         Route::get('cells/bulk-qr',      [\App\Http\Controllers\Location\CellController::class, 'bulkQrLabel'])->name('cells.bulk-qr');
         Route::get('cells/column-qr',    [\App\Http\Controllers\Location\CellController::class, 'columnQrLabel'])->name('cells.column-qr');
+        Route::get('cells/column-category/preview', [\App\Http\Controllers\Location\CellController::class, 'columnCategoryPreview'])->name('cells.column-category.preview');
+        Route::post('cells/column-category/apply',  [\App\Http\Controllers\Location\CellController::class, 'applyColumnCategory'])->name('cells.column-category.apply');
         Route::resource('cells', \App\Http\Controllers\Location\CellController::class);
         Route::get('cells/{cell}/stock',    [\App\Http\Controllers\Location\CellController::class, 'stockDetail'])->name('cells.stock');
         Route::get('cells/{cell}/qr-label', [\App\Http\Controllers\Location\CellController::class, 'qrLabel'])->name('cells.qr-label');

@@ -28,19 +28,19 @@
 <div class="row mb-3">
     <div class="col-4 mb-2">
         <div class="small-box bg-secondary mb-0">
-            <div class="inner"><h4>{{ number_format($summary['sku_count']) }}</h4><p>SKU Deadstock</p></div>
+            <div class="inner"><h4>{{ number_format($summary['sku_count']) }} <small>SKU</small></h4><p>SKU Deadstock</p></div>
             <div class="icon"><i class="fas fa-barcode"></i></div>
         </div>
     </div>
     <div class="col-4 mb-2">
         <div class="small-box bg-dark mb-0">
-            <div class="inner"><h4>{{ number_format($summary['record_count']) }}</h4><p>Record Stok</p></div>
+            <div class="inner"><h4>{{ number_format($summary['record_count']) }} <small>record</small></h4><p>Record Stok</p></div>
             <div class="icon"><i class="fas fa-layer-group"></i></div>
         </div>
     </div>
     <div class="col-4 mb-2">
         <div class="small-box bg-warning mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_qty']) }}</h4><p>Total Qty</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_qty']) }} <small>unit</small></h4><p>Total Qty</p></div>
             <div class="icon"><i class="fas fa-boxes"></i></div>
         </div>
     </div>

@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-exchange-alt text-info mr-2"></i>Laporan Mutasi Stok
         </h5>
-        <small class="text-muted">Riwayat dan analisis seluruh pergerakan barang</small>
+        {{-- <small class="text-muted">Riwayat dan analisis seluruh pergerakan barang</small> --}}
     </div>
     <div class="d-flex align-items-center" style="gap:6px;">
         <form method="GET" class="d-flex align-items-center" style="gap:6px;">
@@ -29,25 +29,25 @@
 <div class="row mb-3">
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-secondary mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_txn']) }}</h4><p>Total Transaksi {{ $year }}</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_txn']) }} <small>transaksi</small></h4><p>Total Transaksi {{ $year }}</p></div>
             <div class="icon"><i class="fas fa-list"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-success mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_in']) }}</h4><p>Total Qty Masuk</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_in']) }} <small>unit</small></h4><p>Total Qty Masuk</p></div>
             <div class="icon"><i class="fas fa-arrow-circle-down"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-danger mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_out']) }}</h4><p>Total Qty Keluar</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_out']) }} <small>unit</small></h4><p>Total Qty Keluar</p></div>
             <div class="icon"><i class="fas fa-arrow-circle-up"></i></div>
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
         <div class="small-box bg-info mb-0">
-            <div class="inner"><h4>{{ number_format($summary['total_trans']) }}</h4><p>Total Transfer</p></div>
+            <div class="inner"><h4>{{ number_format($summary['total_trans']) }} <small>transfer</small></h4><p>Total Transfer</p></div>
             <div class="icon"><i class="fas fa-exchange-alt"></i></div>
         </div>
     </div>
@@ -135,13 +135,33 @@ $(function () {
             title: { text: null }
         },
         yAxis: { title: { text: 'Jumlah Transaksi' }, min: 0, allowDecimals: false },
-        plotOptions: { bar: { dataLabels: { enabled: true } } },
+        tooltip: {
+            pointFormat: '<b>{point.y}</b> transaksi<br><span style="font-size:11px">Klik bar untuk membuka detail stok.</span>'
+        },
+        plotOptions: {
+            bar: {
+                cursor: 'pointer',
+                dataLabels: { enabled: true },
+                point: {
+                    events: {
+                        click: function () {
+                            if (this.options.url) {
+                                window.location.href = this.options.url;
+                            }
+                        }
+                    }
+                }
+            }
+        },
         series: [{
             name: 'Transaksi',
             color: '#6f42c1',
             data: [
                 @foreach($topActive as $item)
-                {{ $item->txn_count }},
+                {
+                    y: {{ $item->txn_count }},
+                    url: '{{ route('stock.show', $item->item_id) }}'
+                },
                 @endforeach
             ]
         }],

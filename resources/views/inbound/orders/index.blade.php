@@ -21,7 +21,7 @@
                                 <button id="btnBatchGa" class="btn btn-primary btn-sm" disabled
                                     title="Pilih order terlebih dahulu">
                                     <i class="fas fa-dna mr-1"></i>
-                                    Run GA Batch
+                                    Jalankan Rekomendasi
                                     <span class="badge badge-light ml-1" id="selectedCount">0</span>
                                 </button>
                                 <div class="btn-group">
@@ -93,8 +93,8 @@
                                     <th width="30" class="text-center">
                                         <input type="checkbox" id="checkAll" title="Pilih semua">
                                     </th>
-                                    <th width="90" class="text-center">Actions</th>
-                                    <th width="50" class="text-center">#</th>
+                                    <th width="60" class="text-center">Actions</th>
+                                    <th width="30" class="text-center">#</th>
                                     <th width="150">No. Surat Jalan</th>
                                     <th width="100" class="text-center">Tgl SJ</th>
                                     <th width="160">Warehouse</th>
@@ -166,7 +166,7 @@
             var baseURL      = "{{ route('inbound.orders.datatable') }}";
             var routeDestroy    = "{{ route('inbound.orders.destroy', ':id') }}";
             var routeBatchGa    = "{{ route('inbound.orders.batch-ga') }}";
-            var routePutawayQ   = "{{ route('putaway.queue') }}";
+            var routePutawayOperator = "{{ route('putaway.operator') }}";
             var csrfToken    = $('meta[name="csrf-token"]').attr('content');
             var isOperator   = {{ auth()->user()->hasRole('operator') ? 'true' : 'false' }};
 
@@ -208,6 +208,9 @@
                     var id = $(this).val();
                     if (selectedIds[id]) $(this).prop('checked', true);
                 });
+                // Disable header checkbox when no selectable rows exist on this page
+                var hasSelectable = $('#datatable .order-check').length > 0;
+                $('#checkAll').prop('disabled', !hasSelectable).css('opacity', hasSelectable ? '' : '0.35');
                 updateBatchButton();
             });
 
@@ -314,7 +317,7 @@
                     var statusBadge;
 
                     if (r.status === 'accepted') {
-                        statusBadge = '<span class="badge badge-success">Diterima (Auto)</span>';
+                        statusBadge = '<span class="badge badge-success">Diterima</span>';
                     } else if (r.status === 'pending_review') {
                         statusBadge = '<span class="badge badge-warning">Perlu Review</span>';
                     } else if (r.status === 'skip') {
@@ -351,7 +354,7 @@
                     + '<i class="fas fa-times mr-1"></i>Tutup &amp; Refresh</button>';
 
                 if (s.accepted > 0) {
-                    footerHtml = '<a href="' + routePutawayQ + '" class="btn btn-success btn-sm mr-2">'
+                    footerHtml = '<a href="' + routePutawayOperator + '" class="btn btn-success btn-sm mr-2">'
                         + '<i class="fas fa-dolly-flatbed mr-1"></i>Mulai Put-Away (' + s.accepted + ' DO)</a>'
                         + footerHtml;
                 }

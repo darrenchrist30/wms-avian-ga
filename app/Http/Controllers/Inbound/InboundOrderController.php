@@ -77,8 +77,9 @@ class InboundOrderController extends Controller
         return DataTables::of($query)
             ->addIndexColumn()
             ->addColumn('checkbox', function ($row) {
-                $eligible = $row->status === 'inbound';
-                if (!$eligible) return '';
+                if ($row->status !== 'inbound') {
+                    return '<input type="checkbox" disabled style="opacity:0.35;">';
+                }
                 return '<input type="checkbox" class="order-check" value="' . $row->id . '"
                     data-do="' . e($row->do_number) . '">';
             })
@@ -414,9 +415,9 @@ class InboundOrderController extends Controller
                     'id'            => $order->id,
                     'do_number'     => $order->do_number,
                     'status'        => 'accepted',
-                    'message'       => 'GA selesai & otomatis diterima. Fitness: ' . round($recommendation->fitness_score, 1) . '/100.',
+                    'message'       => 'Berhasil!',
                     'fitness_score' => round($recommendation->fitness_score, 2),
-                    'putaway_url'   => route('putaway.queue'),
+                    'putaway_url'   => route('putaway.operator'),
                     'items'         => $order->items->map(fn($d) => [
                         'name' => $d->item?->name ?? $d->item?->sku ?? '-',
                         'qty'  => $d->quantity_ordered,
