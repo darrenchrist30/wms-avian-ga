@@ -969,7 +969,7 @@ function buildVerticalRack(rx, rz, rack) {
             color:       cellHex(cell),
             emissive:    new THREE.Color(cellEmissive(cell)),
             transparent: true,
-            opacity:     Math.max(0.28, cellOpacity(cell)), // min 0.28 agar rak terlihat
+            opacity:     Math.max(0.10, cellOpacity(cell)), // min 0.10 agar rak masih bisa diklik
             side:        THREE.DoubleSide,
             depthWrite:  false,
         });
