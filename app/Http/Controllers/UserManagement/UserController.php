@@ -33,6 +33,7 @@ class UserController extends Controller
         $request->validate([
             'name'        => 'required|string|max:100',
             'email'       => 'required|email|max:255|unique:users,email',
+            'phone'       => 'nullable|string|max:20',
             'employee_id' => 'nullable|string|max:50|unique:users,employee_id',
             'role_id'     => 'required|exists:roles,id',
             'password'    => 'required|string|min:8|confirmed',
@@ -47,6 +48,7 @@ class UserController extends Controller
             User::create([
                 'name'        => $request->name,
                 'email'       => $request->email,
+                'phone'       => $request->phone,
                 'employee_id' => $request->employee_id,
                 'role_id'     => $request->role_id,
                 'password'    => Hash::make($request->password),
@@ -84,6 +86,7 @@ class UserController extends Controller
         $request->validate([
             'name'        => 'required|string|max:100',
             'email'       => 'required|email|max:255|unique:users,email,' . $id,
+            'phone'       => 'nullable|string|max:20',
             'employee_id' => 'nullable|string|max:50|unique:users,employee_id,' . $id,
             'role_id'     => 'required|exists:roles,id',
             'password'    => 'nullable|string|min:8|confirmed',
@@ -113,6 +116,7 @@ class UserController extends Controller
             $updateData = [
                 'name'        => $request->name,
                 'email'       => $request->email,
+                'phone'       => $request->phone,
                 'employee_id' => $request->employee_id,
                 'role_id'     => $request->role_id,
                 'is_active'   => $request->boolean('is_active', true),

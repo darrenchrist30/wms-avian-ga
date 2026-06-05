@@ -150,7 +150,6 @@ $(function () {
     $('#tblNearExpiry').DataTable({
         pageLength: 25,
         order: [[6, 'asc']],
-        language: { url: '/vendor/datatables/i18n/id.json' },
     });
 });
 </script>

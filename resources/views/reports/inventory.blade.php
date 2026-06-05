@@ -235,12 +235,23 @@ $(function () {
             ],
             title: { text: null }
         },
-        yAxis: { title: { text: 'Total Qty' }, min: 0 },
-        tooltip: { valueSuffix: ' pcs' },
+        yAxis: {
+            title: { text: 'Total Qty' },
+            min: 0,
+            labels: {
+                formatter: function () { return Highcharts.numberFormat(this.value, 0, '.', ','); }
+            }
+        },
+        tooltip: {
+            formatter: function () {
+                return '<b>' + this.point.category + '</b><br/>Total Qty: <b>'
+                    + Highcharts.numberFormat(this.y, 0, '.', ',') + ' pcs</b>';
+            }
+        },
         plotOptions: { bar: { dataLabels: {
             enabled: true,
             align: 'right',
-            formatter: function() { return Highcharts.numberFormat(this.y, 0, ',', '.'); }
+            formatter: function() { return Highcharts.numberFormat(this.y, 0, '.', ','); }
         } } },
         series: [{
             name: 'Total Qty',

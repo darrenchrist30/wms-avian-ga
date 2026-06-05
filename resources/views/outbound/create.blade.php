@@ -125,22 +125,107 @@
             <h4 class="mb-0 font-weight-bold">
                 <i class="fas fa-sign-out-alt mr-2 text-danger"></i>Outbound
             </h4>
-            <small class="text-muted">
+            {{-- <small class="text-muted">
                 <a href="{{ route('outbound.index') }}">Outbound</a>
                 <i class="fas fa-chevron-right mx-1" style="font-size:9px;"></i>
                 Scan &amp; Keluarkan Barang
-            </small>
+            </small> --}}
         </div>
         <a href="{{ route('outbound.index') }}" class="btn btn-outline-secondary btn-sm">
             <i class="fas fa-history mr-1"></i> Riwayat
         </a>
     </div>
 
+    {{-- Banner: Request yang disetujui --}}
+    @if($approvedRequest ?? null)
+    <div class="alert border-0 mb-3 py-2" style="background:#f0fdf4;border-left:4px solid #0d8564!important;">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <i class="fas fa-check-circle text-success mr-1"></i>
+                <strong>Request {{ $approvedRequest->request_number }}</strong> disetujui oleh
+                <strong>{{ $approvedRequest->approvedBy?->name }}</strong>
+                &middot; <span style="font-size:12px;" class="text-muted">{{ $approvedRequest->approved_at?->format('d M Y, H:i') }}</span>
+            </div>
+            <a href="{{ route('outbound.requests.show', $approvedRequest->id) }}" class="btn btn-xs"
+               style="border:1.5px solid #0d8564;color:#0d8564;transition:background .15s,color .15s;text-decoration:none;"
+               onmouseenter="this.style.background='#0d8564';this.style.color='#fff'"
+               onmouseleave="this.style.background='transparent';this.style.color='#0d8564'">
+                <i class="fas fa-eye mr-1"></i>Lihat
+            </a>
+        </div>
+    </div>
+    {{-- Hidden: request_id untuk di-mark completed saat outbound selesai --}}
+    <input type="hidden" id="approvedRequestId" value="{{ $approvedRequest->id }}">
+    @endif
+
+    @if($approvedRequest ?? null)
+    {{-- ══════════════════════════════════════════════════════
+         APPROVED REQUEST VIEW — tabel item + gudang + save
+    ══════════════════════════════════════════════════════ --}}
+    <div class="card shadow-sm mb-3" style="border-radius:10px;">
+        <div class="card-header py-2 px-3">
+            <span class="font-weight-bold" style="font-size:13px;">
+                <i class="fas fa-boxes mr-1" style="color:#0d8564;"></i> Item yang Akan Dikeluarkan
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm table-bordered table-striped mb-0">
+                <thead class="thead-light">
+                    <tr>
+                        <th width="40" class="text-center font-weight-bold">#</th>
+                        <th class="font-weight-bold">Item / SKU</th>
+                        <th width="120" class="text-center font-weight-bold" style="white-space:nowrap;">Qty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($approvedRequest->items as $i => $it)
+                    <tr>
+                        <td class="text-center">{{ $i + 1 }}</td>
+                        <td>
+                            <strong>{{ $it->item->name }}</strong>
+                            <small class="text-muted d-block">{{ $it->item->sku }}</small>
+                        </td>
+                        <td class="text-center font-weight-bold">
+                            {{ number_format($it->quantity_requested) }}
+                            <small class="text-muted">{{ $it->item->unit?->code }}</small>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+                @php
+                    $totalJenis = $approvedRequest->items->count();
+                    $totalQty   = $approvedRequest->items->sum('quantity_requested');
+                @endphp
+                <tfoot>
+                    <tr style="background:#f8f9fa;font-size:12px;border-top:2px solid #dee2e6;">
+                        <td colspan="2" class="text-right pr-3 text-muted" style="white-space:nowrap;">Total Item</td>
+                        <td class="text-center font-weight-bold">{{ $totalJenis }}</td>
+                    </tr>
+                    <tr style="background:#f8f9fa;font-size:12px;">
+                        <td colspan="2" class="text-right pr-3 text-muted" style="white-space:nowrap;">Total Qty</td>
+                        <td class="text-center font-weight-bold">{{ $totalQty }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        <div class="card-footer text-right py-2" style="background:#f8f9fa;border-top:1px solid #e9ecef;">
+            <input type="hidden" id="warehouseSelect" value="{{ $approvedRequest->warehouse_id }}">
+            <button id="btnProcess"
+                style="background:#0d8564;color:#fff;border:none;padding:8px 20px;border-radius:0;transition:background .15s;cursor:pointer;"
+                onmouseenter="this.style.background='#0a6e52'"
+                onmouseleave="this.style.background='#0d8564'">
+                <i class="fas fa-save mr-1"></i>Save
+            </button>
+        </div>
+    </div>
+
+    @else
+    {{-- ══════════════════════════════════════════════════════
+         SCAN FLOW — interface POS normal
+    ══════════════════════════════════════════════════════ --}}
     <div class="pos-wrapper">
 
-        {{-- ══════════════════════════════════
-             LEFT — SCANNER PANEL
-        ══════════════════════════════════ --}}
+        {{-- LEFT — SCANNER PANEL --}}
         <div class="pos-scanner">
 
             <div class="card shadow-sm mb-3" style="border-radius:10px;">
@@ -151,14 +236,12 @@
                 </div>
                 <div class="card-body p-3">
 
-                    {{-- Barcode text input (auto-focus for gun scanner) --}}
                     <div class="scan-input-wrap mb-3">
                         <i class="fas fa-barcode scan-icon"></i>
                         <input type="text" id="barcodeInput" class="form-control"
                                placeholder="Scan barcode / ketik SKU…" autocomplete="off" autofocus>
                     </div>
 
-                    {{-- Camera toggle --}}
                     <div class="mb-3">
                         <button id="btnCamera" class="btn btn-sm btn-outline-secondary btn-block" type="button">
                             <i class="fas fa-camera mr-1"></i> Aktifkan Kamera
@@ -166,7 +249,6 @@
                         <div id="reader" class="mt-2" style="display:none;"></div>
                     </div>
 
-                    {{-- Last scanned feedback --}}
                     <div class="last-scan-card" id="lastScanCard">
                         <div class="text-center text-muted" id="lastScanEmpty" style="padding:10px 0;">
                             <i class="fas fa-qrcode fa-2x mb-1" style="opacity:.25;"></i>
@@ -255,6 +337,7 @@
         </div>
 
     </div>
+    @endif {{-- end approved request / scan flow --}}
 
 </div>
 
@@ -292,10 +375,8 @@
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-body text-center py-4">
-                <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                <i class="fas fa-check-circle fa-4x mb-3" style="color:#0d8564;"></i>
                 <h5 class="font-weight-bold">Outbound Berhasil!</h5>
-                <p class="text-muted" id="successSummary"></p>
-                <div id="successDetail" class="text-left mb-3"></div>
             </div>
             <div class="modal-footer py-2 justify-content-center">
                 <button type="button" class="btn btn-danger" id="btnNewOutbound">
@@ -586,7 +667,6 @@ $(function () {
             <div class="preview-item-section">
                 <div class="preview-item-title">
                     <span><i class="fas fa-box mr-1"></i>${escHtml(p.item_name)}</span>
-                    <span class="badge badge-danger">${p.total_qty} unit</span>
                 </div>
                 <table class="table table-sm table-bordered preview-table mb-0">
                     <thead class="thead-light">
@@ -604,13 +684,7 @@ $(function () {
             </div>`;
         });
 
-        const totalItems = previews.length;
-        const totalQty   = previews.reduce(function (s, p) { return s + p.total_qty; }, 0);
-        html = `<div class="alert alert-warning py-2 mb-3" style="font-size:12px;">
-                    <i class="fas fa-exclamation-triangle mr-1"></i>
-                    Periksa rencana pengambilan berikut. Tekan <strong>Konfirmasi Outbound</strong> untuk menyimpan.
-                    <span class="float-right font-weight-bold">${totalItems} item · ${totalQty} unit</span>
-                </div>` + html;
+        html = html;
 
         $('#previewBody').html(html);
     }
@@ -629,7 +703,7 @@ $(function () {
         $.ajax({
             url:  '{{ route("outbound.batch-confirm") }}',
             type: 'POST',
-            data: JSON.stringify({ warehouse_id: warehouseId, cart: cartArr, notes: notes }),
+            data: JSON.stringify({ warehouse_id: warehouseId, cart: cartArr, notes: notes, request_id: $('#approvedRequestId').val() || null }),
             contentType: 'application/json',
             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
             success: function (res) {
@@ -654,20 +728,7 @@ $(function () {
     /* ─────────────────────────────────────────────────────────────────
        SUCCESS MODAL
     ───────────────────────────────────────────────────────────────── */
-    function renderSuccessModal(res) {
-        $('#successSummary').text(res.total_items + ' jenis item · ' + res.total_qty + ' unit berhasil dikeluarkan. Movement outbound telah dicatat.');
-
-        let html = '<ul class="list-unstyled mb-0">';
-        res.results.forEach(function (r) {
-            html += `<li class="mb-1">
-                <i class="fas fa-check-circle text-success mr-1"></i>
-                <strong>${escHtml(r.item_name)}</strong>
-                <span class="text-muted"> — ${r.quantity} unit</span>
-            </li>`;
-        });
-        html += '</ul>';
-        $('#successDetail').html(html);
-    }
+    function renderSuccessModal(res) {}
 
     $('#btnNewOutbound').on('click', function () {
         $('#modalSuccess').modal('hide');
@@ -737,6 +798,13 @@ $(function () {
 
     // Initial render
     renderCart();
+
+    @if($approvedCartItems)
+    // Pre-populate cart dari approved request, lalu enable tombol Save
+    var _approvedItems = @json($approvedCartItems);
+    _approvedItems.forEach(function(item) { cart[item.id] = item; });
+    $('#btnProcess').prop('disabled', false);
+    @endif
 
 });
 </script>

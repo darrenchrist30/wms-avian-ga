@@ -375,8 +375,7 @@ class StockController extends Controller
             ->select('items.*')
             ->selectRaw("{$qtySubSql} as current_stock")
             ->where('is_active', true)
-            ->where('min_stock', '>', 0)
-            ->whereExists(fn($q) => $q->from('stock_records')->whereColumn('stock_records.item_id', 'items.id'));
+            ->where('min_stock', '>', 0);
 
         $summaryItems = (clone $baseQuery)->get();
 

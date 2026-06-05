@@ -756,6 +756,12 @@
         if ($pendingPutAway > 0) {
             $visibleActionCards[] = ['label' => 'SJ siap put-away ke rak', 'count' => $pendingPutAway];
         }
+        if (!$isOperatorDashboard && $pendingOutboundRequests > 0) {
+            $visibleActionCards[] = ['label' => 'permintaan outbound menunggu persetujuan', 'count' => $pendingOutboundRequests];
+        }
+        if ($isOperatorDashboard && $myPendingOutboundRequests > 0) {
+            $visibleActionCards[] = ['label' => 'permintaan outbound Anda menunggu persetujuan', 'count' => $myPendingOutboundRequests];
+        }
         $totalPending = collect($visibleActionCards)->sum('count');
         $actionSummaryText = collect($visibleActionCards)
             ->map(fn($card) => number_format($card['count']) . ' ' . $card['label'])
@@ -957,6 +963,67 @@
                     </a>
                 </div>
             @endif
+
+            {{-- Outbound requests: kartu supervisor --}}
+            @if(!auth()->user()->hasRole('operator') && $pendingOutboundRequests > 0)
+                <div class="col-12 col-md-6 mb-2">
+                    <a href="{{ route('outbound.requests.index') }}" class="d-block text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100"
+                            style="border-left:4px solid #f59e0b!important;border-radius:10px;cursor:pointer;transition:transform .15s"
+                            onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                            <div class="card-body py-3 px-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div style="width:36px;height:36px;border-radius:50%;background:#fffbeb;display:flex;align-items:center;justify-content:center;margin-right:10px">
+                                        <i class="fas fa-clipboard-list" style="color:#d97706;font-size:15px"></i>
+                                    </div>
+                                    <div class="d-flex align-items-baseline" style="gap:4px">
+                                        <div class="font-weight-bold" style="font-size:22px;color:#92400e;line-height:1">{{ $pendingOutboundRequests }}</div>
+                                        <span class="font-weight-bold" style="font-size:14px;color:#92400e;line-height:1">request</span>
+                                    </div>
+                                </div>
+                                <div style="font-size:12px;font-weight:600;color:#92400e">Permintaan Outbound Perlu Disetujui</div>
+                                <div style="font-size:11px;color:#6c757d;margin-top:2px">Operator menunggu persetujuan Anda</div>
+                                <div class="mt-2">
+                                    <span class="badge badge-warning" style="font-size:10px">
+                                        <i class="fas fa-pen mr-1"></i>Lihat Sekarang
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @endif
+
+            {{-- Outbound requests: kartu operator --}}
+            @if(auth()->user()->hasRole('operator') && $myPendingOutboundRequests > 0)
+                <div class="col-12 col-md-6 mb-2">
+                    <a href="{{ route('outbound.requests.index') }}" class="d-block text-decoration-none">
+                        <div class="card border-0 shadow-sm h-100"
+                            style="border-left:4px solid #6366f1!important;border-radius:10px;cursor:pointer;transition:transform .15s"
+                            onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform=''">
+                            <div class="card-body py-3 px-3">
+                                <div class="d-flex align-items-center mb-2">
+                                    <div style="width:36px;height:36px;border-radius:50%;background:#eef2ff;display:flex;align-items:center;justify-content:center;margin-right:10px">
+                                        <i class="fas fa-clock" style="color:#6366f1;font-size:15px"></i>
+                                    </div>
+                                    <div class="d-flex align-items-baseline" style="gap:4px">
+                                        <div class="font-weight-bold" style="font-size:22px;color:#4338ca;line-height:1">{{ $myPendingOutboundRequests }}</div>
+                                        <span class="font-weight-bold" style="font-size:14px;color:#4338ca;line-height:1">request</span>
+                                    </div>
+                                </div>
+                                <div style="font-size:12px;font-weight:600;color:#4338ca">Permintaan Outbound Anda</div>
+                                <div style="font-size:11px;color:#6c757d;margin-top:2px">Sedang menunggu persetujuan supervisor</div>
+                                <div class="mt-2">
+                                    <span class="badge" style="font-size:10px;background:#e0e7ff;color:#4338ca;">
+                                        <i class="fas fa-eye mr-1"></i>Lihat Status
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @endif
+
         </div>
     @endif
 
@@ -1048,7 +1115,7 @@
                 <div class="kpi-card kpi-purple">
                     <i class="fas fa-tasks kpi-icon"></i>
                     <div class="kpi-value">{{ number_format($pendingGaRun + $pendingPutAway) }}</div>
-                    <div class="kpi-label">Pipeline DO Aktif</div>
+                    <div class="kpi-label">Pending Tasks</div>
                     <div class="kpi-trend">
                         <span class="up">{{ $pendingPutAway }} put-away</span>
                     </div>

@@ -388,7 +388,12 @@ $(function () {
     $('#tblMovements').DataTable({
         processing: true,
         serverSide: true,
-        ajax: '{{ route("stock.show", $item->id) }}?type=movements',
+        ajax: {
+            url: '{{ route("stock.show", $item->id) }}?type=movements',
+            error: function (xhr) {
+                if (xhr.status === 401 || xhr.status === 419) { window.location.reload(); }
+            }
+        },
         columns: [
             { data: 'date_display',     orderable: true  },
             { data: 'type_badge',       orderable: false, className: 'text-center' },
@@ -398,7 +403,6 @@ $(function () {
         ],
         order: [[0, 'desc']],
         pageLength: 15,
-        language: { url: '/vendor/datatables/i18n/id.json' },
     });
 
     // ── Modal Detail Cell 3D ───────────────────────────────────────────────

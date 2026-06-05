@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-hourglass-half text-secondary mr-2"></i>Item Deadstock
         </h5>
-        <small class="text-muted">Stok masih tersedia, tetapi tidak bergerak minimal {{ $days }} hari.</small>
+        {{-- <small class="text-muted">Stok masih tersedia, tetapi tidak bergerak minimal {{ $days }} hari.</small> --}}
     </div>
     <div class="d-flex" style="gap:6px;">
         <form method="GET" class="d-flex align-items-center" style="gap:6px;">
@@ -122,7 +122,6 @@ $(function () {
     $('#tblDeadstock').DataTable({
         pageLength: 25,
         order: [[6, 'asc']],
-        language: { url: '/vendor/datatables/i18n/id.json' },
     });
 });
 </script>

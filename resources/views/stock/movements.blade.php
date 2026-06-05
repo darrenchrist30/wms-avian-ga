@@ -150,7 +150,6 @@ $(function () {
         ],
         order: [[1, 'desc']],
         pageLength: 25,
-        language: { url: '/vendor/datatables/i18n/id.json' },
     });
 
     $('#btnFilter').on('click', () => table.ajax.reload());

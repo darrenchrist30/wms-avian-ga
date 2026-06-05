@@ -7,6 +7,7 @@ use App\Models\GaRecommendation;
 use App\Models\InboundOrder;
 use App\Models\Item;
 use App\Models\Cell;
+use App\Models\OutboundRequest;
 use App\Models\PutAwayConfirmation;
 use App\Models\Rack;
 use App\Models\Stock;
@@ -45,7 +46,6 @@ class DashboardController extends Controller
         // Stok habis: monitored items dengan available = 0
         $stockHabisItems = Item::where('is_active', true)
             ->where('min_stock', '>', 0)
-            ->whereExists(fn($q) => $q->from('stock_records')->whereColumn('stock_records.item_id', 'items.id'))
             ->whereRaw('(SELECT COALESCE(SUM(s.quantity),0) FROM stock_records s WHERE s.item_id = items.id AND s.status = "available") = 0')
             ->count();
         // Stok menipis: monitored items dengan 0 < available < min_stock
@@ -232,6 +232,13 @@ class DashboardController extends Controller
 
         $pendingPutAway = InboundOrder::where('status', 'put_away')
             ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
+            ->count();
+
+        // Outbound requests pending approval (for supervisor/admin)
+        $pendingOutboundRequests = OutboundRequest::where('status', 'pending')->count();
+        // Operator's own requests still waiting (for operator)
+        $myPendingOutboundRequests = OutboundRequest::where('status', 'pending')
+            ->where('operator_id', auth()->id())
             ->count();
 
         // ── Process Control: funnel, bottleneck, and aging ─────────────────
@@ -465,6 +472,7 @@ class DashboardController extends Controller
             'expiryStocks', 'scheduledInbound',
             // Actionable
             'inboundHariIni', 'inboundHariIniTotal', 'pendingQtyConfirm', 'pendingGaRun', 'pendingGaAccept', 'pendingPutAway',
+            'pendingOutboundRequests', 'myPendingOutboundRequests',
             // Process control
             'processFunnel', 'bottleneckSummary', 'oldestOpenOrders', 'putAwayProgressToday',
             // GA analytics

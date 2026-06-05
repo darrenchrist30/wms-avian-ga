@@ -128,6 +128,16 @@ $(function () {
                 d.category_id   = $('#filterCategory').val();
                 d.warehouse_id  = $('#filterWarehouse').val();
                 d.status_filter = $('#filterStatus').val();
+            },
+            error: function (xhr) {
+                if (xhr.status === 401 || xhr.status === 419) {
+                    window.location.reload();
+                    return;
+                }
+                var msg = xhr.status === 500
+                    ? 'Terjadi error server saat memuat data stok.'
+                    : 'Gagal memuat data stok.';
+                Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#dc3545' });
             }
         },
         columns: [
@@ -142,11 +152,6 @@ $(function () {
         ],
         order: [],
         pageLength: 25,
-        error: function (xhr) {
-            if (xhr.status === 401 || xhr.status === 419) { window.location.reload(); return; }
-            var msg = xhr.status === 500 ? 'Terjadi error server saat memuat data stok.' : 'Gagal memuat data stok.';
-            Swal.fire({ icon: 'error', title: 'Error', text: msg, confirmButtonColor: '#dc3545' });
-        },
         dom: "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
              "<'row'<'col-sm-12'tr>>" +
              "<'row'<'col-sm-5'i><'col-sm-7'p>>",
@@ -170,6 +175,13 @@ $(function () {
         $('#filterCategory, #filterWarehouse, #filterStatus').val('');
         table.ajax.reload();
     });
+
+    // Keepalive: ping setiap 10 menit agar session tidak expired saat halaman dibuka lama
+    setInterval(function () {
+        $.get('{{ route("dashboard") }}', function() {}).fail(function(xhr) {
+            if (xhr.status === 401 || xhr.status === 419) window.location.reload();
+        });
+    }, 600000);
 });
 </script>
 @endpush
