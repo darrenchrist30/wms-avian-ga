@@ -124,7 +124,6 @@ $(function () {
             { data: 'ip_address',     defaultContent: '<span class="text-muted">-</span>' },
             { data: 'detail_btn',     orderable: false, searchable: false },
         ],
-        language: { url: '/vendor/datatables/i18n/id.json' },
         order: [[1, 'desc']],
         pageLength: 25,
     });

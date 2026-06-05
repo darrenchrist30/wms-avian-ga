@@ -25,9 +25,6 @@ class CompareScenarios extends Command
     const T_HANDLING = 2.0;   // menit/penempatan
 
     // Kapasitas — sama dengan CellCapacityService
-    const SCALE          = 100;
-    const FALLBACK_STOCK = 100;
-
     public function handle(): int
     {
         $dir = storage_path('app/exports');
@@ -751,8 +748,7 @@ class CompareScenarios extends Command
 
     private function points(int $qty, int $maxStock): int
     {
-        $ms = $maxStock > 0 ? $maxStock : self::FALLBACK_STOCK;
-        return max(1, (int) ceil($qty * self::SCALE / $ms));
+        return max(0, $qty);
     }
 
     private function catMatch(?int $cellCatId, ?int $itemCatId): int

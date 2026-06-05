@@ -197,19 +197,16 @@ class PutAwayService
         $remainingCapacity = $this->remainingCapacityForPlacement($cell);
         $capacityDemand = $this->capacityDemandForPlacement($detail, $cell, $quantityStored);
 
-        // Validasi: sel masih bisa menerima barang. Pada MSpart, cell full tetap
-        // boleh menerima SKU yang sama karena upsert ke stock record existing
-        // tidak memakai slot baru.
-        if (!in_array($cell->status, ['available', 'partial'])
-            && !($this->isMspartCell($cell) && $capacityDemand === 0)
-        ) {
+        // Direct capacity mode: any additional qty consumes capacity, even when
+        // the same SKU already exists in the cell.
+        if (!in_array($cell->status, ['available', 'partial'], true)) {
             throw new \Exception("Sel {$cell->code} tidak tersedia (status: {$cell->status}).");
         }
 
         if ($capacityDemand > $remainingCapacity) {
             $cellLabel = $this->physicalLocationLabel($cell);
             throw new \Exception(
-                "Lokasi {$cellLabel} tidak memiliki kapasitas cukup ({$remainingCapacity} poin tersisa, butuh {$capacityDemand} poin)."
+                "Lokasi {$cellLabel} tidak memiliki kapasitas cukup ({$remainingCapacity} unit kapasitas tersisa, butuh {$capacityDemand} unit kapasitas)."
             );
         }
 

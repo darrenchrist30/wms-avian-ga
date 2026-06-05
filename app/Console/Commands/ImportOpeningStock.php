@@ -112,16 +112,17 @@ class ImportOpeningStock extends Command
             }
 
             // Warn if import would overflow the cell
-            $points    = $capacityService->pointsForQuantity($item, $qty);
+            $capacityDemand = $capacityService->pointsForQuantity($item, $qty);
             $capMax    = $capacityService->capacityMax($cell);
             $capUsed   = $capacityService->usedPoints($cell);
-            if ($capUsed + $points > $capMax) {
+            if ($capUsed + $capacityDemand > $capMax) {
                 $warnings[] = sprintf(
                     '  OVERFLOW %s → %s: needs %d pts, only %d free (cap_max=%d)',
-                    $kode, $cell->code, $points, $capMax - $capUsed, $capMax
+                    $kode, $cell->code, $capacityDemand, $capMax - $capUsed, $capMax
                 );
             }
 
+            $points = $capacityDemand;
             if ($dryRun) {
                 $warnings[] = sprintf('  WOULD IMPORT: %-30s → %-15s qty=%d pts=%d', $kode, $cell->code, $qty, $points);
                 $stats['imported']++;

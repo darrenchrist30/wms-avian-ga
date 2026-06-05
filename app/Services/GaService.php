@@ -206,31 +206,23 @@ class GaService
             ->groupBy('cell_id')
             ->pluck('item_ids', 'cell_id');
 
-        // Hitung usedPoints semua cell sekaligus (1 query, bukan N query)
-        $usedPointsByCell = DB::table('stock_records as sr')
-            ->join('items as i', 'i.id', '=', 'sr.item_id')
+        // Hitung kapasitas terpakai semua cell sekaligus (direct qty, bukan poin normalisasi).
+        $usedCapacityByCell = DB::table('stock_records as sr')
             ->whereIn('sr.cell_id', $cellIds)
             ->where('sr.quantity', '>', 0)
             ->whereIn('sr.status', ['available', 'reserved'])
-            ->groupBy('sr.cell_id', 'sr.item_id', 'i.max_stock')
-            ->selectRaw('sr.cell_id, i.max_stock, SUM(sr.quantity) as qty')
-            ->get()
-            ->groupBy('cell_id')
-            ->map(fn($rows) => (int) $rows->sum(fn($row) =>
-                max(1, (int) ceil((int) $row->qty * CellCapacityService::SCALE / max(1, (int) ($row->max_stock ?: CellCapacityService::DEFAULT_CAPACITY_MAX))))
-            ));
+            ->groupBy('sr.cell_id')
+            ->selectRaw('sr.cell_id, SUM(sr.quantity) as qty')
+            ->pluck('qty', 'cell_id');
 
-        // Hitung capacity points yang sudah di-reserve order lain.
-        // Capacity points = ceil(qty * 100 / item.max_stock), sehingga SKU kecil
-        // dan besar tidak dianggap memakai kapasitas yang sama.
+        // Hitung kapasitas yang sudah di-reserve rekomendasi order lain.
         $reservedQtyByCell = DB::table('ga_recommendation_details as grd')
             ->join('ga_recommendations as gr', 'gr.id', '=', 'grd.ga_recommendation_id')
             ->join('inbound_transactions as it', 'it.id', '=', 'gr.inbound_order_id')
             ->join('inbound_details as idt', 'idt.id', '=', 'grd.inbound_order_item_id')
-            ->join('items as reserved_items', 'reserved_items.id', '=', 'idt.item_id')
             ->select(
                 'grd.cell_id',
-                DB::raw('SUM(GREATEST(1, CEIL(grd.quantity * 100 / GREATEST(COALESCE(NULLIF(reserved_items.max_stock, 0), 100), 1)))) as reserved_qty')
+                DB::raw('SUM(grd.quantity) as reserved_qty')
             )
             ->whereIn('grd.cell_id', $cellIds)
             ->where('gr.status', 'accepted')
@@ -244,7 +236,7 @@ class GaService
             $cellsCollection,
             $existingItemIdsByCell,
             $reservedQtyByCell,
-            $usedPointsByCell
+            $usedCapacityByCell
         ));
 
         // ─────────────────────────────────────────────────────────────
@@ -332,7 +324,7 @@ class GaService
         }
 
         // Auto-split items whose capacity_demand exceeds every available cell.
-        // e.g. qty=10, max_stock=8 → 125 poin > cell max 100 → split: chunk(8)+chunk(2).
+        // Example: qty=120, max remaining cell=100 -> split: chunk(100)+chunk(20).
         // Each chunk shares the same inbound_detail_id; GA places them independently
         // and fc_split penalises the resulting multi-cell placement automatically.
         $maxCellCapacity = collect($cells)->max(fn($c) => (int) $c['capacity_remaining']) ?: CellCapacityService::DEFAULT_CAPACITY_MAX;
@@ -347,17 +339,14 @@ class GaService
             }
 
             // Demand exceeds any single cell — split into same-size chunks that fit.
-            $itemModel    = \App\Models\Item::select('max_stock')->find($item['item_id']);
-            $maxStock     = max(1, (int) ($itemModel?->max_stock ?: CellCapacityService::SCALE));
-            $unitsPerChunk = max(1, (int) floor($maxCellCapacity * $maxStock / CellCapacityService::SCALE));
+            $unitsPerChunk = max(1, (int) $maxCellCapacity);
 
             $remaining = (int) $item['quantity'];
             while ($remaining > 0) {
                 $chunkQty    = min($remaining, $unitsPerChunk);
-                $chunkDemand = max(1, (int) ceil($chunkQty * CellCapacityService::SCALE / $maxStock));
                 $expandedItems[] = array_merge($item, [
                     'quantity'        => $chunkQty,
-                    'capacity_demand' => $chunkDemand,
+                    'capacity_demand' => $chunkQty,
                 ]);
                 $remaining -= $chunkQty;
             }
@@ -379,7 +368,7 @@ class GaService
             if (!$hasFeasibleCell) {
                 throw new \Exception(
                     "Tidak ada kapasitas tersedia untuk SKU {$item['sku']} "
-                        . "(butuh {$item['capacity_demand']} poin). "
+                        . "(butuh {$item['capacity_demand']} unit kapasitas). "
                         . 'Tambah kapasitas cell atau konsolidasikan stok existing terlebih dahulu.'
                 );
             }
@@ -469,11 +458,11 @@ class GaService
      * Legacy cells stay one candidate per cells.id. MSpart cells use the exact
      * SQL coordinate: blok + grup + kolom + baris.
      */
-    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell, $reservedQtyByCell, $usedPointsByCell = null): array
+    private function buildCellCandidates($cellsCollection, $existingItemIdsByCell, $reservedQtyByCell, $usedCapacityByCell = null): array
     {
         return $cellsCollection
             ->groupBy(fn(Cell $cell) => $this->physicalLocationKey($cell))
-            ->map(function ($group) use ($existingItemIdsByCell, $reservedQtyByCell, $usedPointsByCell) {
+            ->map(function ($group) use ($existingItemIdsByCell, $reservedQtyByCell, $usedCapacityByCell) {
                 $representative = $group
                     ->sortBy(fn(Cell $cell) => sprintf('%03d-%08d', (int) ($cell->baris ?? 0), $cell->id))
                     ->first();
@@ -502,8 +491,8 @@ class GaService
 
                 $capacityMax = max(1, (int) ($representative->capacity_max ?: CellCapacityService::DEFAULT_CAPACITY_MAX));
                 // Gunakan map yang sudah di-batch, fallback ke 0 jika cell kosong
-                $capacityUsed = $usedPointsByCell
-                    ? (int) ($usedPointsByCell->get($representative->id) ?? 0)
+                $capacityUsed = $usedCapacityByCell
+                    ? (int) ($usedCapacityByCell->get($representative->id) ?? 0)
                     : app(CellCapacityService::class)->usedPoints($representative);
                 $capacityRemaining = max(0, $capacityMax - $capacityUsed - $reservedQty);
 

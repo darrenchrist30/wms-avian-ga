@@ -74,7 +74,8 @@
       "Bash(Get-ChildItem -Directory)",
       "Bash(Get-ChildItem -Path \"c:\\\\laragon\\\\www\\\\wms-avian-ga\" -Name)",
       "Bash(php -r \"echo 'APP_KEY exists: ' . \\(getenv\\('APP_KEY'\\) ? 'YES' : 'NO'\\) . PHP_EOL;\")",
-      "Bash(del bootstrap\\\\cache\\\\serAA47.tmp)"
+      "Bash(del bootstrap\\\\cache\\\\serAA47.tmp)",
+      "Bash(Get-Content \"c:\\\\laragon\\\\www\\\\wms-avian-ga\\\\storage\\\\logs\\\\laravel.log\" -Tail 60)"
     ]
   }
 }

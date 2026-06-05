@@ -8,7 +8,7 @@
         <div class="col-md-12">
             <h4 class="mt-2">
                 <i class="fas fa-sign-out-alt mr-2 text-danger"></i>
-                Outbound — Pengambilan Barang
+                Outbound Pengambilan Barang
             </h4>
             {{-- <p class="text-muted mb-0">Riwayat pengambilan barang dari gudang menggunakan metode FIFO.</p> --}}
         </div>
@@ -28,9 +28,7 @@
                     <button class="btn btn-sm btn-outline-secondary btnRefresh">
                         <i class="fas fa-redo mr-1"></i>Refresh
                     </button>
-                    <a href="{{ route('outbound.create') }}" class="btn btn-primary btn-sm">
-                        <i class="fas fa-plus mr-1"></i>Outbound Baru
-                    </a>
+
                 </div>
             </div>
         </div>
@@ -135,7 +133,7 @@ $(document).ready(function () {
             { data: 'item',         name: 'item_name',      orderable: false },
             { data: 'warehouse',    name: 'warehouse_name', orderable: false },
             { data: 'from_cell',    name: 'from_cell',      orderable: false, className: 'text-center' },
-            { data: 'quantity',     name: 'quantity',       className: 'text-center font-weight-bold text-danger' },
+            { data: 'quantity',     name: 'quantity',       className: 'text-center font-weight-bold' },
             { data: 'notes',        name: 'notes',          orderable: false },
             { data: 'performed_by', name: 'performed_by',   orderable: false },
         ]

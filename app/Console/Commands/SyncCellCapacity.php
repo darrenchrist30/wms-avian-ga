@@ -27,7 +27,7 @@ class SyncCellCapacity extends Command
         $updated = 0;
         $skipped = 0;
 
-        $this->info($dryRun ? "[DRY RUN] " : "" . "Sync {$total} cell aktif...");
+        $this->info(($dryRun ? "[DRY RUN] " : "") . "Sync {$total} cell aktif...");
         $bar = $this->output->createProgressBar($total);
         $bar->start();
 

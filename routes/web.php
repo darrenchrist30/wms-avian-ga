@@ -175,6 +175,18 @@ Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::cl
         Route::get('create',         [\App\Http\Controllers\Outbound\OutboundController::class, 'create'])->name('create');
         Route::post('batch-preview', [\App\Http\Controllers\Outbound\OutboundController::class, 'batchPreview'])->name('batch-preview');
         Route::post('batch-confirm', [\App\Http\Controllers\Outbound\OutboundController::class, 'batchConfirm'])->name('batch-confirm');
+
+        // Outbound Request (approval flow)
+        Route::prefix('requests')->name('requests.')->group(function () {
+            Route::get('/',           [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'index'])->name('index');
+            Route::get('/datatable',  [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'datatable'])->name('datatable');
+            Route::get('/create',     [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'create'])->name('create');
+            Route::post('/',          [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'store'])->name('store');
+            Route::get('/{id}',       [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'show'])->name('show');
+            Route::post('/{id}/approve', [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'approve'])->name('approve')->middleware('role:admin,supervisor');
+            Route::post('/{id}/reject',  [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'reject'])->name('reject')->middleware('role:admin,supervisor');
+            Route::post('/{id}/cancel',  [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'cancel'])->name('cancel');
+        });
     });
 
     /*

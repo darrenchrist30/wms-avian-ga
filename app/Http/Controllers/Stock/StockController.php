@@ -375,8 +375,7 @@ class StockController extends Controller
             ->select('items.*')
             ->selectRaw("{$qtySubSql} as current_stock")
             ->where('is_active', true)
-            ->where('min_stock', '>', 0)
-            ->whereExists(fn($q) => $q->from('stock_records')->whereColumn('stock_records.item_id', 'items.id'));
+            ->where('min_stock', '>', 0);
 
         $summaryItems = (clone $baseQuery)->get();
 
@@ -571,7 +570,7 @@ class StockController extends Controller
                 'capacity_max' => (int) $cell->capacity_max,
                 'capacity_used' => $used,
                 'capacity_remaining' => $remaining,
-                'capacity_unit' => 'poin',
+                'capacity_unit' => 'unit kapasitas',
                 'stock_count' => $stocks->count(),
                 'resolved_from_rack' => $resolvedFromRack,
             ],
@@ -615,7 +614,7 @@ class StockController extends Controller
                 'capacity_max' => $capacityMax,
                 'capacity_used' => $usedPoints,
                 'capacity_remaining' => max(0, $capacityMax - $usedPoints),
-                'capacity_unit' => 'poin',
+                'capacity_unit' => 'unit kapasitas',
                 'stock_count' => $stocks->count(),
                 'is_rack_scan' => true,
             ],
@@ -650,7 +649,7 @@ class StockController extends Controller
                 'capacity_max'       => $capacityMax,
                 'capacity_used'      => $usedPoints,
                 'capacity_remaining' => max(0, $capacityMax - $usedPoints),
-                'capacity_unit'      => 'poin',
+                'capacity_unit'      => 'unit kapasitas',
                 'stock_count'        => $stocks->count(),
                 'is_rack_scan'       => true,
             ],
@@ -756,7 +755,7 @@ class StockController extends Controller
         }
         $remCap = $this->remainingTransferCapacity($toCell);
         if ($capacityDemand > $remCap) {
-            $unit = 'poin';
+            $unit = 'unit kapasitas';
             return response()->json(['status' => 'error', 'message' => "Kapasitas sel {$toCell->code} tidak cukup (tersisa: {$remCap} {$unit})."], 422);
         }
 
@@ -797,7 +796,7 @@ class StockController extends Controller
                     ]);
                 }
 
-                // c) Update normalized capacity points from item max_stock.
+                // c) Update direct capacity from stock_records quantity.
                 $this->refreshTransferCapacity($fromCell, -$qty);
                 $this->refreshTransferCapacity($toCell, $qty);
 

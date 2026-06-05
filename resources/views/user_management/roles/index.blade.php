@@ -55,7 +55,6 @@ $(function () {
             { data: 'permissions_count', className: 'text-center' },
             { data: 'action',         orderable: false, searchable: false },
         ],
-        language: { url: '/vendor/datatables/i18n/id.json' },
         order: [[1, 'asc']],
     });
 

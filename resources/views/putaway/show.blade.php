@@ -773,7 +773,7 @@
                                                         </small>
                                                         <div class="mt-1" style="font-size:11px">
                                                             Qty rekomendasi: <strong>{{ $gd->quantity }}</strong> unit ·
-                                                            Sisa kapasitas: <strong>{{ $capRemain }}</strong>/{{ $capMax }} poin
+                                                            Sisa kapasitas: <strong>{{ $capRemain }}</strong>/{{ $capMax }} unit kapasitas
                                                         </div>
                                                         <div class="cap-bar-wrap mt-1">
                                                             <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>
@@ -1205,19 +1205,16 @@
             const current = Number(stock.current_qty || 0);
             const after = current + Number(modalQty || 0);
             const unit = stock.unit || modalUnitLabel || 'unit';
-            const maxStock = Number(stock.max_stock || 0);
-            const maxText = maxStock > 0 ? ' / ' + fmtNumber(maxStock) : '';
-
             return '<p class="mb-0 text-muted" style="font-size:13px">' +
                 'SKU sudah ada di cell ini. Stok: <strong>' + fmtNumber(current) + '</strong> ' + unit +
-                ' &rarr; <strong>' + fmtNumber(after) + maxText + '</strong> ' + unit +
-                '. Kapasitas dihitung dari rasio max stock SKU.</p>';
+                ' &rarr; <strong>' + fmtNumber(after) + '</strong> ' + unit +
+                '. Kapasitas cell tetap dihitung dari master kapasitas cell.</p>';
         }
 
         function slotCapacityInfoHtml(cell) {
             return '<p class="mb-1 text-muted" style="font-size:13px">Kapasitas kosong: ' +
                 '<strong>' + (cell.capacity_remaining || 0) + '</strong> / ' +
-                '<strong>' + (cell.capacity_max || 0) + '</strong> poin</p>' +
+                '<strong>' + (cell.capacity_max || 0) + '</strong> unit kapasitas</p>' +
                 itemStockInfoHtml(cell);
         }
 
@@ -1267,7 +1264,7 @@
                     $wrap.find('.fs-cell-info').text('Rak ' + rackCode + ' · ' + s.count + 'x outbound/30hr');
                     $wrap.find('.fs-cell-cap').html(
                         s.cell
-                            ? 'Sisa kapasitas: <strong>' + capRem + '</strong>/' + capMax + ' poin'
+                            ? 'Sisa kapasitas: <strong>' + capRem + '</strong>/' + capMax + ' unit kapasitas'
                             : '<span class="text-danger">Tidak ada cell tersedia</span>'
                     );
                 });
@@ -1327,7 +1324,7 @@
                         const badge = cell.fits_all ?
                             '<span class="badge badge-success"><i class="fas fa-check mr-1"></i>Muat semua</span>' :
                             '<span class="badge badge-warning text-dark"><i class="fas fa-exclamation mr-1"></i>Partial (' +
-                            cell.capacity_remaining + ' poin)</span>';
+                            cell.capacity_remaining + ' unit kapasitas)</span>';
 
                         $('#altCards').append(`
                 <div class="card border mb-2">
@@ -1341,7 +1338,7 @@
                                 <small class="text-muted">Rack ${cell.rack_code}</small>
                                 <div class="mt-1">
                                     <div class="d-flex justify-content-between" style="font-size:11px">
-                                        <span class="text-muted">Sisa: <strong>${cell.capacity_remaining}</strong> dari ${cell.capacity_max} poin</span>
+                                        <span class="text-muted">Sisa: <strong>${cell.capacity_remaining}</strong> dari ${cell.capacity_max} unit kapasitas</span>
                                         <span class="text-muted">Terpakai ${usedPct}%</span>
                                     </div>
                                     <div class="cap-bar-wrap mt-1">

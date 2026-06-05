@@ -1026,19 +1026,16 @@ function itemStockInfoHtml(cell) {
     const current = Number(stock.current_qty || 0);
     const after = current + Number(modalQty || 0);
     const unit = stock.unit || modalUnitLabel || 'unit';
-    const maxStock = Number(stock.max_stock || 0);
-    const maxText = maxStock > 0 ? ' / ' + fmtNumber(maxStock) : '';
-
     return '<p class="mb-0 text-muted" style="font-size:13px">' +
         'SKU sudah ada di cell ini. Stok: <strong>' + fmtNumber(current) + '</strong> ' + unit +
-        ' &rarr; <strong>' + fmtNumber(after) + maxText + '</strong> ' + unit +
-        '. Kapasitas dihitung dari rasio max stock SKU.</p>';
+        ' &rarr; <strong>' + fmtNumber(after) + '</strong> ' + unit +
+        '. Kapasitas cell tetap dihitung dari master kapasitas cell.</p>';
 }
 
 function slotCapacityInfoHtml(cell) {
     return '<p class="mb-1 text-muted" style="font-size:13px">Kapasitas kosong: ' +
         '<strong>' + (cell.capacity_remaining || 0) + '</strong> / ' +
-        '<strong>' + (cell.capacity_max || 0) + '</strong> poin</p>' +
+        '<strong>' + (cell.capacity_max || 0) + '</strong> unit kapasitas</p>' +
         itemStockInfoHtml(cell);
 }
 
@@ -1278,10 +1275,8 @@ function showScanResultSwal(cell, matchesGa, capOk) {
     qtyEditing = false;
 
     // Hitung berapa unit yang masih muat di cell ini
-    const maxStock   = cell.item_stock?.max_stock || 0;
     const remaining  = cell.capacity_remaining || 0;
-    const SCALE      = 100;
-    const maxFit     = maxStock > 0 ? Math.floor(remaining * maxStock / SCALE) : (capOk ? modalQty : 0);
+    const maxFit     = capOk ? modalQty : Math.max(0, Math.min(modalQty, remaining));
     const canPartial = !capOk && maxFit > 0;   // cell tidak cukup tapi masih bisa terima sebagian
     const confirmQty = capOk ? modalQty : (canPartial ? maxFit : 0);
     const sisa       = modalQty - confirmQty;
@@ -1420,7 +1415,7 @@ function fetchAltCell(cell1Id, sisaQty, maxFitQty) {
                 splitMode   = true;
                 $('#altCellBadgeWrap').html(
                     '<span class="badge badge-success px-1" style="font-size:10px">' + best.code + '</span>'
-                    + '<br><small class="text-muted" style="font-size:9px">' + best.capacity_remaining + ' pts sisa</small>'
+                    + '<br><small class="text-muted" style="font-size:9px">' + best.capacity_remaining + ' unit sisa</small>'
                 );
                 $('#btnDoConfirm')
                     .prop('disabled', false)

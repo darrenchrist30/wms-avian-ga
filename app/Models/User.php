@@ -23,6 +23,7 @@ class User extends Authenticatable
         'warehouse_id',
         'name',
         'email',
+        'phone',
         'password',
         'employee_id',
         'is_active',
@@ -56,9 +57,12 @@ class User extends Authenticatable
 
     // ── RBAC Helpers ───────────────────────────────────────
 
-    public function hasRole(string $slug): bool
+    public function hasRole(string|array $slug): bool
     {
-        return $this->role && $this->role->slug === $slug;
+        if (!$this->role) return false;
+        return is_array($slug)
+            ? in_array($this->role->slug, $slug)
+            : $this->role->slug === $slug;
     }
 
     public function isAdmin(): bool

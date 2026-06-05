@@ -1516,9 +1516,22 @@
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">OUTBOUND</li>
 
                         <li class="nav-item">
-                            <a href="{{ route('outbound.create') }}" class="nav-link {{ request()->routeIs('outbound.create') ? 'active' : '' }}">
+                            <a href="{{ route('outbound.requests.index') }}" class="nav-link {{ request()->routeIs('outbound.requests.*') ? 'active' : '' }}">
+                                <i class="nav-icon fas fa-clipboard-check" style="color:#6b7280;"></i>
+                                <p>Permintaan Outbound
+                                    @php
+                                        $pendingObrCount = \App\Models\OutboundRequest::where('status','pending')->count();
+                                    @endphp
+                                    @if($pendingObrCount > 0)
+                                        <span class="badge badge-warning ml-1">{{ $pendingObrCount }}</span>
+                                    @endif
+                                </p>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ route('outbound.index') }}" class="nav-link {{ request()->routeIs('outbound.index') || request()->routeIs('outbound.create') ? 'active' : '' }}">
                                 <i class="nav-icon fas fa-barcode" style="color:#6b7280;"></i>
-                                <p>Pengambilan Barang</p>
+                                <p>Riwayat Outbound</p>
                             </a>
                         </li>
 

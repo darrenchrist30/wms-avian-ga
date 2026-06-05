@@ -4,37 +4,27 @@ namespace App\Services;
 
 use App\Models\Cell;
 use App\Models\Item;
-use App\Models\Stock;
 use Illuminate\Support\Facades\DB;
 
 class CellCapacityService
 {
     /**
-     * Normalisation scale.
-     * An item whose max_stock equals SCALE occupies exactly 1 point per unit,
-     * so a DEFAULT_CAPACITY_MAX cell holds exactly max_stock units of such an item.
+     * Kept for backward compatibility with older callers.
+     * Capacity is now direct quantity-based: 1 stored unit consumes 1 capacity unit.
      */
-    public const SCALE = 100;
+    public const SCALE = 1;
 
     /**
-     * Default capacity for a cell when no capacity_max is set in the database.
-     * Think of it as "100 normalised slots".
-     * - An item with max_stock = 100 fills 1 slot per unit → cell holds 100 units.
-     * - An item with max_stock =  10 fills 10 slots per unit → cell holds 10 units.
-     * - An item with max_stock = 200 fills 0.5 → ceil(1) slot per unit → cell holds ~200 units.
+     * Default maximum quantity for a cell when capacity_max is not set.
      */
     public const DEFAULT_CAPACITY_MAX = 100;
 
-    /** Fallback max_stock when an item record has none set. */
+    /** Legacy fallback retained for old UI/commands. */
     private const FALLBACK_MAX_STOCK = 100;
 
-    // ── Item helpers ──────────────────────────────────────────────────────────
-
     /**
-     * Return the effective max_stock for an item.
-     * This is the warehouse policy ceiling — how many units belong in one cell.
-     * Higher max_stock  → small/frequent item (takes less capacity per unit).
-     * Lower  max_stock  → large/rare item    (takes more capacity per unit).
+     * Legacy helper retained for old UI/commands.
+     * Current capacity calculation does not use item.max_stock anymore.
      */
     public function itemMaxStock(Item|int|null $item): int
     {
@@ -43,6 +33,7 @@ class CellCapacityService
                 ? Item::whereKey($item)->select('max_stock')->first()
                 : null;
         }
+
         if (!$item || (int) $item->max_stock <= 0) {
             return self::FALLBACK_MAX_STOCK;
         }
@@ -50,59 +41,38 @@ class CellCapacityService
         return (int) $item->max_stock;
     }
 
-    // ── Cell capacity_max ─────────────────────────────────────────────────────
-
     /**
-     * Return the effective capacity_max (in points) for a cell.
-     * Uses the stored value; falls back to DEFAULT_CAPACITY_MAX.
-     * Admins can override per-cell via the Cells master data screen.
+     * Return the effective direct capacity_max for a cell.
+     * Admins can configure this from the Cells master data screen.
      */
     public function capacityMax(Cell $cell): int
     {
         return max(1, (int) ($cell->capacity_max ?: self::DEFAULT_CAPACITY_MAX));
     }
 
-    // ── Core capacity calculations ────────────────────────────────────────────
-
     /**
-     * Convert a quantity of an item into capacity points.
+     * Convert quantity into direct cell-capacity demand.
      *
-     * Formula: ceil(qty × SCALE / max_stock)
-     *
-     * Examples (SCALE = 100):
-     *   50 units, max_stock=200 → ceil(50×100/200) = 25  points (small item)
-     *   50 units, max_stock= 10 → ceil(50×100/10)  = 500 points (large item)
-     *    1 unit,  max_stock=  2 → ceil(1×100/2)    =  50 points (big, rare item)
+     * Client rule: capacity_max is set in master cell, and each stored quantity
+     * consumes the same direct capacity unit. item.max_stock remains inventory
+     * planning data, not a conversion factor for cell capacity.
      */
     public function pointsForQuantity(Item|int|null $item, int $quantity): int
     {
-        $quantity = max(0, $quantity);
-        if ($quantity === 0) return 0;
-
-        $maxStock = $this->itemMaxStock($item);
-
-        return max(1, (int) ceil($quantity * self::SCALE / $maxStock));
+        return max(0, $quantity);
     }
 
     /**
-     * Total capacity points currently occupied in a cell.
+     * Total direct capacity currently occupied in a cell.
      * Calculated live from stock_records so it is always accurate.
      */
     public function usedPoints(Cell $cell): int
     {
-        $rows = DB::table('stock_records as sr')
-            ->join('items as i', 'i.id', '=', 'sr.item_id')
+        return (int) DB::table('stock_records as sr')
             ->where('sr.cell_id', $cell->id)
             ->where('sr.quantity', '>', 0)
             ->whereIn('sr.status', ['available', 'reserved'])
-            ->groupBy('sr.item_id', 'i.max_stock')
-            ->selectRaw('i.max_stock, SUM(sr.quantity) as qty')
-            ->get();
-
-        return (int) $rows->sum(function ($row) {
-            $maxStock = max(1, (int) ($row->max_stock ?: self::FALLBACK_MAX_STOCK));
-            return max(1, (int) ceil((int) $row->qty * self::SCALE / $maxStock));
-        });
+            ->sum('sr.quantity');
     }
 
     public function remainingPoints(Cell $cell): int
@@ -111,22 +81,13 @@ class CellCapacityService
     }
 
     /**
-     * Marginal capacity demand for adding $quantity more of $item to $cell.
-     * Uses before/after ceiling so upserts into an already-stocked cell
-     * are not double-charged for points already consumed.
+     * Capacity demand for adding quantity to a cell.
+     * Same-SKU consolidation is still preferred by GA fitness, but it does not
+     * reduce capacity demand: adding 50 BJ consumes 50 capacity units.
      */
     public function demandForPlacement(Item|int $item, Cell $cell, int $quantity): int
     {
-        $currentQty = (int) Stock::where('cell_id', $cell->id)
-            ->where('item_id', $item instanceof Item ? $item->id : $item)
-            ->where('quantity', '>', 0)
-            ->whereIn('status', ['available', 'reserved'])
-            ->sum('quantity');
-
-        $before = $this->pointsForQuantity($item, $currentQty);
-        $after  = $this->pointsForQuantity($item, $currentQty + max(0, $quantity));
-
-        return max(0, $after - $before);
+        return $this->pointsForQuantity($item, $quantity);
     }
 
     /** Resync the stored capacity_used field and update the cell status. */

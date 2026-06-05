@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-exclamation-triangle text-danger mr-2"></i>Stok Kritis
         </h5>
-        <small class="text-muted">Item di bawah reorder point — perlu segera dilakukan pemesanan</small>
+        {{-- <small class="text-muted">Item di bawah reorder point — perlu segera dilakukan pemesanan</small> --}}
     </div>
     <div class="d-flex" style="gap:6px;">
         <a href="{{ route('stock.index') }}" class="btn btn-sm btn-light border">
@@ -143,7 +143,6 @@ $(function () {
     $('#tblLowStock').DataTable({
         pageLength: 25,
         order: [[3, 'asc']],
-        language: { url: '/vendor/datatables/i18n/id.json' },
     });
 });
 </script>

@@ -96,8 +96,9 @@ class CellController extends Controller
             'capacity_max'         => [
                 'required', 'integer', 'min:1',
                 function ($attribute, $value, $fail) use ($cell) {
-                    if ((int) $value < $cell->capacity_used) {
-                        $fail("Kapasitas maks tidak boleh kurang dari kapasitas terpakai saat ini ({$cell->capacity_used} unit).");
+                    $currentUsed = (int) $cell->physical_capacity_used;
+                    if ((int) $value < $currentUsed) {
+                        $fail("Kapasitas maks tidak boleh kurang dari kapasitas terpakai saat ini ({$currentUsed} unit).");
                     }
                 },
             ],

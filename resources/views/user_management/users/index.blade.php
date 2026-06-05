@@ -76,7 +76,6 @@ $(function () {
             { data: 'status_badge', orderable: false },
             { data: 'action',      orderable: false, searchable: false },
         ],
-        language: { url: '/vendor/datatables/i18n/id.json' },
         order: [[1, 'asc']],
     });
 

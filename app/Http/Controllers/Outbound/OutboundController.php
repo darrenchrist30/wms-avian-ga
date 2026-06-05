@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Outbound;
 
 use App\Http\Controllers\Controller;
 use App\Models\Item;
+use App\Models\OutboundRequest;
 use App\Models\StockMovement;
 use App\Models\Warehouse;
 use App\Services\FifoPickingService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class OutboundController extends Controller
 {
@@ -69,12 +72,45 @@ class OutboundController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(Request $request)
     {
+        $user = auth()->user();
+
+        // Operator wajib punya approved request
+        $approvedRequest = null;
+        if ($request->filled('request_id')) {
+            $approvedRequest = OutboundRequest::with(['items.item.unit', 'approvedBy'])
+                ->where('id', $request->request_id)
+                ->where('status', 'approved')
+                ->where('operator_id', $user->id)
+                ->first();
+
+            if (!$approvedRequest) {
+                return redirect()->route('outbound.requests.index')
+                    ->with('error', 'Request tidak ditemukan atau belum disetujui.');
+            }
+        } elseif ($user->hasRole('operator')) {
+            // Operator tanpa request_id → redirect ke list request
+            return redirect()->route('outbound.requests.index')
+                ->with('error', 'Anda harus mengajukan permintaan outbound dan mendapat persetujuan supervisor terlebih dahulu.');
+        }
+
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']);
         $defaultWarehouseId = $warehouses->firstWhere('code', 'WH-001')?->id
             ?? $warehouses->first(fn($w) => stripos($w->name, 'sparepart') !== false)?->id;
-        return view('outbound.create', compact('warehouses', 'defaultWarehouseId'));
+
+        $approvedCartItems = $approvedRequest
+            ? $approvedRequest->items->map(fn($it) => [
+                'id'              => $it->item_id,
+                'name'            => $it->item->name,
+                'sku'             => $it->item->sku,
+                'merk'            => $it->item->merk ?? '',
+                'available_stock' => $it->quantity_requested,
+                'qty'             => $it->quantity_requested,
+            ])->values()
+            : null;
+
+        return view('outbound.create', compact('warehouses', 'defaultWarehouseId', 'approvedRequest', 'approvedCartItems'));
     }
 
     /** Find item by barcode or SKU (for POS scanner). */
@@ -91,11 +127,23 @@ class OutboundController extends Controller
                 ['stocks as available_stock' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)],
                 'quantity'
             )
-            ->first(['id', 'name', 'sku', 'barcode', 'merk']);
+            ->with([
+                'unit:id,code',
+                'stocks' => fn($q) => $q->where('status', 'available')->where('quantity', '>', 0)
+                                        ->with('cell:id,blok,grup,kolom,baris,code'),
+            ])
+            ->first(['id', 'name', 'sku', 'barcode', 'merk', 'unit_id']);
 
         if (!$item) {
             return response()->json(['success' => false, 'message' => 'Item tidak ditemukan: ' . $barcode], 404);
         }
+
+        $locations = $item->stocks
+            ->map(fn($s) => $s->cell?->physical_code)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         return response()->json([
             'success' => true,
@@ -105,7 +153,9 @@ class OutboundController extends Controller
                 'sku'             => $item->sku,
                 'barcode'         => $item->barcode,
                 'merk'            => $item->merk,
+                'unit'            => $item->unit?->code,
                 'available_stock' => (int) ($item->available_stock ?? 0),
+                'locations'       => $locations,
             ],
         ]);
     }
@@ -157,6 +207,7 @@ class OutboundController extends Controller
             'cart.*.item_id'  => 'required|exists:items,id',
             'cart.*.quantity' => 'required|integer|min:1',
             'notes'           => 'nullable|string|max:500',
+            'request_id'      => 'nullable|exists:outbound_requests,id',
         ]);
 
         $results = [];
@@ -182,8 +233,15 @@ class OutboundController extends Controller
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
 
+        // Mark outbound request sebagai completed
+        if (!empty($data['request_id'])) {
+            OutboundRequest::where('id', $data['request_id'])
+                ->where('status', 'approved')
+                ->update(['status' => 'completed', 'executed_at' => now()]);
+        }
+
         $warehouse = Warehouse::find($data['warehouse_id']);
-        $this->sendOutboundWhatsapp($results, $warehouse?->name ?? '—', $data['notes'] ?? null);
+        $this->sendOutboundWhatsapp($results, $warehouse?->name ?? '—', $data['notes'] ?? null, $data['request_id'] ?? null);
 
         return response()->json([
             'success'     => true,
@@ -194,7 +252,7 @@ class OutboundController extends Controller
         ]);
     }
 
-    private function sendOutboundWhatsapp(array $results, string $warehouseName, ?string $notes): void
+    private function sendOutboundWhatsapp(array $results, string $warehouseName, ?string $notes, ?int $requestId = null): void
     {
         $numbers = config('services.fonnte.supervisor_numbers', []);
         if (empty($numbers)) {
@@ -202,13 +260,37 @@ class OutboundController extends Controller
             return;
         }
 
-        $token   = config('services.fonnte.token');
-        $message = $this->buildOutboundMessage($results, $warehouseName, $notes);
-
+        $token = config('services.fonnte.token');
         if (empty($token)) {
-            Log::info('[WA Outbound] FONNTE_TOKEN belum diisi. Pesan:' . PHP_EOL . $message);
+            $msg = $this->buildOutboundMessage($results, $warehouseName, $notes);
+            Log::info('[WA Outbound] FONNTE_TOKEN belum diisi. Pesan:' . PHP_EOL . $msg);
             return;
         }
+
+        $now           = now()->locale('id')->isoFormat('dddd, D MMMM Y HH:mm');
+        $operator      = auth()->user()?->name ?? '—';
+        $obrRequest    = $requestId ? OutboundRequest::with('approvedBy')->find($requestId) : null;
+        $signaturePath = $obrRequest?->signature_path
+            ? 'file://' . public_path('../storage/app/' . str_replace('storage/', 'public/', $obrRequest->signature_path))
+            : null;
+        $approvedBy    = $obrRequest?->approvedBy?->name;
+        $approvedAt    = $obrRequest?->approved_at?->locale('id')->isoFormat('D MMMM Y, HH:mm');
+        $requestNumber = $obrRequest?->request_number;
+        $logoPath      = 'file://' . public_path('images/avian-logo-normal.png');
+        $footerPath    = 'file://' . public_path('images/avian-footer.png');
+
+        $pdf         = Pdf::loadView('outbound.wa-pdf', compact(
+            'results', 'warehouseName', 'notes', 'now', 'operator',
+            'logoPath', 'footerPath', 'signaturePath', 'approvedBy', 'approvedAt', 'requestNumber'
+        ))->setPaper('a4', 'portrait');
+        $filename    = 'outbound_' . now()->format('Ymd_His') . '_' . uniqid() . '.pdf';
+        Storage::put('public/outbound_wa/' . $filename, $pdf->output());
+        $publicUrl   = url('storage/outbound_wa/' . $filename);
+
+        $caption = $this->buildOutboundMessage($results, $warehouseName, $notes);
+
+        // Jika APP_URL adalah localhost, kirim teks saja (PDF tidak bisa diakses publik)
+        $isLocalhost = str_contains(config('app.url'), 'localhost') || str_contains(config('app.url'), '127.0.0.1');
 
         foreach ($numbers as $number) {
             $number = preg_replace('/[^0-9]/', '', $number);
@@ -216,14 +298,16 @@ class OutboundController extends Controller
                 $number = '62' . substr($number, 1);
             }
             try {
+                $payload = ['target' => $number, 'message' => $caption];
+                if (!$isLocalhost) {
+                    $payload['url']      = $publicUrl;
+                    $payload['filename'] = 'Outbound_' . now()->format('d-m-Y') . '.pdf';
+                }
                 $response = Http::withHeaders(['Authorization' => $token])
                     ->asForm()
-                    ->post('https://api.fonnte.com/send', [
-                        'target'  => $number,
-                        'message' => $message,
-                    ]);
+                    ->post('https://api.fonnte.com/send', $payload);
                 if ($response->successful() && ($response->json('status') ?? false)) {
-                    Log::info("[WA Outbound] Terkirim ke {$number}");
+                    Log::info("[WA Outbound] Terkirim ke {$number}" . ($isLocalhost ? ' (teks, localhost)' : ' (PDF)'));
                 } else {
                     Log::warning("[WA Outbound] Gagal ke {$number}: " . $response->body());
                 }

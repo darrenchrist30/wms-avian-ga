@@ -721,14 +721,7 @@ class PutAwayController extends Controller
                 if ($isOverride && $targetCell) {
                     $itemId = (int) $detail->item_id;
                     $alreadyAllocated = (int) ($overrideAllocatedQty[$itemId] ?? 0);
-                    $currentQty = (int) Stock::where('cell_id', $targetCell->id)
-                        ->where('item_id', $itemId)
-                        ->where('quantity', '>', 0)
-                        ->whereIn('status', ['available', 'reserved'])
-                        ->sum('quantity');
-                    $before = $capacityService->pointsForQuantity($detail->item, $currentQty + $alreadyAllocated);
-                    $after = $capacityService->pointsForQuantity($detail->item, $currentQty + $alreadyAllocated + $qty);
-                    $overrideDemand = max(0, $after - $before);
+                    $overrideDemand = $capacityService->pointsForQuantity($detail->item, $qty);
 
                     if ($overrideDemand > $overrideRemaining) {
                         $skippedCapacity++;
@@ -1136,9 +1129,7 @@ class PutAwayController extends Controller
             return 0;
         }
 
-        $maxStock = app(CellCapacityService::class)->itemMaxStock($detail->item);
-
-        return max(0, min($quantity, (int) floor($cell->physical_capacity_remaining * $maxStock / CellCapacityService::SCALE)));
+        return max(0, min($quantity, (int) $cell->physical_capacity_remaining));
     }
 
     private function grupIndex(string $grup): int

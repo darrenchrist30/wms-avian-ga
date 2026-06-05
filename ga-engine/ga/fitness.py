@@ -89,9 +89,9 @@ def fc_capacity(
     """
     FC_CAP (maks 30 poin):
 
-    Mengukur apakah total capacity points yang dialokasikan ke satu cell
-    tidak melebihi sisa kapasitasnya. Capacity points berasal dari proxy:
-    qty / item.max_stock, dihitung di Laravel sebagai item.capacity_demand.
+    Mengukur apakah total demand kapasitas yang dialokasikan ke satu cell
+    tidak melebihi sisa kapasitasnya. Capacity demand dikirim Laravel
+    sebagai quantity langsung terhadap cells.capacity_max.
 
     Rumus:
         demand = total capacity_demand item ke cell yang sama

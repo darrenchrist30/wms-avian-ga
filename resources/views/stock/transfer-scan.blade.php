@@ -787,7 +787,7 @@ $(document).on('click', '.baris-option', function() {
         qr_code:            $(this).data('qr-code') || $(this).data('cell-code'),
         capacity_remaining: parseInt($(this).data('cap-remaining')),
         capacity_max:       parseInt($(this).data('cap-max')),
-        capacity_unit:      'poin',
+        capacity_unit:      'unit kapasitas',
         resolved_from_rack: null,
     };
     $('#columnTargetPicker').addClass('d-none');

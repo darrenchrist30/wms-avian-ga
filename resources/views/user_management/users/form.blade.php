@@ -85,6 +85,24 @@
                             </div>
                         </div>
 
+                        {{-- No. HP / WA --}}
+                        <div class="form-group row mb-3">
+                            <label class="col-sm-3 col-form-label" style="font-weight:600">No. HP / WA</label>
+                            <div class="col-sm-9">
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fab fa-whatsapp"></i></span>
+                                    </div>
+                                    <input type="text" name="phone"
+                                        class="form-control @error('phone') is-invalid @enderror"
+                                        value="{{ old('phone', $data->phone ?? '') }}"
+                                        placeholder="08xxxxxxxxxx" maxlength="20">
+                                    @error('phone')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                                </div>
+                                <small class="text-muted">Digunakan untuk notifikasi WhatsApp.</small>
+                            </div>
+                        </div>
+
                         {{-- ID Karyawan --}}
                         <div class="form-group row mb-3">
                             <label class="col-sm-3 col-form-label" style="font-weight:600">ID Karyawan</label>
