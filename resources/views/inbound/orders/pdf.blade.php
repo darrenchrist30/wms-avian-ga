@@ -109,7 +109,7 @@
         <td>{{ $order->do_number }}</td>
     </tr>
     <tr>
-        <td class="label-col"><strong>Tanggal DO</strong></td>
+        <td class="label-col"><strong>Tanggal SJ</strong></td>
         <td>{{ $order->do_date?->format('d M Y') ?? '-' }}</td>
     </tr>
     <tr>

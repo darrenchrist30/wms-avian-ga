@@ -503,7 +503,7 @@ class PutAwayService
         $pendingCount = $order->items()->where('status', '!=', 'put_away')->count();
 
         if ($pendingCount === 0) {
-            $order->update(['status' => 'completed']);
+            $order->update(['status' => 'completed', 'processed_at' => now()]);
 
             Log::info('[PutAwayService] Order selesai, dispatch RecalculateAffinityJob', [
                 'inbound_order_id' => $order->id,

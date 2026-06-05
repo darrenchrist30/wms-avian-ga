@@ -4,6 +4,14 @@
 
 @push('styles')
 <style>
+#tblItems thead th {
+    background-color: #1a3c2e !important;
+    color: #fff !important;
+    border-color: #2e5c44 !important;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .4px;
+}
 /* ── Stepper ── */
 .wms-stepper { display:flex; align-items:flex-start; margin-bottom:0; padding:0; list-style:none; }
 .wms-stepper li { flex:1; text-align:center; position:relative; }
@@ -11,7 +19,7 @@
     content:''; position:absolute; top:18px; left:50%; width:100%; height:3px;
     background:#dee2e6; z-index:0;
 }
-.wms-stepper li.done::after  { background:#28a745; }
+.wms-stepper li.done::after  { background:#0d8564; }
 .wms-stepper li.active::after{ background:#dee2e6; }
 .step-circle {
     width:36px; height:36px; border-radius:50%; display:inline-flex;
@@ -19,11 +27,11 @@
     position:relative; z-index:1; border:3px solid #dee2e6;
     background:#fff; color:#adb5bd;
 }
-.wms-stepper li.done  .step-circle { background:#28a745; border-color:#28a745; color:#fff; }
-.wms-stepper li.active .step-circle{ background:#007bff; border-color:#007bff; color:#fff; }
+.wms-stepper li.done  .step-circle { background:#0d8564; border-color:#0d8564; color:#fff; }
+.wms-stepper li.active .step-circle{ background:#0d8564; border-color:#0d8564; color:#fff; }
 .step-label { font-size:10.5px; margin-top:5px; color:#6c757d; font-weight:500; }
-.wms-stepper li.done  .step-label  { color:#28a745; }
-.wms-stepper li.active .step-label { color:#007bff; font-weight:700; }
+.wms-stepper li.done  .step-label  { color:#0d8564; }
+.wms-stepper li.active .step-label { color:#0d8564; font-weight:700; }
 
 /* ── Info grid ── */
 .info-block small { font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:#6c757d; }
@@ -160,12 +168,12 @@
                 <div class="val">{{ $order->do_number }}</div>
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
-                <small>Tgl Delivery Order</small>
+                <small>Tgl Surat Jalan</small>
                 <div class="val">{{ $order->do_date?->format('d M Y') ?? '-' }}</div>
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
                 <small>Diterima Tgl</small>
-                <div class="val">{{ $order->received_at?->format('d M Y, H:i') ?? '-' }}</div>
+                <div class="val">{{ $order->received_at?->format('d M Y') ?? '-' }}</div>
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
                 <small>Diterima Oleh</small>
@@ -210,8 +218,8 @@
             <small class="font-weight-bold">{{ $totalPutAway }} / {{ $totalItems }} item</small>
         </div>
         <div class="progress" style="height:8px;">
-            <div class="progress-bar {{ $progressPct == 100 ? 'bg-success' : 'bg-primary' }} progress-bar-striped"
-                style="width:{{ $progressPct }}%"></div>
+            <div class="progress-bar"
+                style="width:{{ $progressPct }}%;background-color:#0d8564;"></div>
         </div>
         <small class="text-muted">{{ $progressPct }}% selesai</small>
     </div>
@@ -250,7 +258,7 @@
         </div>
     </div>
     <div class="col-6 col-md-3 mb-2">
-        <div class="small-box {{ $totalPutAway == $totalItems && $totalItems > 0 ? 'bg-success' : 'bg-secondary' }} mb-0">
+        <div class="small-box mb-0" style="{{ $totalPutAway == $totalItems && $totalItems > 0 ? 'background-color:#0d8564;color:#fff;' : 'background-color:#6c757d;color:#fff;' }}">
             <div class="inner">
                 <h4>{{ $totalPutAway }}</h4>
                 <p>Item Sudah Put-Away</p>
@@ -279,8 +287,8 @@
             </div>
         @else
         <div class="table-responsive">
-            <table class="table table-bordered table-hover table-sm mb-0" id="tblItems">
-                <thead class="thead-light">
+            <table class="table table-bordered table-hover table-striped table-sm mb-0" id="tblItems">
+                <thead>
                     <tr>
                         <th class="text-center" width="36">#</th>
                         <th width="220">SKU / Nama Item</th>

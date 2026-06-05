@@ -60,7 +60,7 @@ class SyncMovementFromMspart extends Command
         $this->info('Item yang perlu diupdate: ' . count($rows));
 
         if (empty($rows)) {
-            $this->info('Tidak ada perubahan — items.movement_type sudah sesuai mspart.note.');
+            $this->info('Tidak ada perubahan, items.movement_type sudah sesuai mspart.note.');
             return self::SUCCESS;
         }
 

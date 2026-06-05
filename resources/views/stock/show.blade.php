@@ -135,7 +135,7 @@
             <table class="table table-sm table-bordered table-hover mb-0">
                 <thead class="thead-light">
                     <tr>
-                        <th class="text-center" width="50">FIFO</th>
+                        <th class="text-center" width="50">No</th>
                         <th width="120">Cell</th>
                         <th width="80">Rak</th>
                         <th>Gudang</th>
@@ -143,9 +143,6 @@
                         <th class="text-center" width="110">Tgl Masuk</th>
                         <th class="text-center" width="110">Tidak Gerak</th>
                         <th class="text-center" width="90">Status</th>
-                        @if($canTransferStock)
-                        <th class="text-center" width="80">Aksi</th>
-                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -156,15 +153,13 @@
                     <tr>
                         <td class="text-center text-muted">{{ $i + 1 }}</td>
                         <td>
-                            <strong>{{ $s->cell?->physical_code ?? '—' }}</strong>
                             @if($s->cell_id)
-                                <br>
-                                <button class="btn btn-xs btn-outline-secondary mt-1 btn-view3d"
-                                    data-cell-id="{{ $s->cell_id }}"
-                                    data-cell-code="{{ $s->cell?->physical_code }}"
-                                    title="Lihat detail cell">
-                                    <i class="fas fa-map-marker-alt mr-1"></i>Detail
-                                </button>
+                                <a href="{{ route('warehouse3d.index') }}?highlight_cell_id={{ $s->cell_id }}"
+                                   target="_blank" title="Lihat di denah 3D">
+                                    {{ $s->cell?->physical_code ?? '—' }}
+                                </a>
+                            @else
+                                {{ $s->cell?->physical_code ?? '—' }}
                             @endif
                         </td>
                         <td>{{ $s->cell?->rack?->code ?? '—' }}</td>
@@ -194,21 +189,6 @@
                             @endphp
                             <span class="badge badge-{{ $sBadge }}">{{ $sText }}</span>
                         </td>
-                        @if($canTransferStock)
-                        <td class="text-center">
-                            @if($s->status === 'available' && $s->quantity > 0)
-                            <button class="btn btn-xs btn-outline-primary btn-transfer"
-                                data-stock-id="{{ $s->id }}"
-                                data-from-cell="{{ $s->cell?->code ?? '—' }}"
-                                data-max-qty="{{ $s->quantity }}"
-                                title="Transfer ke cell lain">
-                                <i class="fas fa-exchange-alt"></i>
-                            </button>
-                            @else
-                            <span class="text-muted">—</span>
-                            @endif
-                        </td>
-                        @endif
                     </tr>
                     @endforeach
                 </tbody>
@@ -216,11 +196,7 @@
                     <tr>
                         <td colspan="4" class="text-right pr-2">Total:</td>
                         <td class="text-center">{{ number_format($totalQty) }}</td>
-                        @if($canTransferStock)
-                        <td colspan="4"></td>
-                        @else
                         <td colspan="3"></td>
-                        @endif
                     </tr>
                 </tfoot>
             </table>

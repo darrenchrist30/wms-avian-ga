@@ -49,19 +49,30 @@ class ReportController extends Controller
             ->limit(10)
             ->get();
 
-        // Utilization gudang (cell terpakai vs tersedia)
+        // Utilization gudang — hitung kolom-level (baris IS NULL) sebagai satuan cell.
+        // "Terpakai" = kolom yang punya minimal 1 baris-level anak berisi stok.
         $warehouseUtil = DB::table('warehouses as w')
             ->leftJoin('racks as r', function ($join) {
                 $join->on('r.warehouse_id', '=', 'w.id')->whereNull('r.deleted_at');
             })
-            ->leftJoin('cells as c', 'c.rack_id', '=', 'r.id')
-            ->leftJoin(DB::raw('(SELECT cell_id, SUM(quantity) as qty FROM stock_records WHERE status="available" GROUP BY cell_id HAVING qty > 0) as stk'), 'stk.cell_id', '=', 'c.id')
+            ->leftJoin('cells as c', function ($join) {
+                $join->on('c.rack_id', '=', 'r.id')->whereNull('c.baris'); // kolom-level saja
+            })
+            ->leftJoin('cells as cb', function ($join) {
+                // baris-level children dari kolom yang sama
+                $join->on('cb.rack_id', '=', 'c.rack_id')
+                     ->on('cb.blok',    '=', 'c.blok')
+                     ->on('cb.grup',    '=', 'c.grup')
+                     ->on('cb.kolom',   '=', 'c.kolom')
+                     ->whereNotNull('cb.baris');
+            })
+            ->leftJoin(DB::raw('(SELECT cell_id FROM stock_records WHERE status="available" GROUP BY cell_id HAVING SUM(quantity) > 0) as stk'), 'stk.cell_id', '=', 'cb.id')
             ->where('w.is_active', true)
             ->groupBy('w.id', 'w.name')
             ->select([
                 'w.name as warehouse',
-                DB::raw('COUNT(c.id) as total_cells'),
-                DB::raw('COUNT(stk.cell_id) as used_cells'),
+                DB::raw('COUNT(DISTINCT c.id) as total_cells'),
+                DB::raw('COUNT(DISTINCT CASE WHEN stk.cell_id IS NOT NULL THEN c.id END) as used_cells'),
             ])
             ->get()
             ->map(function ($row) {
@@ -119,11 +130,12 @@ class ReportController extends Controller
 
         // Rata-rata waktu proses DO (jam) per bulan — hanya order completed
         $avgProcessingTime = DB::table('inbound_transactions')
-            ->selectRaw('MONTH(updated_at) as month, ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) as avg_hours')
+            ->selectRaw('MONTH(processed_at) as month, ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, processed_at)), 1) as avg_hours')
             ->whereYear('created_at', $year)
             ->where('status', 'completed')
-            ->groupByRaw('MONTH(updated_at)')
-            ->orderByRaw('MONTH(updated_at)')
+            ->whereNotNull('processed_at')
+            ->groupByRaw('MONTH(processed_at)')
+            ->orderByRaw('MONTH(processed_at)')
             ->get()
             ->keyBy('month');
 
@@ -203,12 +215,13 @@ class ReportController extends Controller
             ->whereYear('created_at', $year)
             ->first();
 
-        // Put-away per kategori item — selalu per tahun
-        $byCategory = DB::table('stock_records as sr')
-            ->join('items', 'items.id', '=', 'sr.item_id')
+        // Distribusi aktivitas put-away per kategori — dari put_away_confirmations
+        $byCategory = DB::table('put_away_confirmations as pac')
+            ->join('inbound_details as idt', 'idt.id', '=', 'pac.inbound_order_item_id')
+            ->join('items', 'items.id', '=', 'idt.item_id')
             ->leftJoin('item_categories as cat', 'cat.id', '=', 'items.category_id')
-            ->selectRaw("COALESCE(cat.name, 'Tanpa Kategori') as category, COALESCE(cat.color_code, '#6c757d') as color, SUM(sr.quantity) as qty, COUNT(DISTINCT sr.item_id) as skus")
-            ->whereYear('sr.created_at', $year)
+            ->selectRaw("COALESCE(cat.name, 'Tanpa Kategori') as category, COALESCE(cat.color_code, '#6c757d') as color, SUM(pac.quantity_stored) as qty, COUNT(DISTINCT items.id) as skus")
+            ->whereYear('pac.created_at', $year)
             ->groupBy('cat.id', 'cat.name', 'cat.color_code')
             ->orderByDesc('qty')
             ->get();

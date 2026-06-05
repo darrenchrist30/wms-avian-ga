@@ -230,8 +230,9 @@ $(function () {
         },
         tooltip: {
             formatter: function () {
-                if (this.y === null || this.y === undefined) return '<b>' + this.x + '</b><br>Tidak ada data';
-                return '<b>' + this.x + '</b><br>Rata-rata: <b>' + this.y + ' jam</b>';
+                const bulan = monthNames[this.point.index];
+                if (this.y === null || this.y === undefined) return '<b>' + bulan + '</b><br>Tidak ada data';
+                return '<b>' + bulan + '</b><br>Rata-rata: <b>' + this.y + ' jam</b>';
             }
         },
         plotOptions: {
@@ -253,7 +254,7 @@ $(function () {
             categories: {!! json_encode($topSkus->map(fn($s) => $s->sku . ' — ' . (mb_strlen($s->name) > 25 ? mb_substr($s->name, 0, 25) . '…' : $s->name))->values()) !!},
             labels: { style: { fontSize: '11px' } }
         },
-        yAxis: { title: { text: 'Total Qty Diterima' }, min: 0 },
+        yAxis: { title: { text: 'Total Qty Diterima' }, min: 0, labels: { formatter: function() { return Highcharts.numberFormat(this.value, 0, '.', ','); } } },
         tooltip: {
             formatter: function () {
                 return '<b>' + this.point.category + '</b><br>Qty: <b>' + Highcharts.numberFormat(this.y, 0) + '</b>';
@@ -264,7 +265,7 @@ $(function () {
                 borderRadius: 3,
                 colorByPoint: true,
                 colors: ['#007bff','#28a745','#ffc107','#17a2b8','#6f42c1'],
-                dataLabels: { enabled: true, format: '{y}' }
+                dataLabels: { enabled: true, formatter: function() { return Highcharts.numberFormat(this.y, 0, '.', ','); } }
             }
         },
         legend: { enabled: false },

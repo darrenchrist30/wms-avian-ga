@@ -62,11 +62,11 @@
 </div>
 
 <div class="row">
-    {{-- Stok per Kategori --}}
-    <div class="col-md-5 mb-3">
+    {{-- Pie: Stok per Kategori (by Qty) --}}
+    <div class="col-md-6 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-chart-pie mr-1"></i>Stok per Kategori</strong>
+                <strong><i class="fas fa-chart-pie mr-1"></i>Stok per Kategori Berdasarkan Qty </strong>
             </div>
             <div class="card-body">
                 @if($stockByCategory->isEmpty())
@@ -78,9 +78,27 @@
         </div>
     </div>
 
-    {{-- Top 10 Item --}}
-    <div class="col-md-7 mb-3">
+    {{-- Pie: Stok per Kategori (by SKU) --}}
+    <div class="col-md-6 mb-3">
         <div class="card h-100">
+            <div class="card-header py-2">
+                <strong><i class="fas fa-chart-pie mr-1"></i>Stok per Kategori Berdasarkan Jumlah SKU</strong>
+            </div>
+            <div class="card-body">
+                @if($stockByCategory->isEmpty())
+                    <div class="text-center text-muted py-4">Belum ada data stok.</div>
+                @else
+                    <div id="chartCategoryPieSku" style="height:280px;"></div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {{-- Top 10 Item --}}
+    <div class="col-12 mb-3">
+        <div class="card">
             <div class="card-header py-2">
                 <strong><i class="fas fa-chart-bar mr-1"></i>Top 10 Item Stok Terbanyak</strong>
             </div>
@@ -215,6 +233,30 @@ $(function () {
             data: [
                 @foreach($stockByCategory as $row)
                 { name: '{{ addslashes($row->name) }}', y: {{ $row->total_qty }}, color: '{{ $row->color }}' },
+                @endforeach
+            ]
+        }],
+        credits: { enabled: false }
+    });
+
+    // Pie: Stok per Kategori by SKU
+    Highcharts.chart('chartCategoryPieSku', {
+        chart: { type: 'pie', style: { fontFamily: 'Plus Jakarta Sans, sans-serif' } },
+        title: { text: null },
+        tooltip: {
+            pointFormat: '<b>{point.name}</b><br>SKU: <b>{point.y}</b> ({point.percentage:.1f}%)'
+        },
+        plotOptions: {
+            pie: {
+                allowPointSelect: true, cursor: 'pointer',
+                dataLabels: { enabled: true, format: '{point.name}: {point.percentage:.1f}%', style: { fontSize: '11px' } }
+            }
+        },
+        series: [{
+            name: 'Jumlah SKU',
+            data: [
+                @foreach($stockByCategory->sortByDesc('sku_count') as $row)
+                { name: '{{ addslashes($row->name) }}', y: {{ $row->sku_count }}, color: '{{ $row->color }}' },
                 @endforeach
             ]
         }],

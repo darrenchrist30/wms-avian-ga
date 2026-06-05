@@ -202,7 +202,7 @@
     <div class="col-md-4 mb-3">
         <div class="card h-100">
             <div class="card-header py-2">
-                <strong><i class="fas fa-chart-pie mr-1"></i>Distribusi per Kategori</strong>
+                <strong><i class="fas fa-chart-pie mr-1"></i>Aktivitas Put-Away per Kategori <span class="text-muted font-weight-normal" style="font-size:12px;">- qty dikonfirmasi {{ $year }}</span></strong>
             </div>
             <div class="card-body">
                 @if($byCategory->isEmpty())

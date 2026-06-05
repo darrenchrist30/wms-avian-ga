@@ -53,7 +53,10 @@ class StockController extends Controller
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
         $categories = ItemCategory::orderBy('name')->get();
 
-        return view('stock.index', compact('summary', 'warehouses', 'categories'));
+        $defaultWarehouseId = $warehouses->firstWhere('code', 'WH-001')?->id
+            ?? $warehouses->first(fn($w) => stripos($w->name, 'sparepart') !== false)?->id;
+
+        return view('stock.index', compact('summary', 'warehouses', 'categories', 'defaultWarehouseId'));
     }
 
     private function indexDatatable(Request $request)
@@ -95,8 +98,11 @@ class StockController extends Controller
             )
             ->when($request->filled('category_id'),
                 fn($q) => $q->where('items.category_id', $request->category_id))
-            ->when($request->filled('warehouse_id'),
-                fn($q) => $q->where('stk.warehouse_id', $request->warehouse_id))
+            ->when($request->filled('warehouse_id'), fn($q) => $q->where(function ($q2) use ($request) {
+                // Sertakan item dengan 0 qty (stk NULL dari LEFT JOIN) agar tetap tampil
+                $q2->where('stk.warehouse_id', $request->warehouse_id)
+                   ->orWhereNull('stk.warehouse_id');
+            }))
             ->when($request->filled('status_filter'), function ($q) use ($request) {
                 if ($request->status_filter === 'critical') {
                     $q->havingRaw('COALESCE(SUM(stk.qty), 0) <= items.min_stock AND items.min_stock > 0');
@@ -104,7 +110,7 @@ class StockController extends Controller
                     $q->havingRaw('COALESCE(SUM(stk.qty), 0) > items.min_stock AND COALESCE(SUM(stk.qty), 0) <= items.reorder_point AND items.reorder_point > 0');
                 }
             })
-            ->orderBy('items.name', 'asc')
+            ->orderByRaw('COALESCE(SUM(stk.qty), 0) DESC')
             ;
 
         return DataTables::of($query)
@@ -306,6 +312,7 @@ class StockController extends Controller
             ->addColumn('date_display', fn($m) =>
                 $m->moved_at ? $m->moved_at->format('d M Y, H:i') : '—'
             )
+            ->orderColumn('date_display', 'moved_at $1')
             ->addColumn('item_info', function ($m) {
                 if (!$m->item) return '<span class="text-muted">—</span>';
                 return '<div class="font-weight-bold">' . e($m->item->name) . '</div>
@@ -323,27 +330,31 @@ class StockController extends Controller
                             <i class="' . $ico . ' mr-1"></i>' . $lbl . '
                         </span>';
             })
+            ->addColumn('from_display', fn($m) =>
+                $m->fromCell ? e($m->fromCell->code) : '<span class="text-muted">—</span>'
+            )
+            ->addColumn('to_display', fn($m) =>
+                $m->toCell ? e($m->toCell->code) : '<span class="text-muted">—</span>'
+            )
             ->addColumn('location_display', function ($m) {
-                $from = $m->fromCell ? e($m->fromCell->code) : '—';
-                $to   = $m->toCell   ? e($m->toCell->code)   : '—';
+                $chip = fn(?string $code) => $code
+                    ? '<span style="color:#212529;">' . e($code) . '</span>'
+                    : '<span class="text-muted">—</span>';
+                $from = $chip($m->fromCell?->code);
+                $to   = $chip($m->toCell?->code);
                 return match ($m->movement_type) {
-                    'inbound'  => '<i class="fas fa-arrow-down text-success mr-1"></i><strong>' . $to . '</strong>',
-                    'outbound' => '<i class="fas fa-arrow-up text-danger mr-1"></i><strong>' . $from . '</strong>',
+                    'inbound'  => '<i class="fas fa-arrow-down text-success mr-1"></i>' . $to,
+                    'outbound' => '<i class="fas fa-arrow-up text-danger mr-1"></i>' . $from,
                     default    => $from . ' <i class="fas fa-long-arrow-alt-right text-info mx-1"></i> ' . $to,
                 };
             })
             ->addColumn('qty_display', function ($m) {
-                $cls  = match ($m->movement_type) {
-                    'inbound'  => 'text-success',
-                    'outbound' => 'text-danger',
-                    default    => 'text-info',
-                };
                 $sign = match ($m->movement_type) {
                     'inbound'  => '+',
                     'outbound' => '−',
                     default    => '',
                 };
-                return '<span class="font-weight-bold ' . $cls . '">'
+                return '<span class="font-weight-bold">'
                     . $sign . number_format($m->quantity) . '</span>
                     <small class="text-muted"> ' . e($m->item?->unit?->code ?? '') . '</small>';
             })
@@ -355,7 +366,7 @@ class StockController extends Controller
                     ? '<small class="text-muted">' . e($m->notes) . '</small>'
                     : '<span class="text-muted">—</span>'
             )
-            ->rawColumns(['item_info', 'type_badge', 'location_display', 'qty_display', 'notes_display'])
+            ->rawColumns(['item_info', 'type_badge', 'from_display', 'to_display', 'location_display', 'qty_display', 'notes_display'])
             ->make(true);
     }
 
@@ -517,9 +528,11 @@ class StockController extends Controller
                             'code'               => $c->code,
                             'qr_code'            => $c->qr_code ?? $c->code,
                             'baris'              => $c->baris,
+                            'status'             => $c->status,
                             'capacity_remaining' => $this->remainingTransferCapacity($c),
                             'capacity_max'       => (int) $c->capacity_max,
                         ])
+                        ->sortBy(fn($c) => $c['capacity_remaining'] === 0 ? 1 : 0) // full cells last
                         ->values();
                     return response()->json([
                         'found'             => true,

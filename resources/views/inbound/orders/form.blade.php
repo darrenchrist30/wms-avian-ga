@@ -34,16 +34,16 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="card">
-                    <div class="card-header" style="background:#0d8564 !important;border-color:#0d8564 !important;color:#fff">
+                    <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div class="font-weight-bold text-white">
+                            <div class="font-weight-bold">
                                 @if ($typeForm == 'create')
                                     <i class="fas fa-plus-circle mr-1"></i> Form Inbound Order Baru
                                 @else
                                     <i class="fas fa-edit mr-1"></i> Edit Inbound Order
                                 @endif
                             </div>
-                            <a href="{{ route('inbound.orders.index') }}" class="btn btn-sm btn-outline-light">
+                            <a href="{{ route('inbound.orders.index') }}" class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-arrow-left mr-2"></i>Back
                             </a>
                         </div>
@@ -102,7 +102,7 @@
                                             <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">Tgl Surat Jalan <span class="text-danger">*</span></label>
                                                 <div class="col-sm-8">
-                                                    <input type="date" name="do_date"
+                                                    <input type="date" name="do_date" id="doDate"
                                                         class="form-control @error('do_date') is-invalid @enderror"
                                                         value="{{ old('do_date', isset($data->do_date) ? $data->do_date->format('Y-m-d') : '') }}">
                                                     @error('do_date')
@@ -114,9 +114,10 @@
                                             <div class="form-group row">
                                                 <label class="col-sm-4 col-form-label">Tgl Diterima</label>
                                                 <div class="col-sm-8">
-                                                    <input type="datetime-local" name="received_at"
+                                                    <input type="date" name="received_at" id="receivedAt"
                                                         class="form-control @error('received_at') is-invalid @enderror"
-                                                        value="{{ old('received_at', isset($data->received_at) ? $data->received_at->format('Y-m-d\TH:i') : '') }}">
+                                                        value="{{ old('received_at', isset($data->received_at) ? $data->received_at->format('Y-m-d') : '') }}"
+                                                        readonly style="background:#e9ecef;cursor:not-allowed;">
                                                     @error('received_at')
                                                         <div class="invalid-feedback">{{ $message }}</div>
                                                     @enderror
@@ -130,10 +131,15 @@
                                                 <div class="col-sm-8">
                                                     <select name="warehouse_id"
                                                         class="form-control @error('warehouse_id') is-invalid @enderror">
+                                                        @php
+                                                            $defaultWh = old('warehouse_id',
+                                                                $data->warehouse_id ?? $warehouses->first(fn($w) => str_contains(strtolower($w->name), 'sparepart'))?->id ?? ''
+                                                            );
+                                                        @endphp
                                                         <option value="">-- Pilih Warehouse --</option>
                                                         @foreach ($warehouses as $wh)
                                                             <option value="{{ $wh->id }}"
-                                                                {{ old('warehouse_id', $data->warehouse_id ?? '') == $wh->id ? 'selected' : '' }}>
+                                                                {{ $defaultWh == $wh->id ? 'selected' : '' }}>
                                                                 {{ $wh->name }}
                                                             </option>
                                                         @endforeach
@@ -231,7 +237,7 @@
                                                             </select>
                                                         </td>
                                                         <td><input type="number" name="items[0][quantity_ordered]" class="form-control form-control-sm text-center" value="1" min="1"></td>
-                                                        <td><input type="number" name="items[0][quantity_received]" class="form-control form-control-sm text-center" value="0" min="0"></td>
+                                                        <td><input type="number" name="items[0][quantity_received]" class="form-control form-control-sm text-center" value="1" min="0"></td>
                                                         <td><input type="text" name="items[0][notes]" class="form-control form-control-sm"></td>
                                                         <td class="text-center">
                                                             <button type="button" class="btn btn-xs btn-danger btnRemoveRow">
@@ -279,7 +285,7 @@
                 <select name="items[__IDX__][item_id]" class="form-control form-control-sm select-item-ajax"></select>
             </td>
             <td><input type="number" name="items[__IDX__][quantity_ordered]" class="form-control form-control-sm text-center" value="1" min="1"></td>
-            <td><input type="number" name="items[__IDX__][quantity_received]" class="form-control form-control-sm text-center" value="0" min="0"></td>
+            <td><input type="number" name="items[__IDX__][quantity_received]" class="form-control form-control-sm text-center" value="1" min="0"></td>
             <td><input type="text" name="items[__IDX__][notes]" class="form-control form-control-sm"></td>
             <td class="text-center">
                 <button type="button" class="btn btn-xs btn-danger btnRemoveRow"><i class="fas fa-times"></i></button>
@@ -343,6 +349,17 @@
         }
         $(this).closest('tr').remove();
         reNumberRows();
+    });
+
+    // Sync tgl diterima = tgl surat jalan secara realtime
+    $('#doDate').on('change', function () {
+        $('#receivedAt').val($(this).val());
+    });
+
+    // Sync qty_received = qty_ordered secara realtime
+    $(document).on('input change', '[name*="quantity_ordered"]', function () {
+        var $row = $(this).closest('tr');
+        $row.find('[name*="quantity_received"]').val($(this).val());
     });
 </script>
 @endpush

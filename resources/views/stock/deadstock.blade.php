@@ -50,17 +50,17 @@
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-sm table-bordered table-hover mb-0" id="tblDeadstock">
-                <thead class="thead-light">
+                <thead class="thead-light" style="white-space:nowrap;">
                     <tr>
                         <th class="text-center" width="40">#</th>
                         <th>SKU / Nama Item</th>
                         <th width="130">Kategori</th>
-                        <th class="text-center" width="110">Qty</th>
-                        <th width="120">Cell</th>
+                        <th class="text-center" width="65">Qty</th>
+                        <th class="text-center" width="95">Cell</th>
                         <th width="130">Gudang</th>
                         <th class="text-center" width="120">Terakhir Bergerak</th>
                         <th class="text-center" width="90">Umur</th>
-                        <th class="text-center" width="80">Aksi</th>
+                        <th class="text-center" width="55">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -88,10 +88,15 @@
                                 {{ number_format($stock->quantity) }}
                                 <small class="text-muted font-weight-normal">{{ $stock->item?->unit?->code }}</small>
                             </td>
-                            <td>
-                                <span class="badge badge-primary">{{ $stock->cell?->physical_code ?? $stock->cell?->code ?? '-' }}</span>
+                            <td class="text-center">
+                                @php $cellCode = $stock->cell?->physical_code ?? $stock->cell?->code ?? null; @endphp
+                                @if($cellCode)
+                                    <span style="color:#212529;">{{ $cellCode }}</span>
+                                @else
+                                    <span class="text-muted">—</span>
+                                @endif
                             </td>
-                            <td>{{ $stock->warehouse?->name ?? '-' }}</td>
+                            <td style="white-space:nowrap;">{{ $stock->warehouse?->name ?? '-' }}</td>
                             <td class="text-center text-nowrap" data-order="{{ $lastActivity ? \Carbon\Carbon::parse($lastActivity)->timestamp : 0 }}">
                                 {{ $lastActivity ? \Carbon\Carbon::parse($lastActivity)->format('d/m/Y') : '-' }}
                             </td>

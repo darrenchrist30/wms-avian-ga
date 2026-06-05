@@ -57,7 +57,7 @@ class OutboundController extends Controller
                 'moved_at'     => $m->moved_at?->format('d M Y H:i'),
                 'item'         => '<strong>' . e($m->item?->name ?? '-') . '</strong><br><small class="text-muted">' . e($m->item?->sku ?? '-') . '</small>',
                 'warehouse'    => e($m->warehouse?->name ?? '-'),
-                'from_cell'    => '<span class="badge badge-light border font-weight-bold">' . e($m->fromCell?->code ?? '-') . '</span>',
+                'from_cell'    => '<span style="color:#212529;">' . e($m->fromCell?->code ?? '—') . '</span>',
                 'quantity'     => $m->quantity,
                 'notes'        => '<small class="text-muted">' . e($m->notes ?? '-') . '</small>',
                 'performed_by' => '<small>' . e($m->performedBy?->name ?? '-') . '</small>',

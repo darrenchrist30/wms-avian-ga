@@ -30,46 +30,38 @@ class PutAwayController extends Controller
 
     public function index(Request $request)
     {
-        $search       = trim($request->input('search', ''));
         $filterStatus = $request->input('status', '');  // '' | 'put_away' | 'completed'
         $warehouseId  = $request->input('warehouse_id', '');
 
-        $empty = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
+        // Auto-redirect ke warehouse yang punya order aktif jika belum ada filter warehouse
+        if (!$request->has('warehouse_id')) {
+            $defaultWarehouse = Warehouse::where('is_active', true)
+                ->whereHas('inboundOrders', fn($q) => $q->where('status', 'put_away'))
+                ->orderBy('name')
+                ->first();
+            if ($defaultWarehouse) {
+                return redirect()->route('putaway.index', array_merge($request->query(), ['warehouse_id' => $defaultWarehouse->id]));
+            }
+        }
 
-        $base = InboundOrder::with(['warehouse', 'receivedBy'])
+        $base = InboundOrder::with(['warehouse'])
             ->withCount([
                 'items',
                 'items as put_away_count' => fn($q) => $q->where('status', 'put_away'),
             ])
             ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
-            ->when($search, fn($q) => $q->where('do_number', 'like', "%{$search}%"))
-            ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId));
+            ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+;
 
-        // Antrian aktif — disembunyikan kalau filter 'completed'
-        if ($filterStatus === 'completed') {
-            $orders = $empty;
-        } else {
-            $activeStatuses = $filterStatus === 'put_away'
-                ? ['put_away']
-                : ['put_away'];
+        // Antrian aktif
+        $orders = $filterStatus === 'completed'
+            ? collect()
+            : (clone $base)->where('status', 'put_away')->orderByDesc('created_at')->get();
 
-            $orders = (clone $base)
-                ->whereIn('status', $activeStatuses)
-                ->orderByDesc('updated_at')
-                ->paginate(15)
-                ->withQueryString();
-        }
-
-        // Riwayat completed — hanya tampil kalau filter 'completed' dipilih eksplisit
-        if ($filterStatus !== 'completed') {
-            $completedOrders = $empty;
-        } else {
-            $completedOrders = (clone $base)
-                ->where('status', 'completed')
-                ->orderByDesc('updated_at')
-                ->paginate(10, ['*'], 'completed_page')
-                ->withQueryString();
-        }
+        // Riwayat completed
+        $completedOrders = $filterStatus === 'completed'
+            ? (clone $base)->where('status', 'completed')->orderByDesc('processed_at')->get()
+            : collect();
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 

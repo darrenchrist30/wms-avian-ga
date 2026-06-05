@@ -72,7 +72,7 @@
                         <th width="140">Tanggal</th>
                         <th>Item</th>
                         <th width="180">Gudang</th>
-                        <th width="100" class="text-center">Rak - Cell</th>
+                        <th width="100" class="text-center">Cell</th>
                         <th width="70" class="text-center">Qty</th>
                         <th>Catatan</th>
                         <th width="120">Petugas</th>

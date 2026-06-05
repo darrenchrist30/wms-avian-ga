@@ -274,7 +274,7 @@
         <button class="btn-cam" id="btnTopView">
             <i class="fas fa-arrows-alt mr-1"></i> Top View
         </button>
-        <button class="btn-cam {{ request('expanded') ? 'active' : '' }}" id="btnExpandedView">
+        <button class="btn-cam {{ !request('compact') ? 'active' : '' }}" id="btnExpandedView">
             <i class="fas fa-expand-arrows-alt mr-1"></i> Expanded View
         </button>
     </div>
@@ -402,7 +402,7 @@ const MSPART_CW = (WW / 7) - 0.08;
 const COLUMN_DETAIL_URL = '{{ route("warehouse3d.column-detail") }}';
 const GRUP_DETAIL_URL   = '{{ route("warehouse3d.grup-detail") }}';
 const AREA_DETAIL_URL   = '{{ route("warehouse3d.area-detail") }}';
-const DISPLAY_EXPANDED  = {{ request('expanded') ? 'true' : 'false' }};
+const DISPLAY_EXPANDED  = {{ request('compact') ? 'false' : 'true' }}; // default: expanded
 
 const ZONE_LABEL = { A: '#4fc3f7', B: '#ffb74d', C: '#ef9a9a' };
 
@@ -486,8 +486,8 @@ btnReset.addEventListener('click',   () => setCamPreset(DEFAULT_CAM, btnReset));
 btnTopView.addEventListener('click', () => setCamPreset(TOPVIEW_CAM, btnTopView));
 btnExpandedView.addEventListener('click', () => {
     const url = new URL(window.location.href);
-    if (DISPLAY_EXPANDED) url.searchParams.delete('expanded');
-    else url.searchParams.set('expanded', '1');
+    if (DISPLAY_EXPANDED) url.searchParams.set('compact', '1');
+    else url.searchParams.delete('compact');
     window.location.href = url.toString();
 });
 
@@ -720,8 +720,9 @@ function buildEnvironment() {
 const postMat     = new THREE.MeshLambertMaterial({ color: 0x1565c0 });   // blue upright
 const beamMat     = new THREE.MeshLambertMaterial({ color: 0xe65100 });   // orange beam/shelf
 // Cell panel geometries — full-width so "full" cells span wall-to-wall; partial scaled in JS
-const cellPanelGeo     = new THREE.BoxGeometry(CW - 0.06, CH - 0.06, CD - 0.15);
-const cellPanelGeoWide = new THREE.BoxGeometry(WW - 0.06, CH - 0.06, CD - 0.15);
+// Panel depth = 55% of CD → sisakan ~45% celah antar rak agar kolom dalam terlihat
+const cellPanelGeo     = new THREE.BoxGeometry(CW - 0.06, CH - 0.06, CD * 0.55);
+const cellPanelGeoWide = new THREE.BoxGeometry(WW - 0.06, CH - 0.06, CD * 0.55);
 const cellPanelGeoVert = new THREE.BoxGeometry(CW - 0.06, CH - 0.06, VW - 0.15);
 
 // ── Shared low-poly item geometries & materials ───────────────────────────
@@ -1219,7 +1220,7 @@ function loadScene(wid, attempt) {
         loading.style.display = 'none';
         // Auto-highlight jika ada highlight_cell_id dari URL
         if (INIT_HIGHLIGHT_ID) {
-            applyHighlight(new Set([INIT_HIGHLIGHT_ID]), 'ga', 'Cell rekomendasi GA disorot — klik cell untuk detail');
+            applyHighlight(new Set([INIT_HIGHLIGHT_ID]), 'cell', 'Lokasi stok disorot — klik cell untuk detail');
         }
     }).fail(function (xhr) {
         if (attempt < 2) {
@@ -1247,8 +1248,9 @@ function applyHighlight(ids, reason, label) {
     clearHighlight();
 
     const isGa   = (reason === 'ga');
-    const color  = isGa ? 0xffd700 : 0x00e5ff;
-    const emBase = isGa ? new THREE.Color(0.55, 0.38, 0) : new THREE.Color(0, 0.38, 0.55);
+    const isCell = (reason === 'cell');
+    const color  = isGa ? 0xffd700 : (isCell ? 0x00e676 : 0x00e5ff);
+    const emBase = isGa ? new THREE.Color(0.55, 0.38, 0) : (isCell ? new THREE.Color(0, 0.55, 0.2) : new THREE.Color(0, 0.38, 0.55));
 
     let firstMesh = null;
     cellMeshes.forEach(mesh => {
@@ -1304,8 +1306,8 @@ function applyHighlight(ids, reason, label) {
     const legDot  = document.getElementById('legHighlightDot');
     const legLbl  = document.getElementById('legHighlightLabel');
     legItem.style.display = '';
-    legDot.style.background = isGa ? '#ffd700' : '#00e5ff';
-    legLbl.textContent = isGa ? 'Rekomendasi GA' : 'Hasil Pencarian';
+    legDot.style.background = isGa ? '#ffd700' : (isCell ? '#00e676' : '#00e5ff');
+    legLbl.textContent = isGa ? 'Rekomendasi GA' : (isCell ? 'Lokasi Stok' : 'Hasil Pencarian');
 }
 
 function clearHighlight() {

@@ -22,7 +22,7 @@ class SendWhatsappAlert extends Command
         $days    = (int) config('services.fonnte.deadstock_days', 90);
 
         if (empty($numbers)) {
-            $this->warn('WA_SUPERVISOR_NUMBERS belum diisi di .env — alert tidak dikirim.');
+            $this->warn('WA_SUPERVISOR_NUMBERS belum diisi di .env, alert tidak dikirim.');
             Log::warning('[WA Alert] WA_SUPERVISOR_NUMBERS kosong, alert tidak dikirim.');
             return self::FAILURE;
         }
@@ -30,7 +30,7 @@ class SendWhatsappAlert extends Command
         $message = $this->buildMessage($days);
 
         if (empty($token)) {
-            // Tidak ada token — simpan ke log saja agar bisa dilihat saat demo
+            // Tidak ada token - simpan ke log saja agar bisa dilihat saat demo
             Log::info('[WA Alert] FONNTE_TOKEN belum diisi. Pesan yang akan dikirim:' . PHP_EOL . $message);
             $this->info('FONNTE_TOKEN belum diisi. Pesan disimpan ke log.');
             $this->line($message);

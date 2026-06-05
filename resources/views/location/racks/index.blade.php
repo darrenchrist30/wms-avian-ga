@@ -122,7 +122,7 @@
                     },
                     { data: 'lokasi',   name: 'warehouse.name', orderable: false },
                     { data: 'kategori', name: 'dominantCategory.name', orderable: false, searchable: false },
-                    { data: 'cells_count',  name: 'cells_count',  className: 'text-center', orderable: false },
+                    { data: 'cells_count',  name: 'cells_count',  className: 'text-center', orderable: false, searchable: false },
                     {
                         data: 'status_badge',
                         name: 'is_active',

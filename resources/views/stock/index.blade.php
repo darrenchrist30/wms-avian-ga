@@ -72,7 +72,9 @@
                 <select class="form-control form-control-sm" id="filterWarehouse">
                     <option value="">Semua Gudang</option>
                     @foreach($warehouses as $wh)
-                    <option value="{{ $wh->id }}">{{ $wh->name }}</option>
+                    <option value="{{ $wh->id }}" {{ $wh->id == ($defaultWarehouseId ?? null) ? 'selected' : '' }}>
+                        {{ $wh->name }}
+                    </option>
                     @endforeach
                 </select>
             </div>

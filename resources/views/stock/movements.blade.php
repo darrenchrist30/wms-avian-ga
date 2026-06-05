@@ -9,7 +9,7 @@
         <h5 class="mb-0 font-weight-bold">
             <i class="fas fa-exchange-alt text-info mr-2"></i>Mutasi Stok
         </h5>
-        <small class="text-muted">Riwayat seluruh pergerakan barang — masuk, keluar, transfer</small>
+        {{-- <small class="text-muted">Riwayat seluruh pergerakan barang — masuk, keluar, transfer</small> --}}
     </div>
     <a href="{{ route('stock.index') }}" class="btn btn-sm btn-light border">
         <i class="fas fa-arrow-left mr-1"></i>Kembali ke Stok

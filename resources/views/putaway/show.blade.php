@@ -322,12 +322,10 @@
             <div class="col-md-8">
                 <h4 class="mt-2 mb-0">
                     <i class="fas fa-dolly-flatbed mr-2 text-primary"></i>
-                    Proses Put-Away &mdash; <code>{{ $order->do_number }}</code>
-                    @if ($order->status === 'completed')
-                        <span class="badge badge-success ml-2">COMPLETED</span>
-                    @elseif($order->status === 'put_away')
+                    Proses Put-Away (<span style="color:#13283f;">{{ $order->do_number }}</span>)
+                    @if($order->status === 'put_away')
                         <span class="badge badge-warning ml-2">BERLANGSUNG</span>
-                    @else
+                    @elseif($order->status !== 'completed')
                         <span class="badge badge-info ml-2">SIAP PUT-AWAY</span>
                     @endif
                 </h4>
@@ -346,7 +344,7 @@
             <div class="card-body py-2">
                 <div class="row" style="font-size:13px">
                     <div class="col-6 col-md-2 mb-1">
-                        <span class="text-muted d-block">Tanggal DO</span>
+                        <span class="text-muted d-block">Tanggal SJ</span>
                         <strong>{{ $order->do_date?->format('d M Y') ?? '-' }}</strong>
                     </div>
                     <div class="col-6 col-md-3 mb-1">
@@ -385,8 +383,8 @@
                             </strong>
                         </div>
                         <div class="progress mb-1" style="height:20px;border-radius:10px">
-                            <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" id="progressBar"
-                                role="progressbar" style="width:{{ $progressPct }}%;border-radius:10px">
+                            <div class="progress-bar" id="progressBar"
+                                role="progressbar" style="width:{{ $progressPct }}%;border-radius:10px;background-color:#0d8564;">
                                 <span id="progressPct" class="font-weight-bold">{{ $progressPct }}%</span>
                             </div>
                         </div>
@@ -739,10 +737,10 @@
                                                 @endif
 
                                                 <br>
-                                                <small class="text-muted">
+                                                {{-- <small class="text-muted">
                                                     Total diterima: {{ $detail->quantity_received }} ·
                                                     Sudah tersimpan: {{ $storedQty }}
-                                                </small>
+                                                </small> --}}
                                             </td>
 
                                             <td class="text-center align-middle">

@@ -488,6 +488,10 @@ body { background: #f0f2f5; }
         @endif
 
         {{-- Tabel ringkas per item, tetap dikelompokkan sesuai urutan lokasi --}}
+        @php
+            $groups = $items->groupBy('cell_id');
+            $rowNo = 1;
+        @endphp
         <div class="operator-table-card" id="itemList">
             <div class="operator-table-toolbar">
                 <div class="operator-search" style="max-width:100%;">
@@ -495,6 +499,18 @@ body { background: #f0f2f5; }
                         <input type="text" class="form-control" id="operatorSearchInput"
                                placeholder="Cari SJ / SKU / item / cell...">
                     </div>
+                </div>
+                <div style="flex-shrink:0;min-width:160px;">
+                    <select id="cellFilter" class="form-control form-control-sm" style="border-color:#dfe5ec;">
+                        <option value="">Semua Cell </option>
+                        @foreach($groups as $cellId => $groupItems)
+                            @php
+                                $fc   = $groupItems->first()->cell;
+                                $code = $fc && !is_null($fc->blok) ? $fc->physical_code : ($fc?->code ?? '-');
+                            @endphp
+                            <option value="{{ $code }}">{{ $code }} ({{ $groupItems->count() }} item)</option>
+                        @endforeach
+                    </select>
                 </div>
             </div>
             <div id="searchSpinner" style="display:none;padding:40px 0;text-align:center;">
@@ -511,11 +527,6 @@ body { background: #f0f2f5; }
                             <th style="width:90px;">Qty</th>
                         </tr>
                     </thead>
-                    @php
-                        $groups = $items->groupBy('cell_id');
-                        $rowNo = 1;
-                    @endphp
-
                     @foreach($groups as $cellId => $groupItems)
                         @php
                             $cell = $groupItems->first()->cell;
@@ -562,7 +573,7 @@ body { background: #f0f2f5; }
                             $groupSearch = strtolower(trim($locCode . ' ' . $locSub . ' ' . $statusLabel . ' ' . $zone));
                         @endphp
 
-                        <tbody class="loc-group" id="group-{{ $cellId }}" data-cell-id="{{ $cellId }}" data-location-search="{{ e($groupSearch) }}">
+                        <tbody class="loc-group" id="group-{{ $cellId }}" data-cell-id="{{ $cellId }}" data-cell-code="{{ $locCode }}" data-location-search="{{ e($groupSearch) }}">
                             <tr class="cell-row">
                                 <td colspan="4">
                                     <div class="d-flex align-items-center justify-content-between">
@@ -738,6 +749,7 @@ function applyOperatorSearch() {
 
 var searchDebounce = null;
 $('#operatorSearchInput').on('input', function() {
+    $('#cellFilter').val(''); // reset cell filter saat mengetik
     clearTimeout(searchDebounce);
     $('#tableWrap').hide();
     $('#searchSpinner').show();
@@ -746,6 +758,27 @@ $('#operatorSearchInput').on('input', function() {
         $('#searchSpinner').hide();
         $('#tableWrap').show();
     }, 350);
+});
+
+$('#cellFilter').on('change', function() {
+    var selected = $(this).val();
+    $('#operatorSearchInput').val(''); // reset search
+    if (!selected) {
+        $('#itemList .loc-group').show();
+        $('#operatorNoFilterResult').hide();
+        return;
+    }
+    var found = false;
+    $('#itemList .loc-group').each(function() {
+        var match = $(this).data('cell-code') === selected;
+        $(this).toggle(match);
+        if (match) {
+            found = true;
+            $('html, body').animate({ scrollTop: $(this).offset().top - 80 }, 300);
+        }
+    });
+    $('#operatorNoFilterResult').toggle(!found);
+    setTimeout(function() { $('#scanInput').focus(); }, 350);
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────

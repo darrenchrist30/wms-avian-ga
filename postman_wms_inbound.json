@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "WMS Avian — Inbound API",
+    "name": "WMS Avian - Inbound API",
     "_postman_id": "wms-avian-inbound-v1",
     "description": "Full flow: POST inbound → cek status. Base URL: http://localhost/wms-avian-ga",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"

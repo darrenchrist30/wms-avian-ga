@@ -371,10 +371,10 @@ class RecategorizeItems extends Command
 
         $this->newLine();
         if ($dryRun) {
-            $this->warn('  ▸ DRY RUN MODE — tidak ada perubahan disimpan.');
+            $this->warn('  ▸ DRY RUN MODE tidak ada perubahan disimpan.');
             $this->warn('    Gunakan --apply untuk menerapkan perubahan.');
         } else {
-            $this->info('  ▸ APPLY MODE — perubahan akan disimpan ke database.');
+            $this->info('  ▸ APPLY MODE perubahan akan disimpan ke database.');
         }
         $this->newLine();
 
