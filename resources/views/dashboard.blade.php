@@ -778,7 +778,7 @@
         </div>
         <div class="row mb-3">
             @if ($inboundHariIni > 0)
-                <div class="col-6 col-md-3 mb-2">
+                <div class="col-6 col-md-6 mb-2">
                     <a href="{{ route('inbound.orders.index', ['status' => 'inbound', 'start_date' => today()->toDateString(), 'end_date' => today()->toDateString()]) }}"
                         class="d-block text-decoration-none">
                         <div class="card border-0 shadow-sm h-100"
@@ -814,7 +814,7 @@
             @endif
 
             @if ($pendingQtyConfirm > 0)
-                <div class="col-6 col-md-3 mb-2">
+                <div class="col-6 col-md-6 mb-2">
                     <a href="{{ route('inbound.orders.index', ['status' => 'draft']) }}"
                         class="d-block text-decoration-none">
                         <div class="card border-0 shadow-sm h-100"
@@ -851,7 +851,7 @@
 
             @if (!auth()->user()->hasRole('operator'))
                 @if ($pendingGaRun > 0)
-                    <div class="col-6 col-md-3 mb-2">
+                    <div class="col-6 col-md-6 mb-2">
                         <a href="{{ route('inbound.orders.index', ['status' => 'draft']) }}"
                             class="d-block text-decoration-none">
                             <div class="card border-0 shadow-sm h-100"
@@ -890,7 +890,7 @@
                 @endif
 
                 @if ($pendingGaAccept > 0)
-                    <div class="col-6 col-md-3 mb-2">
+                    <div class="col-6 col-md-6 mb-2">
                         <a href="{{ route('inbound.orders.index', ['status' => 'recommended']) }}"
                             class="d-block text-decoration-none">
                             <div class="card border-0 shadow-sm h-100"
@@ -1206,7 +1206,7 @@
                     <div>
                         <div class="tab-pane-title"><i class="fas fa-chart-line mr-2 text-primary"></i>Trend Penerimaan
                         </div>
-                        <div class="tab-pane-sub">Arus barang masuk & keluar harian</div>
+                        {{-- <div class="tab-pane-sub">Arus barang masuk & keluar harian</div> --}}
                     </div>
                 </div>
                 <div class="row dashboard-section">
@@ -1265,7 +1265,7 @@
                     <div>
                         <div class="tab-pane-title"><i class="fas fa-route mr-2" style="color:#f59e0b;"></i>Antrian
                             Inbound</div>
-                        <div class="tab-pane-sub">Status DO per tahap proses & DO terlama</div>
+                        {{-- <div class="tab-pane-sub">Status DO per tahap proses & DO terlama</div> --}}
                     </div>
                 </div>
                 <div class="row process-row">
@@ -1363,7 +1363,7 @@
                     <div>
                         <div class="tab-pane-title"><i class="fas fa-chart-bar mr-2" style="color:#3b82f6;"></i>Kapasitas
                             & Status</div>
-                        <div class="tab-pane-sub">Utilisasi gudang · status order · cell hampir penuh</div>
+                        {{-- <div class="tab-pane-sub">Utilisasi gudang · status order · cell hampir penuh</div> --}}
                     </div>
                 </div>
                 <div class="row capacity-row dashboard-section">
@@ -1379,15 +1379,15 @@
                                 <div class="capacity-stats">
                                     <div class="capacity-stat">
                                         <strong>{{ number_format($capacityUsedTotal) }}</strong>
-                                        <span>Slot Terpakai</span>
+                                        <span>Kolom Terisi</span>
                                     </div>
                                     <div class="capacity-stat">
                                         <strong>{{ number_format($capacityFreeTotal) }}</strong>
-                                        <span>Slot Kosong</span>
+                                        <span>Kolom Kosong</span>
                                     </div>
                                     <div class="capacity-stat">
                                         <strong>{{ number_format($capacityMaxTotal) }}</strong>
-                                        <span>Total Slot</span>
+                                        <span>Total Kolom</span>
                                     </div>
                                 </div>
                                 <div class="donut-wrap chart-box mb-3">
@@ -1572,7 +1572,7 @@
                     <div>
                         <div class="tab-pane-title"><i class="fas fa-chart-bar mr-2" style="color:#f59e0b;"></i>Top &amp;
                             Worst Barang</div>
-                        <div class="tab-pane-sub">Peringkat item berdasarkan total pergerakan stok sepanjang waktu</div>
+                        {{-- <div class="tab-pane-sub">Peringkat item berdasarkan total pergerakan stok sepanjang waktu</div> --}}
                     </div>
                 </div>
 
@@ -1615,7 +1615,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @php $maxTopQty = $topMovedItems->max('total_qty') ?: 1; @endphp
+                                            @php $maxTopTrx = $topMovedItems->max('movement_count') ?: 1; @endphp
                                             @foreach ($topMovedItems as $i => $tm)
                                                 <tr>
                                                     <td class="text-center" style="vertical-align:middle;">
@@ -1658,11 +1658,11 @@
                                                         <div
                                                             style="background:#f3f4f6;border-radius:6px;height:8px;overflow:hidden;">
                                                             <div
-                                                                style="background:linear-gradient(90deg,#0d8564,#14b8a6);width:{{ round(($tm->total_qty / $maxTopQty) * 100) }}%;height:100%;border-radius:6px;">
+                                                                style="background:linear-gradient(90deg,#0d8564,#14b8a6);width:{{ round(($tm->movement_count / $maxTopTrx) * 100) }}%;height:100%;border-radius:6px;">
                                                             </div>
                                                         </div>
                                                         <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
-                                                            {{ round(($tm->total_qty / $maxTopQty) * 100) }}% dari tertinggi
+                                                            Frekuensi: {{ round(($tm->movement_count / $maxTopTrx) * 100) }}%
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -1692,11 +1692,10 @@
                                                 <th width="130">Kategori</th>
                                                 <th width="110" class="text-center">Total Qty</th>
                                                 <th width="90" class="text-center">Transaksi</th>
-                                                <th>Aktivitas</th>
+                                                <th width="130" class="text-center">Terakhir Bergerak</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @php $maxWorstQty = $worstMovedItems->max('total_qty') ?: 1; @endphp
                                             @foreach ($worstMovedItems as $i => $wm)
                                                 <tr>
                                                     <td class="text-center" style="vertical-align:middle;">
@@ -1727,17 +1726,13 @@
                                                     </td>
                                                     <td class="text-center" style="color:#6b7280;">
                                                         {{ number_format($wm->movement_count) }}x</td>
-                                                    <td style="vertical-align:middle;padding-right:20px;min-width:140px;">
-                                                        @php $worstPct = $maxWorstQty > 0 ? round($wm->total_qty / $maxWorstQty * 100) : 0; @endphp
-                                                        <div
-                                                            style="background:#f3f4f6;border-radius:6px;height:8px;overflow:hidden;">
-                                                            <div
-                                                                style="background:linear-gradient(90deg,#ef4444,#f59e0b);width:{{ $worstPct }}%;height:100%;border-radius:6px;{{ $wm->total_qty == 0 ? '' : 'min-width:4px;' }}">
-                                                            </div>
-                                                        </div>
-                                                        <div style="font-size:10px;color:#9ca3af;margin-top:2px;">
-                                                            {{ $wm->total_qty == 0 ? 'Tidak pernah bergerak' : $worstPct . '% dari teraktif' }}
-                                                        </div>
+                                                    <td class="text-center" style="vertical-align:middle;">
+                                                        @if($wm->last_moved_at)
+                                                            <div style="font-size:12px;color:#374151;">{{ \Carbon\Carbon::parse($wm->last_moved_at)->format('d/m/Y') }}</div>
+                                                            <div style="font-size:10px;color:#9ca3af;">{{ \Carbon\Carbon::parse($wm->last_moved_at)->diffForHumans() }}</div>
+                                                        @else
+                                                            <span class="text-muted">—</span>
+                                                        @endif
                                                     </td>
                                                 </tr>
                                             @endforeach
@@ -1758,7 +1753,7 @@
                     <div>
                         <div class="tab-pane-title"><i class="fas fa-users mr-2" style="color:#8b5cf6;"></i>Aktivitas Tim
                             & Kinerja</div>
-                        <div class="tab-pane-sub">Put-away hari ini · statistik GA · KPI proses WMS</div>
+                        {{-- <div class="tab-pane-sub">Put-away hari ini · statistik GA · KPI proses WMS</div> --}}
                     </div>
                 </div>
                 @php $isOp = auth()->user()->hasRole('operator'); @endphp
@@ -1939,22 +1934,37 @@
                                 @endif
                                 <div class="zone-row">
                                     <div class="zone-label">
-                                        <span>Order Completion (bln ini)</span>
+                                        <span>Order Completion (Bulan {{ now()->locale('id')->translatedFormat('F') }})</span>
                                         <span style="color:#0d8564;font-weight:600">{{ $completionRate }}%</span>
                                     </div>
                                     <div class="zone-bar">
-                                        <div class="zone-fill" style="width:{{ $completionRate }}%;background:#0d8564;">
-                                        </div>
+                                        <div class="zone-fill" style="width:{{ $completionRate }}%;background:#0d8564;"></div>
                                     </div>
                                 </div>
                                 <div class="zone-row">
                                     <div class="zone-label">
-                                        <span>Utilisasi Kapasitas Gudang</span>
-                                        <span style="color:#f59e0b;font-weight:600">{{ $utilizationPct }}%</span>
+                                        <span>SKU Aktif Bergerak ({{ now()->locale('id')->translatedFormat('F') }})
+                                            <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                                                data-toggle="tooltip" data-placement="top"
+                                                title="Jumlah SKU yang ada transaksi masuk/keluar bulan ini dibanding total SKU aktif."></i>
+                                        </span>
+                                        <span style="color:#3b82f6;font-weight:600">{{ $activeSkuRate }}%</span>
                                     </div>
                                     <div class="zone-bar">
-                                        <div class="zone-fill" style="width:{{ $utilizationPct }}%;background:#f59e0b;">
-                                        </div>
+                                        <div class="zone-fill" style="width:{{ $activeSkuRate }}%;background:#3b82f6;"></div>
+                                    </div>
+                                </div>
+                                <div class="zone-row">
+                                    <div class="zone-label">
+                                        <span>Deadstock Rate
+                                            <i class="fas fa-info-circle text-muted ml-1" style="font-size:11px;cursor:pointer"
+                                                data-toggle="tooltip" data-placement="top"
+                                                title="Persentase SKU yang tidak bergerak lebih dari 90 hari dari total SKU aktif."></i>
+                                        </span>
+                                        <span style="color:#ef4444;font-weight:600">{{ $deadstockRate }}%</span>
+                                    </div>
+                                    <div class="zone-bar">
+                                        <div class="zone-fill" style="width:{{ $deadstockRate }}%;background:#ef4444;"></div>
                                     </div>
                                 </div>
                                 @if (!auth()->user()->hasRole('operator'))

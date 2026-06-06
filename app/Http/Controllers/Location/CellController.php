@@ -19,8 +19,13 @@ class CellController extends Controller
     public function index()
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
-        $racks      = Rack::where('is_active', true)->orderBy('code')->get();
-        return view('location.cells.index', compact('warehouses', 'racks'));
+        $bloks      = Cell::where('is_active', true)->whereNotNull('blok')
+                         ->distinct()->orderByRaw('CAST(blok AS UNSIGNED)')->pluck('blok');
+        $defaultWarehouseId = Cell::where('cells.is_active', true)
+                         ->join('racks', 'cells.rack_id', '=', 'racks.id')
+                         ->where('racks.is_active', true)
+                         ->value('racks.warehouse_id');
+        return view('location.cells.index', compact('warehouses', 'bloks', 'defaultWarehouseId'));
     }
 
     public function create()
@@ -443,16 +448,16 @@ class CellController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = Cell::with(['rack.warehouse', 'dominantCategory'])->withCount('stocks');
+        $query = Cell::with(['rack.warehouse', 'dominantCategory'])->withCount('stocks')->where('cells.is_active', true);
 
         if ($request->filled('warehouse_id')) {
             $query->whereHas('rack', fn($q) => $q->where('warehouse_id', $request->warehouse_id));
         }
-        if ($request->filled('rack_id')) {
-            $query->where('rack_id', $request->rack_id);
+        if ($request->filled('blok')) {
+            $query->where('blok', $request->blok);
         }
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->whereNotNull('baris')->where('status', $request->status);
         }
 
         // Pre-compute agregasi untuk sel tipe parent (format "blok-grup", e.g. "1-A")
@@ -582,17 +587,15 @@ class CellController extends Controller
                         ? '<button type="button" class="btn btn-xs btn-secondary" disabled title="Kategori kolom sudah diterapkan"><i class="fas fa-check"></i></button>'
                         : '<button type="button" class="btn btn-xs btn-success btnColumnCategory" data-column="' . $columnCode . '" title="Set Kategori Kolom"><i class="fas fa-tags"></i></button>';
 
-                    return '<div style="display:flex;gap:3px;flex-wrap:nowrap;">'
+                    return '<div style="display:flex;gap:3px;flex-wrap:nowrap;justify-content:center;">'
                         . $categoryButton
                         . '<a href="' . $colQrUrl . '" class="btn btn-xs btn-success" title="Print QR Kolom"><i class="fas fa-qrcode"></i></a>'
                         . '</div>';
                 }
                 $stockUrl = route('location.cells.stock', $row->id);
-                $qrUrl    = route('location.cells.qr-label', $row->id);
                 $editUrl  = route('location.cells.edit', $row->id);
-                $html  = '<div style="display:flex;gap:3px;flex-wrap:nowrap;">';
+                $html  = '<div style="display:flex;gap:3px;flex-wrap:nowrap;justify-content:center;">';
                 $html .= '<a href="' . $stockUrl . '" class="btn btn-xs btn-info" title="Lihat Stok"><i class="fas fa-box"></i></a>';
-                $html .= '<a href="' . $qrUrl . '" class="btn btn-xs btn-success" title="Print QR Label"><i class="fas fa-qrcode"></i></a>';
                 $html .= '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a>';
                 $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
                 $html .= '</div>';

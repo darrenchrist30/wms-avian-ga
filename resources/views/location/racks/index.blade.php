@@ -37,7 +37,7 @@
                                             <select class="form-control form-control-sm" id="filter-warehouse">
                                                 <option value="">Semua Gudang</option>
                                                 @foreach ($warehouses as $warehouse)
-                                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                                    <option value="{{ $warehouse->id }}" {{ $warehouse->id == $defaultWarehouseId ? 'selected' : '' }}>{{ $warehouse->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -134,7 +134,8 @@
             });
 
             $('.btnRefresh').on('click', function() {
-                $('#filter-warehouse, #filter-status').val('');
+                $('#filter-warehouse').val('{{ $defaultWarehouseId }}');
+                $('#filter-status').val('');
                 table.ajax.reload();
             });
 

@@ -57,21 +57,42 @@ class InboundOrderController extends Controller
 
     public function datatable(Request $request)
     {
-        $query = InboundOrder::with(['warehouse', 'receivedBy'])
+        // Browser/DataTables cache may still send the old nested column name.
+        // Normalize it before Yajra builds search/order SQL.
+        $columns = $request->input('columns', []);
+        $hasNormalizedColumns = false;
+        foreach ($columns as &$column) {
+            if (($column['data'] ?? null) === 'warehouse.name') {
+                $column['data'] = 'warehouse_name';
+                $hasNormalizedColumns = true;
+            }
+            if (($column['name'] ?? null) === 'warehouse.name') {
+                $column['name'] = 'warehouse_name';
+                $hasNormalizedColumns = true;
+            }
+        }
+        unset($column);
+        if ($hasNormalizedColumns) {
+            $request->merge(['columns' => $columns]);
+        }
+
+        $query = InboundOrder::query()
+            ->leftJoin('warehouses', 'warehouses.id', '=', 'inbound_transactions.warehouse_id')
+            ->select('inbound_transactions.*', 'warehouses.name as warehouse_name')
             ->withCount('items')
-            ->orderByDesc('id');
+            ->orderByDesc('inbound_transactions.id');
 
         if ($request->filled('status')) {
-            $query->where('status', $request->status);
+            $query->where('inbound_transactions.status', $request->status);
         }
         if ($request->filled('warehouse_id')) {
-            $query->where('warehouse_id', $request->warehouse_id);
+            $query->where('inbound_transactions.warehouse_id', $request->warehouse_id);
         }
         if ($request->filled('start_date')) {
-            $query->whereDate('do_date', '>=', $request->start_date);
+            $query->whereDate('inbound_transactions.do_date', '>=', $request->start_date);
         }
         if ($request->filled('end_date')) {
-            $query->whereDate('do_date', '<=', $request->end_date);
+            $query->whereDate('inbound_transactions.do_date', '<=', $request->end_date);
         }
 
         return DataTables::of($query)
@@ -90,6 +111,24 @@ class InboundOrderController extends Controller
                 }
                 return $formatted;
             })
+            ->editColumn('warehouse_name', fn($row) => e($row->warehouse_name ?? '-'))
+            ->addColumn('warehouse', fn($row) => ['name' => $row->warehouse_name ?? '-'])
+            ->filterColumn('do_number', function ($query, $keyword) {
+                $query->where('inbound_transactions.do_number', 'like', "%{$keyword}%");
+            })
+            ->filterColumn('do_date', function ($query, $keyword) {
+                $query->whereRaw("DATE_FORMAT(inbound_transactions.do_date, '%Y-%m-%d') LIKE ?", ["%{$keyword}%"]);
+            })
+            ->filterColumn('warehouse_name', function ($query, $keyword) {
+                $query->where('warehouses.name', 'like', "%{$keyword}%");
+            })
+            ->filterColumn('warehouse.name', function ($query, $keyword) {
+                $query->where('warehouses.name', 'like', "%{$keyword}%");
+            })
+            ->orderColumn('do_number', 'inbound_transactions.do_number $1')
+            ->orderColumn('do_date', 'inbound_transactions.do_date $1')
+            ->orderColumn('warehouse_name', 'warehouses.name $1')
+            ->orderColumn('warehouse.name', 'warehouses.name $1')
             ->addColumn('status_badge', function ($row) {
                 $map = [
                     'inbound'   => ['badge-warning',  'Inbound'],

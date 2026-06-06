@@ -50,7 +50,7 @@ class ColumnCategoryAssignmentService
         );
 
         $categoryCounts = [];
-        $samples = [];
+        $allSamples = [];
         $unmappedSkus = [];
 
         foreach ($uniqueSkuRows as $row) {
@@ -64,16 +64,14 @@ class ColumnCategoryAssignmentService
                 $unmappedSkus[] = (string) $row->kode;
             }
 
-            if (count($samples) < 12) {
-                $samples[] = [
-                    'sku' => (string) $row->kode,
-                    'name' => (string) ($item?->name ?: $row->nama),
-                    'category' => (string) ($item?->category?->name ?: 'Tanpa kategori'),
-                    'baris' => $row->baris,
-                    'stock' => $row->stok,
-                    'unit' => $row->sat,
-                ];
-            }
+            $allSamples[] = [
+                'sku' => (string) $row->kode,
+                'name' => (string) ($item?->name ?: $row->nama),
+                'category' => (string) ($item?->category?->name ?: 'Tanpa kategori'),
+                'baris' => $row->baris,
+                'stock' => $row->stok,
+                'unit' => $row->sat,
+            ];
         }
 
         arsort($categoryCounts);
@@ -97,6 +95,16 @@ class ColumnCategoryAssignmentService
                     'percent' => $uniqueSkuCount > 0 ? round(((int) $count / $uniqueSkuCount) * 100, 2) : 0.0,
                 ];
             })
+            ->values()
+            ->all();
+
+        // Show every unique SKU found in the real MSpart column so category review is auditable.
+        $samples = collect($allSamples)
+            ->sortBy([
+                ['category', 'asc'],
+                ['baris', 'asc'],
+                ['sku', 'asc'],
+            ])
             ->values()
             ->all();
 

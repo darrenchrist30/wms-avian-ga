@@ -47,7 +47,7 @@
                                             <select class="form-control form-control-sm" id="filter-warehouse">
                                                 <option value="">Semua Gudang</option>
                                                 @foreach ($warehouses as $warehouse)
-                                                    <option value="{{ $warehouse->id }}">{{ $warehouse->name }}</option>
+                                                    <option value="{{ $warehouse->id }}" {{ $warehouse->id == $defaultWarehouseId ? 'selected' : '' }}>{{ $warehouse->name }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -55,12 +55,12 @@
                                 </div>
                                 <div class="col-sm-12 col-md-4">
                                     <div class="form-group row">
-                                        <label class="col-sm-4 col-form-label small font-weight-bold">Rak</label>
+                                        <label class="col-sm-4 col-form-label small font-weight-bold">Blok</label>
                                         <div class="col-sm-8">
                                             <select class="form-control form-control-sm" id="filter-rack">
-                                                <option value="">Semua Rak</option>
-                                                @foreach ($racks as $rack)
-                                                    <option value="{{ $rack->id }}">{{ $rack->code }}</option>
+                                                <option value="">Semua Blok</option>
+                                                @foreach ($bloks as $blok)
+                                                    <option value="{{ $blok }}">Blok {{ $blok }}</option>
                                                 @endforeach
                                             </select>
                                         </div>
@@ -281,7 +281,7 @@
                     url: baseURL,
                     data: function(d) {
                         d.warehouse_id = $('#filter-warehouse').val();
-                        d.rack_id      = $('#filter-rack').val();
+                        d.blok         = $('#filter-rack').val();
                         d.status       = $('#filter-status').val();
                     },
                     type: 'GET'
@@ -322,7 +322,8 @@
             });
 
             $('.btnRefresh').on('click', function() {
-                $('#filter-warehouse, #filter-rack, #filter-status').val('');
+                $('#filter-warehouse').val('{{ $defaultWarehouseId }}');
+                $('#filter-rack, #filter-status').val('');
                 table.ajax.reload();
             });
 

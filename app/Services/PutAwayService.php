@@ -63,36 +63,6 @@ class PutAwayService
         return app(CellCapacityService::class)->demandForPlacement($detail->item, $cell, $quantityStored);
     }
 
-    /**
-     * Hitung ulang dominant_category_id untuk cell berdasarkan kategori SKU
-     * yang ada di stocks aktif. Kategori terbanyak menang.
-     *
-     * Untuk MSpart cell: dihitung per BARIS individual (per cell.id),
-     * sehingga FC_CAT di GA bisa pakai sinyal kategori spesifik baris.
-     */
-    private function recomputeDominantCategory(Cell $cell): void
-    {
-        $cellsToRefresh = collect([$cell]);
-
-        foreach ($cellsToRefresh as $c) {
-            $dominantCatId = DB::table('stock_records as s')
-                ->join('items as i', 'i.id', '=', 's.item_id')
-                ->where('s.cell_id', $c->id)
-                ->where('s.quantity', '>', 0)
-                ->whereIn('s.status', ['available', 'reserved'])
-                ->whereNotNull('i.category_id')
-                ->select('i.category_id', DB::raw('COUNT(*) as cnt'))
-                ->groupBy('i.category_id')
-                ->orderByDesc('cnt')
-                ->limit(1)
-                ->value('category_id');
-
-            if ((int) $c->dominant_category_id !== (int) $dominantCatId) {
-                $c->update(['dominant_category_id' => $dominantCatId]);
-            }
-        }
-    }
-
     private function refreshMspartPhysicalLocationCapacity(Cell $cell): void
     {
         $cells = collect([$cell]);
@@ -304,8 +274,9 @@ class PutAwayService
             // d) Update kapasitas sel/lokasi fisik
             $this->refreshMspartPhysicalLocationCapacity($cell);
 
-            // d.1) Re-compute dominant_category_id per cell agar FC_CAT punya signal nyata
-            $this->recomputeDominantCategory($cell);
+            // Kategori dominan lokasi tidak diubah otomatis saat put-away.
+            // Sumber kategori lokasi harus berasal dari fitur apply kategori kolom/admin,
+            // supaya GA memakai zonasi gudang yang eksplisit, bukan berubah sendiri dari transaksi.
 
             // e) Update status item berdasarkan total qty yang sudah disimpan
             $totalStoredAfter = $alreadyStored + $quantityStored;

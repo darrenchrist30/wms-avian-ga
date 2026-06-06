@@ -274,8 +274,16 @@ class GaService
                 ->first();
 
             // Priority 2: no existing stock → use MSpart home location (blok/grup/kolom/baris)
-            //   so GA respects the physical warehouse layout from day one.
+            // only when it does not conflict with an applied category zone.
+            // If admin has already defined a feasible dominant-category zone,
+            // that zone is stronger than an old neutral MSpart home cell.
             $preferredCellId = null;
+            $hasFeasibleDominantZone = $this->hasFeasibleDominantCategoryZone(
+                $detail->item,
+                $cellCandidates,
+                $capacityDemand
+            );
+
             if ($existingCell) {
                 $preferredCellId = $existingCell['cell_id'];
             } elseif ($existingCellsForItem->isEmpty() && $detail->item->home_cell_id) {
@@ -285,10 +293,9 @@ class GaService
                         && (int) $cell['capacity_remaining'] >= $capacityDemand
                     );
                 // MSpart home location is an anchor, not an absolute rule.
-                // If the home cell already has a different dominant category,
-                // leave the gene unlocked so GA can choose a neutral/category-safe
-                // expansion cell instead of being forced into FC_CAT = 0.
-                if ($homeCell && $this->isCategorySafePreferredCell($detail->item, $homeCell)) {
+                // Neutral home cells are used only when no feasible applied
+                // category zone exists for this item category.
+                if ($homeCell && $this->isCategorySafePreferredCell($detail->item, $homeCell, $hasFeasibleDominantZone)) {
                     $preferredCellId = $homeCell['cell_id'];
                 }
             }
@@ -743,7 +750,20 @@ class GaService
         );
     }
 
-    private function isCategorySafePreferredCell(Item $item, array $cell): bool
+    private function hasFeasibleDominantCategoryZone(Item $item, $cellCandidates, int $capacityDemand): bool
+    {
+        if (!$item->category_id) {
+            return false;
+        }
+
+        return collect($cellCandidates)->contains(fn(array $cell) =>
+            (int) ($cell['capacity_remaining'] ?? 0) >= $capacityDemand
+            && ($cell['dominant_category_id'] ?? null) !== null
+            && (int) $cell['dominant_category_id'] === (int) $item->category_id
+        );
+    }
+
+    private function isCategorySafePreferredCell(Item $item, array $cell, bool $categoryZoneAvailable = false): bool
     {
         $existingItemIds = array_map('intval', $cell['existing_item_ids'] ?? []);
 
@@ -754,7 +774,7 @@ class GaService
         $dominantCategoryId = $cell['dominant_category_id'] ?? null;
 
         if ($dominantCategoryId === null || $dominantCategoryId === '') {
-            return true;
+            return !$categoryZoneAvailable;
         }
 
         return $item->category_id !== null

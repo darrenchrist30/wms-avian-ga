@@ -324,6 +324,17 @@ function resizeCanvas() {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
+@if($userSigUrl)
+var userSigUrl = '{{ $userSigUrl }}';
+var sigImg = new Image();
+sigImg.onload = function() {
+    var ctx = canvas.getContext('2d');
+    var scale = window.devicePixelRatio || 1;
+    ctx.drawImage(sigImg, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
+};
+sigImg.src = userSigUrl + '?t=' + Date.now();
+@endif
+
 $('#btnClearSig').on('click', function () { signaturePad.clear(); });
 
 $('#btnApprove').on('click', function () {

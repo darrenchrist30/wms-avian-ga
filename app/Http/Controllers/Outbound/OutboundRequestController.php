@@ -171,7 +171,12 @@ class OutboundRequestController extends Controller
 
         $this->authorizeView($obr);
 
-        return view('outbound.requests.show', compact('obr'));
+        $userSigPath = 'public/user_signatures/' . auth()->id() . '.png';
+        $userSigUrl  = Storage::exists($userSigPath)
+            ? asset('storage/user_signatures/' . auth()->id() . '.png')
+            : null;
+
+        return view('outbound.requests.show', compact('obr', 'userSigUrl'));
     }
 
     // ── APPROVE (supervisor) ──────────────────────────────────────────────────
@@ -197,6 +202,9 @@ class OutboundRequestController extends Controller
         $filename      = 'signature_' . $obr->request_number . '_' . now()->format('Ymd_His') . '.png';
         $storagePath   = 'public/outbound_signatures/' . $filename;
         Storage::put($storagePath, $decoded);
+
+        // Simpan juga TTD per-user agar auto-load berikutnya
+        Storage::put('public/user_signatures/' . auth()->id() . '.png', $decoded);
 
         $obr->update([
             'status'         => 'approved',

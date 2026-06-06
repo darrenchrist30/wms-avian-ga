@@ -17,8 +17,7 @@
                     <div class="card-header">
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="font-weight-bold">
-                                <i class="fas fa-map-marker-alt mr-1"></i>
-                                Sel: <code>{{ $cell->code }}</code>
+                                <span style="font-size:1.1rem;"><i class="fas fa-map-marker-alt mr-1"></i> Lokasi Sel:</span> <span style="font-size:1.4rem;color:#1a3c2e;font-weight:700;">{{ $cell->code }}</span>
                             </div>
                             <a href="{{ route('location.cells.index') }}" class="btn btn-sm btn-outline-secondary">
                                 <i class="fas fa-arrow-left mr-2"></i>Back
@@ -82,7 +81,7 @@
                     <div class="card-header">
                         <div class="font-weight-bold">
                             <i class="fas fa-boxes mr-1"></i> Stok di Sel Ini
-                            <span class="badge badge-primary ml-1">{{ $cell->stocks->count() }}</span>
+                            <span class="badge badge-secondary ml-1">{{ $cell->stocks->count() }} item</span>
                         </div>
                     </div>
                     <div class="card-body">
@@ -101,11 +100,8 @@
                                             <th width="100">Kategori</th>
                                             <th width="80" class="text-center">Qty</th>
                                             <th width="80" class="text-center">Satuan</th>
-                                            <th width="100">LPN</th>
-                                            <th width="100">Batch No</th>
                                             <th width="100" class="text-center">Tgl Masuk</th>
-                                            <th width="100" class="text-center">Tgl Kadaluarsa</th>
-                                            <th width="90" class="text-center">Status Stok</th>
+                                            <th width="90" class="text-center" style="white-space:nowrap;">Status Stok</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -137,23 +133,8 @@
                                                 </td>
                                                 <td class="text-center font-weight-bold">{{ $stock->quantity }}</td>
                                                 <td class="text-center">{{ $stock->item?->unit->code ?? '-' }}</td>
-                                                <td><code>{{ $stock->lpn ?? '-' }}</code></td>
-                                                <td>{{ $stock->batch_no ?? '-' }}</td>
                                                 <td class="text-center">
                                                     {{ $stock->inbound_date ? \Carbon\Carbon::parse($stock->inbound_date)->format('d/m/Y') : '-' }}
-                                                </td>
-                                                <td class="text-center">
-                                                    @if ($stock->expiry_date)
-                                                        @php $daysLeft = now()->diffInDays($stock->expiry_date, false); @endphp
-                                                        <span class="{{ $daysLeft <= 30 ? 'text-danger font-weight-bold' : '' }}">
-                                                            {{ \Carbon\Carbon::parse($stock->expiry_date)->format('d/m/Y') }}
-                                                        </span>
-                                                        @if ($daysLeft <= 30)
-                                                            <br><small class="text-danger">{{ $daysLeft }} hari lagi</small>
-                                                        @endif
-                                                    @else
-                                                        <span class="text-muted">-</span>
-                                                    @endif
                                                 </td>
                                                 <td class="text-center">
                                                     <span class="badge {{ $stockStatusClass }}">

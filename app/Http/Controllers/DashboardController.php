@@ -28,7 +28,7 @@ class DashboardController extends Controller
         $cellsFull      = Cell::where('is_active', true)->where('status', 'full')->count();
         $cellsPartial   = Cell::where('is_active', true)->where('status', 'partial')->count();
         $cellsEmpty     = Cell::where('is_active', true)->where('status', 'available')->count();
-        $utilizationPct = $totalCells > 0 ? round($usedCells / $totalCells * 100, 1) : 0;
+        $utilizationPct = 0; // dihitung ulang setelah kapasitas kolom dikalkulasi
         $totalStockQty  = Stock::where('status', 'available')->sum('quantity');
         // SKU dengan stok aktif di sel apapun
         $mappedSku      = Stock::where('status', 'available')->distinct('item_id')->count('item_id');
@@ -69,10 +69,14 @@ class DashboardController extends Controller
         $activeOrders    = InboundOrder::whereIn('status', ['inbound', 'put_away'])->count();
         $deadstockCount  = Stock::deadstock($deadstockDays)->distinct('item_id')->count('item_id');
 
-        // ── Kapasitas Gudang ─────────────────────────────────────────────────────
-        $capacityUsedTotal = Cell::where('is_active', true)->sum('capacity_used');
-        $capacityMaxTotal  = max(1, Cell::where('is_active', true)->sum('capacity_max'));
+        // ── Kapasitas Gudang (per kolom unik) ────────────────────────────────────
+        $capacityMaxTotal  = max(1, Cell::where('is_active', true)
+            ->selectRaw('COUNT(DISTINCT blok, grup, kolom) as total')->value('total'));
+        $capacityUsedTotal = Cell::where('is_active', true)
+            ->whereIn('status', ['partial', 'full'])
+            ->selectRaw('COUNT(DISTINCT blok, grup, kolom) as total')->value('total');
         $capacityFreeTotal = max(0, $capacityMaxTotal - $capacityUsedTotal);
+        $utilizationPct    = $capacityMaxTotal > 0 ? round($capacityUsedTotal / $capacityMaxTotal * 100, 1) : 0;
 
         $fullRacks = Rack::with('warehouse')
             ->where('is_active', true)
@@ -127,21 +131,23 @@ class DashboardController extends Controller
             ->selectRaw('item_id, SUM(quantity) as total_qty, COUNT(*) as movement_count')
             ->whereNotNull('item_id')
             ->groupBy('item_id')
-            ->orderByDesc('total_qty')
+            ->orderByDesc('movement_count')
             ->take(10)
             ->get();
 
         $worstMovedItems = Item::with('unit', 'category')
             ->where('is_active', true)
             ->whereRaw('(SELECT COALESCE(SUM(quantity),0) FROM stock_records WHERE stock_records.item_id = items.id AND status = "available") > 0')
-            ->leftJoin(
-                DB::raw('(SELECT item_id AS mv_id, SUM(quantity) AS total_qty, COUNT(*) AS movement_count FROM stock_movements GROUP BY item_id) AS mv_agg'),
+            ->join(
+                DB::raw('(SELECT item_id AS mv_id, SUM(quantity) AS total_qty, COUNT(*) AS movement_count, MAX(moved_at) AS last_moved_at FROM stock_movements GROUP BY item_id) AS mv_agg'),
                 'items.id', '=', 'mv_agg.mv_id'
             )
             ->select('items.*',
-                DB::raw('COALESCE(mv_agg.total_qty, 0) AS total_qty'),
-                DB::raw('COALESCE(mv_agg.movement_count, 0) AS movement_count'))
-            ->orderBy('total_qty', 'asc')
+                DB::raw('mv_agg.total_qty AS total_qty'),
+                DB::raw('mv_agg.movement_count AS movement_count'),
+                DB::raw('mv_agg.last_moved_at AS last_moved_at'))
+            ->where('mv_agg.movement_count', '>', 0)
+            ->orderBy('mv_agg.movement_count', 'asc')
             ->take(10)
             ->get();
 
@@ -177,6 +183,13 @@ class DashboardController extends Controller
             ->whereYear('created_at', now()->year)
             ->whereMonth('created_at', now()->month)->count();
         $completionRate = $totalThisMonth > 0 ? round($completedThisMonth / $totalThisMonth * 100, 1) : 0;
+
+        // ── Deadstock Rate & SKU Aktif Bergerak ──────────────────────────────────
+        $deadstockRate  = $totalItems > 0 ? round($deadstockCount / $totalItems * 100, 1) : 0;
+        $activeSkuCount = StockMovement::whereYear('moved_at', now()->year)
+            ->whereMonth('moved_at', now()->month)
+            ->distinct('item_id')->count('item_id');
+        $activeSkuRate  = $totalItems > 0 ? round($activeSkuCount / $totalItems * 100, 1) : 0;
 
         // ── Alert & Jadwal ──────────────────────────────────────────────────────
         $lowStockAlerts = Item::with('category')
@@ -467,6 +480,7 @@ class DashboardController extends Controller
             // Rates
             'followGaRate', 'totalConfirms', 'followGaCount',
             'completionRate', 'totalThisMonth', 'completedThisMonth',
+            'deadstockRate', 'activeSkuCount', 'activeSkuRate',
             // Alert & jadwal
             'lowStockAlerts', 'deadstockStocks', 'recentMovements',
             'expiryStocks', 'scheduledInbound',

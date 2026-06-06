@@ -16,7 +16,11 @@ class RackController extends Controller
     public function index()
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
-        return view('location.racks.index', compact('warehouses'));
+        $defaultWarehouseId = Rack::where('racks.is_active', true)
+            ->join('warehouses', 'racks.warehouse_id', '=', 'warehouses.id')
+            ->where('warehouses.is_active', true)
+            ->value('racks.warehouse_id');
+        return view('location.racks.index', compact('warehouses', 'defaultWarehouseId'));
     }
 
     public function create()
@@ -223,7 +227,8 @@ class RackController extends Controller
                 ->where('is_active', true)
                 ->whereNotNull('dominant_category_id')
                 ->with('dominantCategory'),
-        ])->withCount('cells');
+        ])->withCount(['cells' => fn($q) => $q->where('is_active', true)->whereNotNull('baris')])
+          ->where('is_active', true);
         if ($request->filled('warehouse_id')) {
             $query->where('warehouse_id', $request->warehouse_id);
         }
@@ -235,7 +240,7 @@ class RackController extends Controller
             ->orderColumn('code', 'CAST(code AS UNSIGNED) $1, code $1')
             ->addColumn('lokasi', function ($row) {
                 $wh = $row->warehouse->name ?? '-';
-                return '<small class="text-muted">' . e($wh) . '</small>';
+                return '<span style="color:#212529;font-size:13px;">' . e($wh) . '</span>';
             })
             ->addColumn('kategori', function ($row) {
                 $categorizedCells = $row->cells->filter(fn($cell) => $cell->dominantCategory);

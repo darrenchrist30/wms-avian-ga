@@ -115,7 +115,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="fas fa-dna mr-2"></i>Batch Run GA
+                        <i class="fas fa-dna mr-2"></i>Rekomendasi Penempatan
                     </h5>
                 </div>
                 <div class="modal-body">
@@ -123,8 +123,8 @@
                     {{-- Loading state --}}
                     <div id="batchLoading" class="text-center py-4">
                         <div class="spinner-border text-success mb-3" style="width:3rem;height:3rem;"></div>
-                        <div class="font-weight-bold" id="batchLoadingText">Memproses GA...</div>
-                        <small class="text-muted">Harap tunggu, GA sedang berjalan untuk semua order yang dipilih</small>
+                        <div class="font-weight-bold" id="batchLoadingText">Memproses Rekomendasi...</div>
+                        <small class="text-muted">Harap tunggu, sistem sedang berjalan untuk semua order yang dipilih</small>
                     </div>
 
                     {{-- Results --}}
@@ -195,7 +195,7 @@
                     { data: 'DT_RowIndex',   name: 'DT_RowIndex',   orderable: false, searchable: false, className: 'text-center' },
                     { data: 'do_number',     name: 'do_number' },
                     { data: 'do_date',       name: 'do_date',       className: 'text-center' },
-                    { data: 'warehouse.name',name: 'warehouse.name',defaultContent: '-' },
+                    { data: 'warehouse_name', name: 'warehouses.name', defaultContent: '-' },
                     { data: 'items_count',   name: 'items_count',   orderable: false, searchable: false, className: 'text-center' },
                     { data: 'status_badge',  name: 'status',        orderable: false, searchable: false, className: 'text-center' },
                 ]
@@ -257,13 +257,13 @@
 
                 var doNumbers = Object.values(selectedIds).join(', ');
                 Swal.fire({
-                    title: 'Run GA Batch?',
-                    html: 'GA akan dijalankan untuk <strong>' + ids.length + ' order</strong>:<br>' +
+                    title: 'Jalankan Rekomendasi?',
+                    html: 'Rekomendasi akan dijalankan untuk <strong>' + ids.length + ' order</strong>:<br>' +
                           '<small class="text-muted">' + doNumbers + '</small><br><br>' +
-                          '<span class="text-warning"><i class="fas fa-clock mr-1"></i>Proses mungkin memerlukan beberapa menit.</span>',
+                          '<span class="text-warning"><i class="fas fa-clock mr-1"></i>Proses mungkin memerlukan beberapa detik.</span>',
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#28a745',
+                    confirmButtonColor: '#0d8564',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: '<i class="fas fa-dna mr-1"></i>Ya, Jalankan!',
                     cancelButtonText: 'Batal'
