@@ -810,7 +810,7 @@ function showNavLoader(navigateFn) {
 $('#btnProcessGA').on('click', function () {
     const url = $(this).data('url');
     Swal.fire({
-        title: 'Jalankan Genetic Algorithm?',
+        title: 'Jalankan Rekomendasi?',
         html: 'Sistem akan menghitung rekomendasi penempatan optimal.<br>'
             + '<small class="text-muted">Proses bisa memakan waktu 10–120 detik.</small>',
         icon: 'question',
@@ -822,10 +822,10 @@ $('#btnProcessGA').on('click', function () {
         if (!result.isConfirmed) return;
 
         Swal.fire({
-            title: 'GA Sedang Berjalan...',
+            title: 'Rekomendasi Sedang Berjalan...',
             html: '<div class="my-3"><div class="spinner-border text-success" style="width:3rem;height:3rem;"></div></div>'
-                + '<div class="font-weight-bold">Memproses GA...</div>'
-                + '<small class="text-muted">Harap tunggu, GA sedang berjalan untuk order ini</small>',
+                + '<div class="font-weight-bold">Memproses Rekomendasi...</div>'
+                + '<small class="text-muted">Harap tunggu, rekomendasi sedang berjalan untuk order ini</small>',
             allowOutsideClick: false,
             showConfirmButton: false,
         });
@@ -839,7 +839,7 @@ $('#btnProcessGA').on('click', function () {
                     const putAwayUrl = res.data?.redirect || '{{ route("putaway.queue") }}';
                     Swal.fire({
                         icon: 'success',
-                        title: 'GA Selesai & Diterima!',
+                        title: 'Rekomendasi Selesai & Diterima!',
                         html: res.message,
                         showConfirmButton: true,
                         confirmButtonText: '<i class="fas fa-dolly-flatbed mr-1"></i> Buka Antrian Put-Away',

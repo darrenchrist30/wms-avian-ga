@@ -694,6 +694,13 @@
 
                                             $isRowDone = $isDone || $alreadyConfirmedThisGa;
 
+                                            $cellInactive = !($gd->cell?->is_active ?? true)
+                                                || (
+                                                    $gd->cell?->baris !== null
+                                                    && $gd->cell->rack !== null
+                                                    && $gd->cell->baris > $gd->cell->rack->total_levels
+                                                );
+
                                             $isOver = false;
 
                                             $capRemain = $gd?->cell?->physical_capacity_remaining ?? 0;
@@ -757,13 +764,19 @@
                                             <td class="align-middle">
                                                 {{-- GA mode (default) --}}
                                                 <div class="send-to-ga-wrap">
-                                                    <div class="send-to-cell {{ $isRowDone ? 'done' : '' }}">
+                                                    <div class="send-to-cell {{ $isRowDone ? 'done' : ($cellInactive ? 'border-danger' : '') }}"
+                                                         style="{{ $cellInactive && !$isRowDone ? 'border-left:3px solid #dc3545;background:#fff5f5;' : '' }}">
                                                         <div class="d-flex justify-content-between align-items-center">
-                                                            <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}">
+                                                            <span class="cell-code {{ $isRowDone ? 'c-done' : 'c-ga' }}"
+                                                                  style="{{ $cellInactive && !$isRowDone ? 'color:#dc3545;text-decoration:line-through;' : '' }}">
                                                                 {{ $gd->cell?->physical_code ?? '-' }}
                                                             </span>
-                                                            @if (!$isRowDone && !auth()->user()->isOperator())
-                                                                <span class="badge badge-primary">GA Suggest</span>
+                                                            @if (!$isRowDone)
+                                                                @if ($cellInactive)
+                                                                    <span class="badge badge-danger">Cell Nonaktif</span>
+                                                                @elseif (!auth()->user()->isOperator())
+                                                                    <span class="badge badge-primary">GA Suggest</span>
+                                                                @endif
                                                             @endif
                                                         </div>
                                                         <small class="text-muted">
@@ -820,6 +833,19 @@
                                             <td class="text-center align-middle">
                                                 @if ($isRowDone)
                                                     <span class="text-muted">—</span>
+                                                @elseif ($cellInactive)
+                                                    <div class="d-flex flex-column align-items-center" style="gap:4px;">
+                                                        <small class="text-danger mb-1">
+                                                            <i class="fas fa-exclamation-triangle mr-1"></i>Cell nonaktif, gunakan Ganti Cell
+                                                        </small>
+                                                        <button type="button" class="btn btn-sm btn-warning btnAltCell"
+                                                            data-detail-id="{{ $detail->id }}"
+                                                            data-ga-detail-id="{{ $gd->id }}"
+                                                            data-cell-id="{{ $gd->cell_id }}"
+                                                            data-qty="{{ $gd->quantity }}">
+                                                            <i class="fas fa-exchange-alt mr-1"></i>Ganti Cell
+                                                        </button>
+                                                    </div>
                                                 @else
                                                     <div class="d-flex flex-column align-items-center" style="gap:4px;">
                                                         <button type="button" class="btn btn-sm btn-success btnConfirm"

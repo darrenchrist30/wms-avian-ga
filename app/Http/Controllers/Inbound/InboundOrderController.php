@@ -370,7 +370,7 @@ class InboundOrderController extends Controller
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'GA selesai. Fitness: ' . round($recommendation->fitness_score, 2) . '/100. Operator dapat langsung memulai put-away.',
+                'message' => 'Rekomendasi selesai. Operator dapat langsung memulai put-away.',
                 'data'    => [
                     'ga_recommendation_id' => $recommendation->id,
                     'fitness_score'        => $recommendation->fitness_score,
