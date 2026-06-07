@@ -54,7 +54,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('master')->name('master.')->group(function () {
-        $adminSup = ['role:admin,supervisor'];
+        $adminSup = 'role:admin,supervisor';
 
         Route::get('categories/datatable', [\App\Http\Controllers\Master\ItemCategoryController::class, 'datatable'])->name('categories.datatable');
         Route::get('categories/select2',   [\App\Http\Controllers\Master\ItemCategoryController::class, 'select2'])->name('categories.select2');
@@ -85,7 +85,7 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('location')->name('location.')->group(function () {
-        $adminSup = ['role:admin,supervisor'];
+        $adminSup = 'role:admin,supervisor';
 
         Route::get('warehouses/datatable', [\App\Http\Controllers\Location\WarehouseController::class, 'datatable'])->name('warehouses.datatable');
         Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class)
