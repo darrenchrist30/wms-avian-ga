@@ -10,6 +10,11 @@ use Yajra\DataTables\DataTables;
 
 class ItemCategoryController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:admin,supervisor')->only(['create', 'store', 'edit', 'update', 'destroy']);
+    }
+
     public function index()
     {
         return view('master.categories.index');

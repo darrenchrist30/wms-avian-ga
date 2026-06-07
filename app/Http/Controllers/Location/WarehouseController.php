@@ -12,6 +12,11 @@ use Yajra\DataTables\DataTables;
 
 class WarehouseController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:admin,supervisor')->only(['create', 'store', 'edit', 'update', 'destroy']);
+    }
+
     public function index()
     {
         return view('location.warehouses.index');

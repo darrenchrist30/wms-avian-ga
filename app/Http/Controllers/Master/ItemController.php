@@ -15,6 +15,11 @@ use Yajra\DataTables\DataTables;
 
 class ItemController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:admin,supervisor')->only(['create', 'store', 'edit', 'update', 'destroy', 'import']);
+    }
+
     public function index()
     {
         $categories = ItemCategory::where('is_active', true)->orderBy('name')->get();

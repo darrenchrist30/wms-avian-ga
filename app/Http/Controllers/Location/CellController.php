@@ -16,6 +16,11 @@ use Yajra\DataTables\DataTables;
 
 class CellController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:admin,supervisor')->only(['create', 'store', 'edit', 'update', 'destroy', 'applyColumnCategory']);
+    }
+
     public function index()
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();

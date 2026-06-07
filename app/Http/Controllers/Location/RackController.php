@@ -13,6 +13,11 @@ use Yajra\DataTables\DataTables;
 
 class RackController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('role:admin,supervisor')->only(['create', 'store', 'edit', 'update', 'destroy']);
+    }
+
     public function index()
     {
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
