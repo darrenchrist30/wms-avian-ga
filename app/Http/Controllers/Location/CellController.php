@@ -596,8 +596,10 @@ class CellController extends Controller
                 $editUrl  = route('location.cells.edit', $row->id);
                 $html  = '<div style="display:flex;gap:3px;flex-wrap:nowrap;justify-content:center;">';
                 $html .= '<a href="' . $stockUrl . '" class="btn btn-xs btn-info" title="Lihat Stok"><i class="fas fa-box"></i></a>';
-                $html .= '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a>';
-                $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                if (!auth()->user()->isOperator()) {
+                    $html .= '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a>';
+                    $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                }
                 $html .= '</div>';
                 return $html;
             })

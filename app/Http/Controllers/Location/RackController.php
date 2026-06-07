@@ -270,7 +270,9 @@ class RackController extends Controller
             ->addColumn('action', function ($row) {
                 $showUrl = route('location.racks.show', $row->id);
                 $html  = '<a href="' . $showUrl . '" class="btn btn-xs btn-primary" title="Detail"><i class="fas fa-eye"></i></a> ';
-                $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                if (!auth()->user()->isOperator()) {
+                    $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->code) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                }
                 return $html;
             })
             ->rawColumns(['lokasi', 'kategori', 'status_badge', 'action'])

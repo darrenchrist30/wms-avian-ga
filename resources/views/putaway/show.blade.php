@@ -570,9 +570,9 @@
                                             <span class="badge badge-success" style="font-size:9px">OK</span>
                                         </div>
                                         <div class="text-muted mb-1">Rack {{ $cap['rack'] }}</div>
-                                        <div class="d-flex justify-content-between" style="font-size:11px">
+                                        <div style="font-size:11px">
                                             <span>{{ $cap['item_count'] }} item · {{ $cap['total_qty'] }} unit order</span>
-                                            <span class="text-muted">Sisa: {{ $cap['remaining'] }}/{{ $cap['max'] }}</span>
+                                            <span class="text-muted"> · Sisa: {{ $cap['remaining'] }}/{{ $cap['max'] }}</span>
                                         </div>
                                         <div class="cap-bar-wrap mt-1">
                                             <div class="cap-bar-fill bg-secondary" style="width:{{ $usedPct }}%"></div>

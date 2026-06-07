@@ -54,23 +54,28 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('master')->name('master.')->group(function () {
+        $adminSup = ['role:admin,supervisor'];
+
         Route::get('categories/datatable', [\App\Http\Controllers\Master\ItemCategoryController::class, 'datatable'])->name('categories.datatable');
         Route::get('categories/select2',   [\App\Http\Controllers\Master\ItemCategoryController::class, 'select2'])->name('categories.select2');
-        Route::resource('categories', \App\Http\Controllers\Master\ItemCategoryController::class);
+        Route::resource('categories', \App\Http\Controllers\Master\ItemCategoryController::class)
+            ->middleware(['create' => $adminSup, 'store' => $adminSup, 'edit' => $adminSup, 'update' => $adminSup, 'destroy' => $adminSup]);
 
         Route::get('units/datatable', [\App\Http\Controllers\Master\UnitController::class, 'datatable'])->name('units.datatable');
         Route::get('units/select2',   [\App\Http\Controllers\Master\UnitController::class, 'select2'])->name('units.select2');
-        Route::resource('units', \App\Http\Controllers\Master\UnitController::class);
+        Route::resource('units', \App\Http\Controllers\Master\UnitController::class)
+            ->middleware(['create' => $adminSup, 'store' => $adminSup, 'edit' => $adminSup, 'update' => $adminSup, 'destroy' => $adminSup]);
 
         Route::get('affinities/datatable', [\App\Http\Controllers\Master\ItemAffinityController::class, 'datatable'])->name('affinities.datatable');
         Route::get('affinities',           [\App\Http\Controllers\Master\ItemAffinityController::class, 'index'])->name('affinities.index');
 
         Route::get('items/datatable', [\App\Http\Controllers\Master\ItemController::class, 'datatable'])->name('items.datatable');
         Route::get('items/template',  [\App\Http\Controllers\Master\ItemController::class, 'downloadTemplate'])->name('items.template');
-        Route::post('items/import',   [\App\Http\Controllers\Master\ItemController::class, 'import'])->name('items.import');
+        Route::post('items/import',   [\App\Http\Controllers\Master\ItemController::class, 'import'])->name('items.import')->middleware($adminSup);
         Route::get('items/scan',      [\App\Http\Controllers\Master\ItemController::class, 'scanPage'])->name('items.scan');
         Route::get('items/lookup',    [\App\Http\Controllers\Master\ItemController::class, 'lookup'])->name('items.lookup');
-        Route::resource('items', \App\Http\Controllers\Master\ItemController::class);
+        Route::resource('items', \App\Http\Controllers\Master\ItemController::class)
+            ->middleware(['create' => $adminSup, 'store' => $adminSup, 'edit' => $adminSup, 'update' => $adminSup, 'destroy' => $adminSup]);
         Route::get('items/{item}/barcode', [\App\Http\Controllers\Master\ItemController::class, 'barcode'])->name('items.barcode');
     });
 
@@ -80,20 +85,25 @@ Route::middleware(['auth', 'active.user'])->group(function () {
     |------------------------------------------------------------------
     */
     Route::prefix('location')->name('location.')->group(function () {
-        Route::get('warehouses/datatable', [\App\Http\Controllers\Location\WarehouseController::class, 'datatable'])->name('warehouses.datatable');
-        Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class);
+        $adminSup = ['role:admin,supervisor'];
 
-Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
+        Route::get('warehouses/datatable', [\App\Http\Controllers\Location\WarehouseController::class, 'datatable'])->name('warehouses.datatable');
+        Route::resource('warehouses', \App\Http\Controllers\Location\WarehouseController::class)
+            ->middleware(['create' => $adminSup, 'store' => $adminSup, 'edit' => $adminSup, 'update' => $adminSup, 'destroy' => $adminSup]);
+
+        Route::get('racks/datatable', [\App\Http\Controllers\Location\RackController::class, 'datatable'])->name('racks.datatable');
         Route::get('racks/select2',   [\App\Http\Controllers\Location\RackController::class, 'select2'])->name('racks.select2');
-        Route::resource('racks', \App\Http\Controllers\Location\RackController::class);
+        Route::resource('racks', \App\Http\Controllers\Location\RackController::class)
+            ->middleware(['create' => $adminSup, 'store' => $adminSup, 'edit' => $adminSup, 'update' => $adminSup, 'destroy' => $adminSup]);
 
         Route::get('cells/datatable', [\App\Http\Controllers\Location\CellController::class, 'datatable'])->name('cells.datatable');
         Route::get('cells/lookup',    [\App\Http\Controllers\Location\CellController::class, 'lookup'])->name('cells.lookup');
         Route::get('cells/bulk-qr',      [\App\Http\Controllers\Location\CellController::class, 'bulkQrLabel'])->name('cells.bulk-qr');
         Route::get('cells/column-qr',    [\App\Http\Controllers\Location\CellController::class, 'columnQrLabel'])->name('cells.column-qr');
         Route::get('cells/column-category/preview', [\App\Http\Controllers\Location\CellController::class, 'columnCategoryPreview'])->name('cells.column-category.preview');
-        Route::post('cells/column-category/apply',  [\App\Http\Controllers\Location\CellController::class, 'applyColumnCategory'])->name('cells.column-category.apply');
-        Route::resource('cells', \App\Http\Controllers\Location\CellController::class);
+        Route::post('cells/column-category/apply',  [\App\Http\Controllers\Location\CellController::class, 'applyColumnCategory'])->name('cells.column-category.apply')->middleware($adminSup);
+        Route::resource('cells', \App\Http\Controllers\Location\CellController::class)
+            ->middleware(['create' => $adminSup, 'store' => $adminSup, 'edit' => $adminSup, 'update' => $adminSup, 'destroy' => $adminSup]);
         Route::get('cells/{cell}/stock',    [\App\Http\Controllers\Location\CellController::class, 'stockDetail'])->name('cells.stock');
         Route::get('cells/{cell}/qr-label', [\App\Http\Controllers\Location\CellController::class, 'qrLabel'])->name('cells.qr-label');
     });

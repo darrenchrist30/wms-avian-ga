@@ -27,12 +27,14 @@
                                 <a href="{{ route('master.items.scan') }}" class="btn btn-sm btn-outline-primary">
                                     <i class="fas fa-barcode mr-2"></i>Scan Barcode
                                 </a>
+                                @if(!auth()->user()->isOperator())
                                 <button class="btn btn-sm btn-outline-success" data-toggle="modal" data-target="#modalImport">
                                     <i class="fas fa-file-excel mr-2"></i>Import Excel
                                 </button>
                                 <a href="{{ route('master.items.create') }}" class="btn btn-primary btn-sm">
                                     <i class="fas fa-plus mr-2"></i>Add
                                 </a>
+                                @endif
                             </div>
                         </div>
                     </div>

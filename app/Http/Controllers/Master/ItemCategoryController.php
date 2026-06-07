@@ -142,6 +142,7 @@ class ItemCategoryController extends Controller
                     : '<span class="badge badge-secondary">Nonaktif</span>';
             })
             ->addColumn('action', function ($row) {
+                if (auth()->user()->isOperator()) return '-';
                 $editUrl = route('master.categories.edit', $row->id);
                 $html  = '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a> ';
                 $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . $row->name . '" title="Hapus"><i class="fas fa-trash"></i></button>';

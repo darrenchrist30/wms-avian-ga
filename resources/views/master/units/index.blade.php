@@ -24,9 +24,11 @@
                                 <button class="btn btn-sm btn-outline-dark btnRefresh">
                                     <i class="fas fa-redo mr-2"></i>Refresh
                                 </button>
+                                @if(!auth()->user()->isOperator())
                                 <a href="{{ route('master.units.create') }}" class="btn btn-primary btn-sm">
                                     <i class="fas fa-plus mr-2"></i>Add
                                 </a>
+                                @endif
                             </div>
                         </div>
                     </div>

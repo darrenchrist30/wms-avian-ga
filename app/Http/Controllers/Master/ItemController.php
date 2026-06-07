@@ -330,10 +330,12 @@ class ItemController extends Controller
             })
             ->addColumn('action', function ($row) {
                 $barcodeUrl = route('master.items.barcode', $row->id);
-                $editUrl    = route('master.items.edit', $row->id);
                 $html  = '<a href="' . $barcodeUrl . '" class="btn btn-xs btn-info" title="Barcode"><i class="fas fa-barcode"></i></a> ';
-                $html .= '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a> ';
-                $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->name) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                if (!auth()->user()->isOperator()) {
+                    $editUrl = route('master.items.edit', $row->id);
+                    $html .= '<a href="' . $editUrl . '" class="btn btn-xs btn-warning" title="Edit"><i class="fas fa-edit"></i></a> ';
+                    $html .= '<button class="btn btn-xs btn-danger btnDel" data-id="' . $row->id . '" data-name="' . e($row->name) . '" title="Hapus"><i class="fas fa-trash"></i></button>';
+                }
                 return $html;
             })
             ->rawColumns(['nama_info', 'category_badge', 'stok_badge', 'status_badge', 'action'])
