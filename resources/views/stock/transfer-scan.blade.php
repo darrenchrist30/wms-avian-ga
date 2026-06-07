@@ -464,7 +464,7 @@ function setPhase(nextPhase) {
     if (nextPhase === 'target') {
         $('#stepTarget').addClass('active');
         $('#scanInput').addClass('scan-pulse');
-        setAlert('info', '<i class="fas fa-map-marker-alt mr-2"></i><strong>Scan cell tujuan</strong> — arahkan scanner ke QR / barcode lokasi tujuan.');
+        setAlert('info', '<i class="fas fa-map-marker-alt mr-2"></i><strong>Scan cell tujuan</strong> - arahkan scanner ke QR / barcode lokasi tujuan.');
         if (selectedCart.length) {
             const fromCode = sourceCell ? sourceCell.code : '—';
             $('#previewToHeader').text('Tujuan');
