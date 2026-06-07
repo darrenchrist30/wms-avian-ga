@@ -108,7 +108,7 @@
         @if ($order->status === 'inbound')
         <button class="btn btn-sm btn-primary" id="btnProcessGA"
             data-url="{{ route('inbound.orders.process-ga', $order->id) }}">
-            <i class="fas fa-dna mr-1"></i>Jalankan GA
+            <i class="fas fa-dna mr-1"></i>Jalankan Rekomendasi
         </button>
         @endif
 
@@ -133,8 +133,8 @@
         <ul class="wms-stepper">
             @php
                 $stepDefs = [
-                    ['label'=>'DO Diterima', 'icon'=>'fas fa-inbox'],
-                    ['label'=>'GA & Put-Away','icon'=>'fas fa-dna'],
+                    ['label'=>'SJ Diterima', 'icon'=>'fas fa-inbox'],
+                    ['label'=>'Put-Away','icon'=>'fas fa-dna'],
                     ['label'=>'Selesai',     'icon'=>'fas fa-check-circle'],
                 ];
             @endphp
@@ -158,13 +158,13 @@
     <div class="card-header py-2">
         <span class="font-weight-bold">
             <i class="fas fa-info-circle mr-1 text-primary"></i>
-            Informasi Delivery Order
+            Informasi Surat Jalan
         </span>
     </div>
     <div class="card-body py-3">
         <div class="row">
             <div class="col-6 col-md-3 info-block mb-3">
-                <small>No. Delivery Order</small>
+                <small>No. Surat Jalan</small>
                 <div class="val">{{ $order->do_number }}</div>
             </div>
             <div class="col-6 col-md-2 info-block mb-3">
@@ -709,20 +709,19 @@
             <div class="col-md-5 mb-3">
                 <div class="rounded border border-primary p-3 h-100">
                     <i class="fas fa-dna fa-2x text-primary mb-2 d-block"></i>
-                    <strong>Step 1 — Jalankan GA</strong>
+                    <strong>Step 1 - Jalankan Rekomendasi</strong>
                     <p class="small text-muted mt-1 mb-0">
-                        Klik <strong>Jalankan GA</strong> untuk mendapatkan rekomendasi penempatan optimal.
-                        Sistem otomatis menerima hasil GA dan order langsung siap <em>put-away</em>.
+                        Klik <strong>Jalankan Rekomendasi</strong> untuk mendapatkan rekomendasi penempatan optimal.
+                        Sistem otomatis menerima hasil rekomendasi dan order langsung siap <em>put-away</em>.
                     </p>
                 </div>
             </div>
             <div class="col-md-5 mb-3">
                 <div class="rounded border p-3 h-100">
                     <i class="fas fa-dolly fa-2x text-success mb-2 d-block"></i>
-                    <strong>Step 2 — Put-Away</strong>
+                    <strong>Step 2 - Put-Away</strong>
                     <p class="small text-muted mt-1 mb-0">
-                        Operator put-away barang ke cell yang direkomendasikan GA dengan scan QR.
-                        Supervisor dapat meng-override lokasi jika diperlukan.
+                        Operator put-away barang ke cell yang direkomendasikan sistem dengan scan QR, tetapi operator tetap bisa menaruh barang di lokasi lain.
                     </p>
                 </div>
             </div>
