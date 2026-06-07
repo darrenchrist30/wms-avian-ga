@@ -60,7 +60,14 @@ class Warehouse3DController extends Controller
                 'total_cells'   => $totalCells,
                 'total_sku'     => Stock::where('warehouse_id', $wid)->where('status', 'available')->distinct('item_id')->count('item_id'),
                 'used_cells'    => $usedCells,
-                'full_cells'    => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->where('status', 'full')->count(),
+                'full_cells'    => DB::table('cells as c')
+                    ->join('racks as r', 'c.rack_id', '=', 'r.id')
+                    ->where('r.warehouse_id', $wid)
+                    ->where('c.is_active', true)
+                    ->whereNotNull('c.blok')->whereNotNull('c.grup')->whereNotNull('c.kolom')
+                    ->groupBy('c.blok', 'c.grup', 'c.kolom')
+                    ->havingRaw("SUM(CASE WHEN c.status = 'full' THEN 1 ELSE 0 END) = COUNT(*)")
+                    ->get()->count(),
                 'blocked_cells' => Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->where('status', 'blocked')->count(),
             ];
             $summary['utilization'] = $totalCells > 0
@@ -91,7 +98,6 @@ class Warehouse3DController extends Controller
 
         $warehouse = Warehouse::find($warehouseId);
         $parentRacks = Rack::where('warehouse_id', $warehouseId)
-            ->where('is_active', true)
             ->whereRaw("code NOT REGEXP '^[0-9]+[A-H]$'")
             ->with([
                 'cells'              => $cellLoader,
@@ -174,14 +180,18 @@ class Warehouse3DController extends Controller
                 $mspartMapped  = collect($mspartCells->map($mapCell)->all());
                 $allCells      = $regularMapped->merge($mspartMapped)->values();
 
+                $subRackGroup   = $subRacks->get($rack->code) ?? collect();
+                $totalLevels    = $subRackGroup->max('total_levels') ?? $rack->total_levels ?? 7;
+                $totalColumns   = $subRackGroup->max('total_columns') ?? $rack->total_columns ?? 1;
+
                 return [
                     'rack_id'       => $rack->id,
                     'rack_code'     => $rack->code,
                     'pos_x'         => (float) ($rack->pos_x ?? 0),
                     'pos_z'         => (float) ($rack->pos_z ?? 0),
                     'rotation_y'    => (float) ($rack->rotation_y ?? 0),
-                    'total_levels'  => (int)   ($rack->total_levels ?? 7),
-                    'total_columns' => (int)   ($rack->total_columns ?? 1),
+                    'total_levels'  => (int)   $totalLevels,
+                    'total_columns' => (int)   $totalColumns,
                     'cells'         => $allCells,
                 ];
             });
