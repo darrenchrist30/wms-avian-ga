@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Item;
 use App\Models\OutboundRequest;
 use App\Models\OutboundRequestItem;
+use App\Models\Stock;
 use App\Models\User;
 use App\Models\Warehouse;
 use Illuminate\Http\Request;
@@ -110,6 +111,60 @@ class OutboundRequestController extends Controller
             ?? $warehouses->first(fn($w) => stripos($w->name, 'sparepart') !== false)?->id;
 
         return view('outbound.requests.create', compact('warehouses', 'items', 'defaultWarehouseId'));
+    }
+
+    // ── CHECK STOCK (AJAX pre-submit validation) ──────────────────────────────
+    // POST /outbound/requests/check-stock
+    public function checkStock(Request $request)
+    {
+        $rows    = $request->input('items', []);
+        $allOk   = true;
+        $results = [];
+
+        foreach ($rows as $row) {
+            $itemId = (int) ($row['item_id'] ?? 0);
+            $qtyReq = (int) ($row['qty'] ?? 0);
+
+            $item = Item::with('unit')->find($itemId);
+            if (!$item) {
+                continue;
+            }
+
+            $available = (int) Stock::where('item_id', $itemId)
+                ->where('status', 'available')
+                ->where('quantity', '>', 0)
+                ->sum('quantity');
+
+            $locations = Stock::where('item_id', $itemId)
+                ->where('status', 'available')
+                ->where('quantity', '>', 0)
+                ->with('cell')
+                ->get()
+                ->pluck('cell.code')
+                ->filter()
+                ->unique()
+                ->take(5)
+                ->values()
+                ->toArray();
+
+            $sufficient = $available >= $qtyReq;
+            if (!$sufficient) {
+                $allOk = false;
+            }
+
+            $results[] = [
+                'item_id'    => $itemId,
+                'name'       => $item->name,
+                'sku'        => $item->sku,
+                'unit'       => $item->unit?->code ?? 'pcs',
+                'qty_req'    => $qtyReq,
+                'available'  => $available,
+                'sufficient' => $sufficient,
+                'locations'  => $locations,
+            ];
+        }
+
+        return response()->json(['all_ok' => $allOk, 'items' => $results]);
     }
 
     // ── STORE ─────────────────────────────────────────────────────────────────

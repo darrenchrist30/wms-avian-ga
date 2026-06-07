@@ -180,8 +180,9 @@ Route::middleware(['auth', 'active.user'])->group(function () {
         Route::prefix('requests')->name('requests.')->group(function () {
             Route::get('/',           [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'index'])->name('index');
             Route::get('/datatable',  [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'datatable'])->name('datatable');
-            Route::get('/create',     [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'create'])->name('create');
-            Route::post('/',          [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'store'])->name('store');
+            Route::get('/create',        [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'create'])->name('create');
+            Route::post('/check-stock',  [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'checkStock'])->name('check-stock');
+            Route::post('/',             [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'store'])->name('store');
             Route::get('/{id}',       [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'show'])->name('show');
             Route::post('/{id}/approve', [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'approve'])->name('approve')->middleware('role:admin,supervisor');
             Route::post('/{id}/reject',  [\App\Http\Controllers\Outbound\OutboundRequestController::class, 'reject'])->name('reject')->middleware('role:admin,supervisor');

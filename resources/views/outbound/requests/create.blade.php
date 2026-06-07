@@ -450,13 +450,104 @@ $(function () {
     });
 
     /* ── Form submit guard ───────────────────────────────────────── */
+    var _forceSubmit = false;
+
     $('#formRequest').on('submit', function (e) {
         if (Object.keys(selectedItems).length === 0) {
             e.preventDefault();
             Swal.fire('Item kosong', 'Tambahkan minimal 1 item sebelum mengajukan request.', 'warning');
             return false;
         }
-        $('#btnSubmit').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Mengirim...');
+
+        if (_forceSubmit) {
+            $('#btnSubmit').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Mengirim...');
+            return true;
+        }
+
+        e.preventDefault();
+
+        // Kumpulkan items dari form
+        var items = [];
+        $('#itemRows tr[id^="item-row-"]').each(function () {
+            var itemId = $(this).data('item-id');
+            var qty    = parseInt($(this).find('input[type="number"]').val()) || 1;
+            items.push({ item_id: itemId, qty: qty });
+        });
+
+        $('#btnSubmit').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Memeriksa stok...');
+
+        $.ajax({
+            url:  '{{ route("outbound.requests.check-stock") }}',
+            type: 'POST',
+            data: JSON.stringify({ items: items, _token: '{{ csrf_token() }}' }),
+            contentType: 'application/json',
+            success: function (res) {
+                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-paper-plane mr-1"></i> Kirim');
+
+                if (res.all_ok) {
+                    _forceSubmit = true;
+                    $('#formRequest').submit();
+                    return;
+                }
+
+                // Ada item yang stoknya kurang — bangun tabel detail
+                var insufficient = res.items.filter(function (i) { return !i.sufficient; });
+                var tableRows = insufficient.map(function (i) {
+                    var locText = i.locations.length
+                        ? i.locations.map(function (l) { return '<code style="font-size:11px;">' + escHtml(l) + '</code>'; }).join(' ')
+                        : '<span class="text-muted">–</span>';
+                    return '<tr>'
+                        + '<td style="text-align:left;padding:6px 8px;">'
+                        +   '<div style="font-weight:600;font-size:13px;">' + escHtml(i.name) + '</div>'
+                        +   '<div style="font-size:11px;color:#9ca3af;">' + escHtml(i.sku) + '</div>'
+                        + '</td>'
+                        + '<td style="text-align:center;padding:6px 8px;color:#dc2626;font-weight:700;">' + i.qty_req + ' ' + escHtml(i.unit) + '</td>'
+                        + '<td style="text-align:center;padding:6px 8px;color:#059669;font-weight:700;">' + i.available + ' ' + escHtml(i.unit) + '</td>'
+                        + '<td style="text-align:left;padding:6px 8px;">' + locText + '</td>'
+                        + '</tr>';
+                }).join('');
+
+                var html = '<div style="font-size:13px;text-align:left;">'
+                    + '<p style="margin-bottom:10px;color:#374151;">Item berikut <strong>stoknya tidak mencukupi</strong> permintaan:</p>'
+                    + '<div style="overflow-x:auto;">'
+                    + '<table style="width:100%;border-collapse:collapse;font-size:12px;">'
+                    + '<thead><tr style="background:#f3f4f6;">'
+                    +   '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e5e7eb;">Item</th>'
+                    +   '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #e5e7eb;">Diminta</th>'
+                    +   '<th style="padding:6px 8px;text-align:center;border-bottom:1px solid #e5e7eb;">Tersedia</th>'
+                    +   '<th style="padding:6px 8px;text-align:left;border-bottom:1px solid #e5e7eb;">Lokasi Stok</th>'
+                    + '</tr></thead>'
+                    + '<tbody>' + tableRows + '</tbody>'
+                    + '</table></div>'
+                    + '<p style="margin-top:10px;margin-bottom:0;color:#6b7280;font-size:12px;">Tetap kirim request? Supervisor akan melihat kekurangan stok ini.</p>'
+                    + '</div>';
+
+                Swal.fire({
+                    title: '<span style="font-size:18px;">⚠️ Stok Tidak Cukup</span>',
+                    html:  html,
+                    icon:  'warning',
+                    showCancelButton:   true,
+                    confirmButtonText:  '<i class="fas fa-paper-plane mr-1"></i> Tetap Kirim',
+                    cancelButtonText:   '<i class="fas fa-times mr-1"></i> Batal',
+                    confirmButtonColor: '#d97706',
+                    cancelButtonColor:  '#6b7280',
+                    width: 600,
+                }).then(function (result) {
+                    if (result.isConfirmed) {
+                        _forceSubmit = true;
+                        $('#formRequest').submit();
+                    }
+                });
+            },
+            error: function () {
+                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-paper-plane mr-1"></i> Kirim');
+                // Gagal cek stok → tetap lanjut submit (jangan blok user)
+                _forceSubmit = true;
+                $('#formRequest').submit();
+            }
+        });
+
+        return false;
     });
 
     /* ── Helpers ─────────────────────────────────────────────────── */
