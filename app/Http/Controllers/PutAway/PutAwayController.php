@@ -58,19 +58,21 @@ class PutAwayController extends Controller
             ->when($endDate, fn($q) => $q->whereDate('do_date', '<=', $endDate))
 ;
 
-        // Antrian aktif — tampil kalau status = '' (semua) atau 'put_away'
-        $orders = $filterStatus === 'completed'
-            ? collect()
-            : (clone $base)->where('status', 'put_away')->orderByDesc('created_at')->orderByDesc('do_date')->get();
+        $statusFilter = match($filterStatus) {
+            'put_away'  => ['put_away'],
+            'completed' => ['completed'],
+            default     => ['put_away', 'completed'],
+        };
 
-        // Riwayat completed — tampil kalau status = '' (semua) atau 'completed'
-        $completedOrders = $filterStatus === 'put_away'
-            ? collect()
-            : (clone $base)->where('status', 'completed')->orderByDesc('processed_at')->orderByDesc('do_date')->get();
+        $allOrders = (clone $base)
+            ->whereIn('status', $statusFilter)
+            ->orderByDesc('created_at')
+            ->orderByDesc('do_date')
+            ->get();
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 
-        return view('putaway.index', compact('orders', 'completedOrders', 'warehouses'));
+        return view('putaway.index', compact('allOrders', 'warehouses'));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -132,115 +132,67 @@
             </div>
         </div>
 
-{{-- ══════════════════════════════════════════════════════
-         ANTRIAN AKTIF — disembunyikan kalau filter = completed
-    ══════════════════════════════════════════════════════ --}}
-        @if (request('status') !== 'completed')
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0 text-muted font-weight-bold" style="font-size:12px;letter-spacing:.5px">
+                <i class="fas fa-stream mr-1"></i> ANTRIAN PUT-AWAY
+                <small class="font-weight-normal ml-1">({{ $allOrders->count() }} order)</small>
+            </h6>
+        </div>
 
-            @php $filterLabel = match(request('status')) {
-                'put_away' => 'Sedang Berjalan',
-                default    => 'Aktif',
-            }; @endphp
-
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0 text-muted font-weight-bold" style="font-size:12px;letter-spacing:.5px">
-                    <i class="fas fa-stream mr-1"></i> ANTRIAN PUT-AWAY
-                    @if (request('status'))
-                        (<span class="text-primary">{{ $filterLabel }}</span>)
-                    @endif
-                    @if ($orders->count() > 0)
-                        <small class="font-weight-normal ml-1">({{ $orders->count() }} order)</small>
-                    @endif
-                </h6>
-            </div>
-
-            <div class="card shadow-sm">
-                <div class="card-body p-0">
-                    <table id="tblOrders" class="table table-hover table-striped mb-0" style="width:100%">
-                        <thead>
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <table id="tblOrders" class="table table-hover table-striped mb-0" style="width:100%">
+                    <thead>
+                        <tr>
+                            <th>No SJ</th>
+                            <th>Tanggal SJ</th>
+                            <th>Gudang</th>
+                            <th class="text-center">Status</th>
+                            <th>Progress</th>
+                            <th class="text-center" style="width:140px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($allOrders as $order)
+                            @php
+                                $done      = $order->put_away_count;
+                                $total     = $order->items_count;
+                                $pct       = $total > 0 ? round(($done / $total) * 100) : 0;
+                                $isActive  = $order->status === 'put_away';
+                            @endphp
                             <tr>
-                                <th>No SJ</th>
-                                <th>Tanggal SJ</th>
-                                <th>Gudang</th>
-                                <th>Progress</th>
-                                <th class="text-center" style="width:160px;">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($orders as $order)
-                                @php
-                                    $done  = $order->put_away_count;
-                                    $total = $order->items_count;
-                                    $pct   = $total > 0 ? round(($done / $total) * 100) : 0;
-                                @endphp
-                                <tr>
-                                    <td>
-                                        <span style="font-weight:600;color:#13283f;">{{ $order->do_number }}</span>
-                                    </td>
-                                    <td>{{ $order->do_date ? $order->do_date->format('d M Y') : $order->created_at->format('d M Y') }}</td>
-                                    <td>{{ $order->warehouse?->name ?? '-' }}</td>
-                                    <td style="min-width:140px;">
-                                        <div class="d-flex align-items-center" style="gap:8px;">
-                                            <div class="progress flex-grow-1" style="height:8px;border-radius:4px;">
-                                                <div class="progress-bar" role="progressbar"
-                                                    style="width:{{ $pct }}%;background-color:#0d8564;"></div>
-                                            </div>
-                                            <small style="white-space:nowrap;font-size:11px;color:#6c757d;">{{ $done }}/{{ $total }}</small>
+                                <td><span style="font-weight:600;color:#13283f;">{{ $order->do_number }}</span></td>
+                                <td>{{ $order->do_date ? $order->do_date->format('d M Y') : $order->created_at->format('d M Y') }}</td>
+                                <td>{{ $order->warehouse?->name ?? '-' }}</td>
+                                <td class="text-center">
+                                    @if ($isActive)
+                                        <span class="badge badge-success">Berjalan</span>
+                                    @else
+                                        <span class="badge badge-secondary">Selesai</span>
+                                    @endif
+                                </td>
+                                <td style="min-width:140px;">
+                                    <div class="d-flex align-items-center" style="gap:8px;">
+                                        <div class="progress flex-grow-1" style="height:8px;border-radius:4px;">
+                                            <div class="progress-bar" role="progressbar"
+                                                style="width:{{ $pct }}%;background-color:{{ $isActive ? '#0d8564' : '#6c757d' }};"></div>
                                         </div>
-                                    </td>
-                                    <td class="text-center">
-                                        <a href="{{ route('putaway.show', $order->id) }}"
-                                           class="btn btn-sm btn-primary" style="white-space:nowrap;">
-                                            <i class="fas fa-dolly mr-1"></i>
-                                            {{ $done > 0 ? 'Lanjutkan' : 'Mulai' }}
-                                        </a>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-        @endif {{-- end antrian aktif --}}
-
-        {{-- ══════════════════════════════════════════════════════
-         RIWAYAT PUT-AWAY (Completed)
-         Disembunyikan kalau filter = recommended atau put_away
-    ══════════════════════════════════════════════════════ --}}
-        @if ($completedOrders->isNotEmpty())
-            <div class="card shadow-sm">
-                <div class="card-body p-0">
-                    <table id="tblCompleted" class="table table-hover table-striped mb-0" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>No SJ</th>
-                                <th>Tanggal Selesai</th>
-                                <th>Gudang</th>
-                                <th>Item</th>
-                                <th class="text-center" style="width:120px;">Aksi</th>
+                                        <small style="white-space:nowrap;font-size:11px;color:#6c757d;">{{ $done }}/{{ $total }}</small>
+                                    </div>
+                                </td>
+                                <td class="text-center">
+                                    <a href="{{ route('putaway.show', $order->id) }}"
+                                       class="btn btn-sm {{ $isActive ? 'btn-primary' : 'btn-outline-secondary' }}" style="white-space:nowrap;">
+                                        <i class="fas fa-{{ $isActive ? 'dolly' : 'eye' }} mr-1"></i>
+                                        {{ $isActive ? ($done > 0 ? 'Lanjutkan' : 'Mulai') : 'Detail' }}
+                                    </a>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($completedOrders as $order)
-                                <tr>
-                                    <td><span style="font-weight:600;color:#13283f;">{{ $order->do_number }}</span></td>
-                                    <td>{{ $order->processed_at ? $order->processed_at->format('d M Y') : $order->updated_at->format('d M Y') }}</td>
-                                    <td>{{ $order->warehouse?->name ?? '-' }}</td>
-                                    <td>{{ $order->put_away_count }} / {{ $order->items_count }} item</td>
-                                    <td class="text-center">
-                                        <a href="{{ route('putaway.show', $order->id) }}"
-                                           class="btn btn-sm btn-outline-secondary">
-                                            <i class="fas fa-eye mr-1"></i> Detail
-                                        </a>
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-        @endif
+        </div>
 
     </div>
 @endsection
@@ -248,20 +200,11 @@
 @push('scripts')
 <script>
 $(function() {
-    @if (request('status') !== 'completed')
     $('#tblOrders').DataTable({
         order: [],
         pageLength: 25,
-        columnDefs: [{ orderable: false, targets: 4 }]
+        columnDefs: [{ orderable: false, targets: 5 }]
     });
-    @endif
-    @if ($completedOrders->isNotEmpty())
-    $('#tblCompleted').DataTable({
-        order: [],
-        pageLength: 25,
-        columnDefs: [{ orderable: false, targets: 4 }]
-    });
-    @endif
 });
 </script>
 @endpush
