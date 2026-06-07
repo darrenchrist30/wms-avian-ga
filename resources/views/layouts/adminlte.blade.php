@@ -1379,6 +1379,7 @@
                             </a>
                         </li>
 
+                        @if(!auth()->user()->isOperator())
                         {{-- ═══ 1. DATA MASTER ═══ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">DATA MASTER
                         </li>
@@ -1445,6 +1446,7 @@
                                 {{-- Co-Occurrence disembunyikan --}}
                             </ul>
                         </li>
+                        @endif
 
                         {{-- ═══ 2. PENERIMAAN ═══ --}}
                         <li class="nav-header" style="color:#6b7280;font-size:10px;letter-spacing:1px;">PENERIMAAN

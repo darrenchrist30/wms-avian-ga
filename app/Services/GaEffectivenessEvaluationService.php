@@ -325,49 +325,31 @@ class GaEffectivenessEvaluationService
 
     private function buildRandomAssignments(Collection $details, Collection $cells, array $cellSnapshot, int $seed): array
     {
-        $remaining = collect($cellSnapshot)->map(fn(array $row) => $row['capacity_remaining'])->all();
         $assignments = [];
         mt_srand($seed);
 
         foreach ($details->sortBy('id') as $detail) {
             $item = $detail->item;
             $qty = (int) $detail->quantity_received;
-            $demandByCell = [];
 
-            foreach ($cells as $cell) {
-                if ((int) $cell->rack?->warehouse_id !== (int) $detail->inboundOrder?->warehouse_id) {
-                    continue;
-                }
-                $demandByCell[$cell->id] = $this->demandForCellSnapshot($item, $qty, $cell, $cellSnapshot);
-            }
-
-            $validCells = $cells
-                ->filter(fn(Cell $cell) => isset($demandByCell[$cell->id]) && ($remaining[$cell->id] ?? 0) >= $demandByCell[$cell->id])
+            // Baseline random murni: hanya menjaga gudang yang sama dan cell aktif.
+            // Kapasitas, kategori, afinitas, split, dan movement tidak dipakai saat memilih.
+            $candidateCells = $cells
+                ->filter(fn(Cell $cell) => (int) $cell->rack?->warehouse_id === (int) $detail->inboundOrder?->warehouse_id)
                 ->values();
 
-            $source = 'random_valid';
-            if ($validCells->isEmpty()) {
-                $validCells = $cells
-                    ->filter(fn(Cell $cell) => (int) $cell->rack?->warehouse_id === (int) $detail->inboundOrder?->warehouse_id)
-                    ->values();
-                $source = 'random_forced';
-            }
-
             $assignments[$detail->id] = $this->baseAssignment($detail);
-            if ($validCells->isEmpty()) {
+            if ($candidateCells->isEmpty()) {
                 $assignments[$detail->id]['notes'][] = 'Random unassigned: tidak ada cell aktif pada warehouse order.';
                 continue;
             }
 
-            $idx = mt_rand(0, $validCells->count() - 1);
-            $cell = $validCells->get($idx);
-            $demand = $demandByCell[$cell->id] ?? $this->capacityService->pointsForQuantity($item, $qty);
-            $remaining[$cell->id] = ($remaining[$cell->id] ?? 0) - $demand;
+            $idx = mt_rand(0, $candidateCells->count() - 1);
+            $cell = $candidateCells->get($idx);
+            $demand = $this->demandForCellSnapshot($item, $qty, $cell, $cellSnapshot);
 
-            $assignments[$detail->id]['placements'][] = $this->makePlacement($detail, $cell, $qty, $source, $demand);
-            if ($source === 'random_forced') {
-                $assignments[$detail->id]['notes'][] = 'Random dipaksa memilih cell aktif karena tidak ada cell dengan sisa kapasitas cukup.';
-            }
+            $assignments[$detail->id]['placements'][] = $this->makePlacement($detail, $cell, $qty, 'random_unconstrained', $demand);
+            $assignments[$detail->id]['notes'][] = 'Random baseline memilih cell aktif secara acak tanpa mempertimbangkan kapasitas, kategori, afinitas, split, atau movement.';
         }
 
         return $assignments;
