@@ -1626,6 +1626,10 @@ function showMspartRowDetail(blok, grup) {
                     </div>
                     <small class="text-muted">${overallUtil}%</small>
                 </div>
+                <div class="col-12 col-md-3 mb-2">
+                    <small class="text-muted">Kategori Dominan</small>
+                    <div class="font-weight-bold">${res.dominant_category ? `<span class="badge badge-info">${res.dominant_category}</span>` : '<span class="text-muted">—</span>'}</div>
+                </div>
             </div>
             <div class="p-2">
                 <strong class="d-block mb-2"><i class="fas fa-th-large mr-1 text-primary"></i>Ringkasan per Kolom &nbsp;<small class="text-muted font-weight-normal">klik baris tabel untuk melihat isi per baris</small></strong>

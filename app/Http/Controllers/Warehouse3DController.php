@@ -231,11 +231,27 @@ class Warehouse3DController extends Controller
             return response()->json(['error' => 'blok dan grup wajib diisi.'], 422);
         }
 
-        $columns = collect(range(1, 7))->map(function ($kolom) use ($blok, $grup, $barisRak) {
-            $cells        = Cell::where('blok', $blok)->where('grup', $grup)->where('kolom', $kolom)->whereNotNull('baris')->where('is_active', true)->get();
+        $allGrupCells = Cell::where('blok', $blok)->where('grup', $grup)
+            ->whereNotNull('baris')->where('is_active', true)
+            ->with('dominantCategory')
+            ->get();
+
+        // Dominant category: most common among cells that have one assigned
+        $dominantCategory = $allGrupCells
+            ->filter(fn($c) => $c->dominant_category_id)
+            ->groupBy('dominant_category_id')
+            ->sortByDesc(fn($group) => $group->count())
+            ->first()
+            ?->first()
+            ?->dominantCategory
+            ?->name ?? null;
+
+        $columns = collect(range(1, 7))->map(function ($kolom) use ($blok, $grup, $barisRak, $allGrupCells) {
+            $cells        = $allGrupCells->where('kolom', $kolom)->values();
             $barisCount   = $cells->count();
+            // Sum capacity_max per cell with a default of 100 for null values so denominator is correct
+            $capMax       = (int) $cells->sum(fn($c) => (int) ($c->capacity_max ?: 100));
             $capUsed      = (int) $cells->sum('capacity_used');
-            $capMax       = (int) ($cells->sum('capacity_max') ?: $barisCount * 20);
             $fullCount    = $cells->where('status', 'full')->count();
             $partialCount = $cells->where('status', 'partial')->count();
             $emptyCount   = $cells->filter(fn ($c) => (int) $c->capacity_used <= 0)->count();
@@ -260,11 +276,12 @@ class Warehouse3DController extends Controller
         });
 
         return response()->json([
-            'blok'    => $blok,
-            'grup'    => $grup,
-            'baris_rak' => $barisRak,
-            'label'   => "Blok {$blok} – Grup {$grup} – Baris {$barisRak}",
-            'columns' => $columns,
+            'blok'               => $blok,
+            'grup'               => $grup,
+            'baris_rak'          => $barisRak,
+            'label'              => "Blok {$blok} – Grup {$grup} – Baris {$barisRak}",
+            'dominant_category'  => $dominantCategory,
+            'columns'            => $columns,
         ]);
     }
 
