@@ -68,6 +68,7 @@ class GaEffectivenessEvaluationService
         $cells = Cell::with(['rack', 'dominantCategory'])
             ->where('is_active', true)
             ->where('status', '!=', 'blocked')
+            ->withinOperationalBaris()
             ->where(fn($q) => $q->whereNotNull('baris')->orWhereNull('blok'))
             ->whereHas('rack', fn($q) => $q->whereIn('warehouse_id', $warehouseIds))
             ->orderBy('blok')

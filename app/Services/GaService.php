@@ -192,6 +192,7 @@ class GaService
             ->whereNotNull('grup')
             ->whereNotNull('kolom')
             ->whereNotNull('baris')
+            ->where('baris', '<=', Cell::operationalBarisMax())
             ->whereRaw('cells.baris <= (SELECT racks.total_levels FROM racks WHERE racks.id = cells.rack_id)')
             ->with('rack')
             ->get();

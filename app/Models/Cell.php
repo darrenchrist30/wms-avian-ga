@@ -11,6 +11,8 @@ class Cell extends Model
 {
     use SoftDeletes, Auditable;
 
+    public const DEFAULT_OPERATIONAL_BARIS_MAX = 5;
+
     public function getAuditLabel(): string
     {
         return 'Sel ' . $this->physical_code;
@@ -24,6 +26,11 @@ class Cell extends Model
     ];
 
     protected $casts = ['is_active' => 'boolean'];
+
+    public static function operationalBarisMax(): int
+    {
+        return max(1, (int) config('warehouse.max_active_baris', self::DEFAULT_OPERATIONAL_BARIS_MAX));
+    }
 
     public function rack()
     {
@@ -53,6 +60,14 @@ class Cell extends Model
     public function deadstockNotifications()
     {
         return $this->hasMany(DeadstockNotification::class);
+    }
+
+    public function scopeWithinOperationalBaris($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('baris')
+                ->orWhere('baris', '<=', self::operationalBarisMax());
+        });
     }
 
     // Sisa kapasitas (dua nama alias agar kompatibel)

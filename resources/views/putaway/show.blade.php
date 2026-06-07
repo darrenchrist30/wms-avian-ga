@@ -534,7 +534,7 @@
         @endif
 
         {{-- ══════════════════════════════════════════════════════
-     RINGKASAN CELL YANG DIGUNAKAN GA
+     RINGKASAN CELL YANG DIGUNAKAN
 ══════════════════════════════════════════════════════ --}}
         @if (count($cellCapInfo) > 0 && $order->status !== 'completed')
             <div class="row mb-3">
@@ -543,7 +543,7 @@
                         <div class="card-header py-2">
                             <h6 class="mb-0" style="font-size:13px">
                                 <i class="fas fa-th mr-1"></i>
-                                Ringkasan Cell yang Digunakan GA
+                                Ringkasan Cell Hasil Rekomendasi Sistem
                                 {{-- <small class="text-muted font-weight-normal ml-2">
                                     — Kapasitas total sebelum put-away dilakukan
                                 </small> --}}
