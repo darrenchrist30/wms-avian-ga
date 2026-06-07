@@ -241,22 +241,6 @@ body { background: #f0f2f5; }
 #btnCamera { width: 44px; height: 44px; border-radius: 8px; font-size: 16px; flex-shrink: 0; }
 #scanInput { height: 44px; font-size: 16px; font-weight: 400; border-radius: 8px; flex: 1; min-width: 0; }
 #btnScan   { height: 44px; font-size: 14px; font-weight: 500; border-radius: 8px; padding: 0 18px; flex-shrink: 0; }
-.auto-toggle-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    flex-shrink: 0;
-    gap: 2px;
-}
-.auto-toggle-wrap label {
-    font-size: 10px;
-    color: #6c757d;
-    margin: 0;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .3px;
-    white-space: nowrap;
-}
 #scanMsg { font-size: 11px; margin-top: 4px; text-align: center; min-height: 0; }
 
 /* All done state */
@@ -310,9 +294,6 @@ body { background: #f0f2f5; }
 }
 #itemCounter.bumping { animation: counterBump 0.5s ease; }
 
-/* Quick confirm toggle button */
-#scanBar.qc-active { border-top-color: #0d8564; }
-#btnQuickConfirm:checked ~ .custom-control-label::before { background-color: #0d8564; border-color: #0d8564; }
 
 /* ── Mobile (< 576px) ───────────────────────────────────────── */
 @media (max-width: 575px) {
@@ -334,7 +315,6 @@ body { background: #f0f2f5; }
     #btnScan   { height: 40px; font-size: 13px; padding: 0 12px; }
     #scanInput { height: 40px; font-size: 14px; }
     #scanBar   { padding: 8px 12px; }
-    #btnQuickConfirm { height: 48px; padding: 0 14px; font-size: 14px; }
     .container-fluid { padding-left: 8px !important; padding-right: 8px !important; }
     .cap-bar { width: 70px; }
 }
@@ -649,13 +629,6 @@ body { background: #f0f2f5; }
         <button type="button" id="btnScan" class="btn" style="background:#0d8564;color:#fff;border-color:#0d8564;">
             <i class="fas fa-search mr-1"></i> Cari
         </button>
-        <div class="auto-toggle-wrap" title="Auto konfirmasi: scan langsung simpan tanpa muncul modal">
-            <label for="btnQuickConfirm">Auto</label>
-            <div class="custom-control custom-switch" style="padding-left:2.5rem;">
-                <input type="checkbox" class="custom-control-input" id="btnQuickConfirm">
-                <label class="custom-control-label" for="btnQuickConfirm"></label>
-            </div>
-        </div>
     </div>
     <div id="scanMsg" class="text-muted"></div>
 </div>
@@ -721,7 +694,6 @@ var totalRemaining  = {{ $items->count() }};
 var filterAllActive = {{ $allActive ? 1 : 0 }};
 var filterStartDate = '{{ $startDate }}';
 var filterEndDate   = '{{ $endDate }}';
-var quickConfirm    = localStorage.getItem('putaway_quick_confirm') === '1';
 
 function applyOperatorSearch() {
     var term = ($('#operatorSearchInput').val() || '').toLowerCase().trim();
@@ -799,11 +771,7 @@ $('#scanInput').on('keydown', function(e) {
 $('#btnScan').on('click', function() { doScan($('#scanInput').val().trim()); });
 
 function resetScanMsg() {
-    if (quickConfirm) {
-        setScanMsg('Auto konfirmasi aktif', 'text-muted');
-    } else {
-        setScanMsg('', 'text-muted');
-    }
+    setScanMsg('', 'text-muted');
 }
 
 function doScan(code) {
@@ -835,17 +803,8 @@ function doScan(code) {
             // Cek apakah ada item yang perlu split kapasitas
             var hasSplit = res.items.some(function(i) { return i.requires_split && i.split_quantity > 0; });
 
-            if (quickConfirm && !hasSplit) {
-                // Quick confirm: langsung POST tanpa tampilkan modal
-                doQuickConfirm(res);
-            } else {
-                // Normal flow: tampilkan modal konfirmasi
-                if (quickConfirm && hasSplit) {
-                    // Ada split — wajib manual, beri tahu operator
-                    setScanMsg('<i class="fas fa-exclamation-circle mr-1"></i> Ada item dengan kapasitas sebagian — perlu konfirmasi manual.', 'text-warning');
-                } else {
-                    resetScanMsg();
-                }
+            {
+                resetScanMsg();
                 buildConfirmModal(res);
                 $('#modalConfirm').modal('show');
             }
@@ -968,55 +927,6 @@ function handleConfirmSuccess(serverRes, confirmedItems) {
 
 // ── Quick confirm: langsung POST tanpa modal ──────────────────────────────
 
-function doQuickConfirm(scanRes) {
-    setScanMsg('<i class="fas fa-spinner fa-spin mr-1"></i> Menyimpan...', 'text-muted');
-
-    var payload = scanRes.items.map(function(item) {
-        return {
-            cell_id:      item.cell_id,
-            order_id:     item.order_id,
-            detail_id:    item.detail_id,
-            ga_detail_id: item.ga_detail_id || null,
-            quantity:     item.primary_quantity,
-            is_override:  0,
-        };
-    });
-
-    $.ajax({
-        url:  batchConfirmUrl,
-        type: 'POST',
-        data: { _token: csrfToken, items: payload },
-        success: function(res) {
-            if (res.status === 'success') {
-                handleConfirmSuccess(res, pendingItems);
-            } else {
-                Swal.fire('Gagal', res.message || 'Terjadi kesalahan.', 'error');
-                resetScanMsg();
-                pendingItems = null;
-            }
-        },
-        error: function(xhr) {
-            Swal.fire('Error', xhr.responseJSON?.message || 'Gagal menyimpan. Coba lagi.', 'error');
-            resetScanMsg();
-            pendingItems = null;
-        }
-    });
-}
-
-// ── Quick confirm toggle ──────────────────────────────────────────────────
-
-function applyQuickConfirmUI() {
-    $('#btnQuickConfirm').prop('checked', quickConfirm);
-    $('#scanBar').toggleClass('qc-active', quickConfirm);
-    resetScanMsg();
-}
-
-$('#btnQuickConfirm').on('change', function() {
-    quickConfirm = $(this).is(':checked');
-    localStorage.setItem('putaway_quick_confirm', quickConfirm ? '1' : '0');
-    applyQuickConfirmUI();
-    focusScan();
-});
 
 // ── Confirm submit ────────────────────────────────────────────────────────
 
