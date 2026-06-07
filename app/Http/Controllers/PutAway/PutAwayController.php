@@ -30,10 +30,11 @@ class PutAwayController extends Controller
 
     public function index(Request $request)
     {
-        $filterStatus = $request->input('status', '');  // '' | 'put_away' | 'completed'
+        $filterStatus = $request->input('status', '');  // '' = semua | 'put_away' | 'completed'
         $warehouseId  = $request->input('warehouse_id', '');
-        $startDate    = $request->input('start_date');
-        $endDate      = $request->input('end_date');
+        $today        = now()->format('Y-m-d');
+        $startDate    = $request->input('start_date', $today);
+        $endDate      = $request->input('end_date', $today);
 
         // Auto-redirect ke warehouse yang punya order aktif jika belum ada filter warehouse
         if (!$request->has('warehouse_id')) {
@@ -57,15 +58,15 @@ class PutAwayController extends Controller
             ->when($endDate, fn($q) => $q->whereDate('do_date', '<=', $endDate))
 ;
 
-        // Antrian aktif
+        // Antrian aktif — tampil kalau status = '' (semua) atau 'put_away'
         $orders = $filterStatus === 'completed'
             ? collect()
-            : (clone $base)->where('status', 'put_away')->orderByDesc('do_date')->orderByDesc('created_at')->get();
+            : (clone $base)->where('status', 'put_away')->orderByDesc('created_at')->orderByDesc('do_date')->get();
 
-        // Riwayat completed
-        $completedOrders = $filterStatus === 'completed'
-            ? (clone $base)->where('status', 'completed')->orderByDesc('do_date')->orderByDesc('processed_at')->get()
-            : collect();
+        // Riwayat completed — tampil kalau status = '' (semua) atau 'completed'
+        $completedOrders = $filterStatus === 'put_away'
+            ? collect()
+            : (clone $base)->where('status', 'completed')->orderByDesc('processed_at')->orderByDesc('do_date')->get();
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();
 
