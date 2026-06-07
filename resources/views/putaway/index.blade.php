@@ -69,7 +69,10 @@
                                 <i class="fas fa-tasks mr-1"></i> Status
                             </label>
                             <select name="status" class="form-control form-control-sm" onchange="this.form.submit()">
-                                <option value="put_away" {{ request('status', 'put_away') === 'put_away' ? 'selected' : '' }}>
+                                <option value="" {{ request('status', '') === '' ? 'selected' : '' }}>
+                                    Semua
+                                </option>
+                                <option value="put_away" {{ request('status') === 'put_away' ? 'selected' : '' }}>
                                     Sedang Berjalan
                                 </option>
                                 <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>
@@ -98,14 +101,14 @@
                             <label class="mb-1" style="font-size:12px;font-weight:600;color:#555">
                                 <i class="fas fa-calendar-alt mr-1"></i> Start Date
                             </label>
-                            <input type="date" name="start_date" value="{{ request('start_date') }}" class="form-control form-control-sm">
+                            <input type="date" name="start_date" value="{{ request('start_date', now()->format('Y-m-d')) }}" class="form-control form-control-sm">
                         </div>
 
                         <div class="col-6 col-md-2 mb-2 mb-md-0">
                             <label class="mb-1" style="font-size:12px;font-weight:600;color:#555">
                                 <i class="fas fa-calendar-check mr-1"></i> End Date
                             </label>
-                            <input type="date" name="end_date" value="{{ request('end_date') }}" class="form-control form-control-sm">
+                            <input type="date" name="end_date" value="{{ request('end_date', now()->format('Y-m-d')) }}" class="form-control form-control-sm">
                         </div>
 
                         <div class="col-auto mb-2 mb-md-0">
