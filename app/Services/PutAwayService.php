@@ -370,6 +370,48 @@ class PutAwayService
             }
         }
 
+        // Fallback: "blok-grup-kolom" (e.g. "1-A-1") — 3-segmen, kolom cell mungkin inactive.
+        if (!$cell) {
+            $parts = explode('-', $qrCode);
+            if (count($parts) === 3 && is_numeric($parts[0]) && is_numeric($parts[2])) {
+                $qrBlok  = $parts[0];
+                $qrGrup  = strtoupper($parts[1]);
+                $qrKolom = (int) $parts[2];
+
+                if ($gaCellId) {
+                    $gaCellCandidate = Cell::where('id', $gaCellId)
+                        ->where('is_active', true)->with('rack')->first();
+
+                    if ($gaCellCandidate && $this->isMspartCell($gaCellCandidate)) {
+                        $gaBlok  = (string) $gaCellCandidate->blok;
+                        $gaGrup  = strtoupper((string) $gaCellCandidate->grup);
+                        $gaKolom = (int) $gaCellCandidate->kolom;
+
+                        if ($qrBlok === $gaBlok && $qrGrup === $gaGrup && $qrKolom === $gaKolom) {
+                            $cell = $gaCellCandidate;
+                        } elseif (!$isOverride) {
+                            throw new \Exception(
+                                "Kolom '{$qrCode}' tidak sesuai rekomendasi GA. " .
+                                "Menuju {$gaBlok}-{$gaGrup}-{$gaKolom} (sel {$gaCellCandidate->code})."
+                            );
+                        }
+                    }
+                }
+
+                if (!$cell && $isOverride) {
+                    $cell = Cell::where('blok', $qrBlok)
+                        ->whereRaw('UPPER(grup) = ?', [$qrGrup])
+                        ->where('kolom', $qrKolom)
+                        ->whereNotNull('baris')
+                        ->where('is_active', true)
+                        ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'partial' THEN 2 ELSE 3 END")
+                        ->orderBy('baris')
+                        ->with('rack')
+                        ->first();
+                }
+            }
+        }
+
         // Fallback: QR label encode "blok-grup" (e.g. "1-A") — 2-segmen tanpa kolom.
         if (!$cell) {
             $parts = explode('-', $qrCode);
