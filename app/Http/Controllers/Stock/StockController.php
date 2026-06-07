@@ -937,39 +937,27 @@ class StockController extends Controller
             return $this->transferScanColumnPayload($code, $childCells);
         }
 
-        $stock = Stock::with(['cell', 'item'])->find($request->input('stock_id'));
-        if (!$stock) {
-            return response()->json(['found' => false, 'message' => 'Scan item dan qty dulu sebelum scan kolom tujuan.'], 422);
-        }
-
-        $eligible = $childCells->filter(function (Cell $cell) use ($stock) {
-            if ($cell->id === $stock->cell_id) {
-                return false;
-            }
-            if (in_array($cell->status, ['blocked', 'reserved'], true)) {
-                return false;
-            }
-            $demand = $this->transferCapacityDemand($stock, $cell, 1);
-            if ($cell->status === 'full' && $demand > 0) {
-                return false;
-            }
-            return $demand <= $this->remainingTransferCapacity($cell);
-        })->sortByDesc(function (Cell $cell) use ($stock) {
-            $sameSku = Stock::where('item_id', $stock->item_id)
-                ->where('cell_id', $cell->id)
-                ->where('quantity', '>', 0)
-                ->where('status', 'available')
-                ->exists();
-
-            return sprintf('%d%05d', $sameSku ? 1 : 0, $this->remainingTransferCapacity($cell));
-        });
-
-        $cell = $eligible->first();
-        if (!$cell) {
-            return response()->json(['found' => false, 'message' => "Kolom {$code} tidak punya cell tujuan yang cukup kapasitas."], 422);
-        }
-
-        return $this->transferScanCellPayload($cell, $code);
+        // Target: tampilkan pilihan baris ke operator (sama seperti column cell path di local)
+        $stock = Stock::find($request->input('stock_id'));
+        $options = $childCells
+            ->when($stock, fn($col) => $col->reject(fn(Cell $c) => $c->id === $stock?->cell_id))
+            ->map(fn(Cell $c) => [
+                'id'                 => $c->id,
+                'code'               => $c->code,
+                'qr_code'            => $c->qr_code ?? $c->code,
+                'baris'              => $c->baris,
+                'status'             => $c->status,
+                'capacity_remaining' => $this->remainingTransferCapacity($c),
+                'capacity_max'       => (int) $c->capacity_max,
+            ])
+            ->sortBy(fn($c) => $c['capacity_remaining'] === 0 ? 1 : 0)
+            ->values();
+        return response()->json([
+            'found'            => true,
+            'is_column_target' => true,
+            'column_code'      => strtoupper($code),
+            'child_cells'      => $options,
+        ]);
     }
 
     private function remainingTransferCapacity(Cell $cell): int
