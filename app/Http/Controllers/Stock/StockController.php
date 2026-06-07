@@ -546,6 +546,12 @@ class StockController extends Controller
             return $this->transferScanCellPayload($cell);
         }
 
+        // 3-segment fallback: blok-grup-kolom (e.g., 2-C-2)
+        $columnParts = $this->parseMspartColumnCode($code);
+        if ($columnParts) {
+            return $this->handleColumnScan($code, $columnParts, $purpose, $request);
+        }
+
         $rackParts = $this->parseMspartRackCode($code);
         if (!$rackParts) {
             return response()->json(['found' => false, 'message' => "Cell atau rak {$code} tidak ditemukan atau tidak aktif."], 404);
@@ -901,6 +907,69 @@ class StockController extends Controller
             'blok' => (int) $matches[1],
             'grup' => $matches[2],
         ];
+    }
+
+    private function parseMspartColumnCode(string $code): ?array
+    {
+        $code = strtoupper(trim($code));
+        if (!preg_match('/^(\d+)-([A-Z])-(\d+)$/', $code, $matches)) {
+            return null;
+        }
+
+        return ['blok' => (int) $matches[1], 'grup' => $matches[2], 'kolom' => (int) $matches[3]];
+    }
+
+    private function handleColumnScan(string $code, array $parts, string $purpose, Request $request): \Illuminate\Http\JsonResponse
+    {
+        $childCells = Cell::with(['rack.warehouse'])
+            ->where('blok', $parts['blok'])
+            ->whereRaw('UPPER(grup) = ?', [strtoupper($parts['grup'])])
+            ->where('kolom', $parts['kolom'])
+            ->whereNotNull('baris')
+            ->where('is_active', true)
+            ->get();
+
+        if ($childCells->isEmpty()) {
+            return response()->json(['found' => false, 'message' => "Kolom {$code} tidak ditemukan atau tidak aktif."], 404);
+        }
+
+        if ($purpose === 'source') {
+            return $this->transferScanColumnPayload($code, $childCells);
+        }
+
+        $stock = Stock::with(['cell', 'item'])->find($request->input('stock_id'));
+        if (!$stock) {
+            return response()->json(['found' => false, 'message' => 'Scan item dan qty dulu sebelum scan kolom tujuan.'], 422);
+        }
+
+        $eligible = $childCells->filter(function (Cell $cell) use ($stock) {
+            if ($cell->id === $stock->cell_id) {
+                return false;
+            }
+            if (in_array($cell->status, ['blocked', 'reserved'], true)) {
+                return false;
+            }
+            $demand = $this->transferCapacityDemand($stock, $cell, 1);
+            if ($cell->status === 'full' && $demand > 0) {
+                return false;
+            }
+            return $demand <= $this->remainingTransferCapacity($cell);
+        })->sortByDesc(function (Cell $cell) use ($stock) {
+            $sameSku = Stock::where('item_id', $stock->item_id)
+                ->where('cell_id', $cell->id)
+                ->where('quantity', '>', 0)
+                ->where('status', 'available')
+                ->exists();
+
+            return sprintf('%d%05d', $sameSku ? 1 : 0, $this->remainingTransferCapacity($cell));
+        });
+
+        $cell = $eligible->first();
+        if (!$cell) {
+            return response()->json(['found' => false, 'message' => "Kolom {$code} tidak punya cell tujuan yang cukup kapasitas."], 422);
+        }
+
+        return $this->transferScanCellPayload($cell, $code);
     }
 
     private function remainingTransferCapacity(Cell $cell): int
