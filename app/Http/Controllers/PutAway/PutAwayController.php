@@ -32,6 +32,8 @@ class PutAwayController extends Controller
     {
         $filterStatus = $request->input('status', '');  // '' | 'put_away' | 'completed'
         $warehouseId  = $request->input('warehouse_id', '');
+        $startDate    = $request->input('start_date');
+        $endDate      = $request->input('end_date');
 
         // Auto-redirect ke warehouse yang punya order aktif jika belum ada filter warehouse
         if (!$request->has('warehouse_id')) {
@@ -51,16 +53,18 @@ class PutAwayController extends Controller
             ])
             ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
             ->when($warehouseId, fn($q) => $q->where('warehouse_id', $warehouseId))
+            ->when($startDate, fn($q) => $q->whereDate('do_date', '>=', $startDate))
+            ->when($endDate, fn($q) => $q->whereDate('do_date', '<=', $endDate))
 ;
 
         // Antrian aktif
         $orders = $filterStatus === 'completed'
             ? collect()
-            : (clone $base)->where('status', 'put_away')->orderByDesc('created_at')->get();
+            : (clone $base)->where('status', 'put_away')->orderByDesc('do_date')->orderByDesc('created_at')->get();
 
         // Riwayat completed
         $completedOrders = $filterStatus === 'completed'
-            ? (clone $base)->where('status', 'completed')->orderByDesc('processed_at')->get()
+            ? (clone $base)->where('status', 'completed')->orderByDesc('do_date')->orderByDesc('processed_at')->get()
             : collect();
 
         $warehouses = Warehouse::where('is_active', true)->orderBy('name')->get();

@@ -64,7 +64,7 @@
                 <form method="GET" action="{{ route('putaway.index') }}" id="filterForm">
                     <div class="row align-items-end">
 
-                        <div class="col-6 col-md-3 mb-2 mb-md-0">
+                        <div class="col-6 col-md-2 mb-2 mb-md-0">
                             <label class="mb-1" style="font-size:12px;font-weight:600;color:#555">
                                 <i class="fas fa-tasks mr-1"></i> Status
                             </label>
@@ -94,7 +94,28 @@
                         </div>
                         @endif
 
-                        @if (request()->hasAny(['status', 'warehouse_id']))
+                        <div class="col-6 col-md-2 mb-2 mb-md-0">
+                            <label class="mb-1" style="font-size:12px;font-weight:600;color:#555">
+                                <i class="fas fa-calendar-alt mr-1"></i> Start Date
+                            </label>
+                            <input type="date" name="start_date" value="{{ request('start_date') }}" class="form-control form-control-sm">
+                        </div>
+
+                        <div class="col-6 col-md-2 mb-2 mb-md-0">
+                            <label class="mb-1" style="font-size:12px;font-weight:600;color:#555">
+                                <i class="fas fa-calendar-check mr-1"></i> End Date
+                            </label>
+                            <input type="date" name="end_date" value="{{ request('end_date') }}" class="form-control form-control-sm">
+                        </div>
+
+                        <div class="col-auto mb-2 mb-md-0">
+                            <label class="mb-1 d-block" style="font-size:12px">&nbsp;</label>
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="fas fa-filter mr-1"></i> Filter
+                            </button>
+                        </div>
+
+                        @if (request()->hasAny(['status', 'warehouse_id', 'start_date', 'end_date']))
                         <div class="col-auto mb-2 mb-md-0">
                             <label class="mb-1 d-block" style="font-size:12px">&nbsp;</label>
                             <a href="{{ route('putaway.index') }}" class="btn btn-sm btn-secondary">
@@ -153,7 +174,7 @@
                                     <td>
                                         <span style="font-weight:600;color:#13283f;">{{ $order->do_number }}</span>
                                     </td>
-                                    <td>{{ $order->created_at->format('d M Y') }}</td>
+                                    <td>{{ $order->do_date ? $order->do_date->format('d M Y') : $order->created_at->format('d M Y') }}</td>
                                     <td>{{ $order->warehouse?->name ?? '-' }}</td>
                                     <td style="min-width:140px;">
                                         <div class="d-flex align-items-center" style="gap:8px;">
