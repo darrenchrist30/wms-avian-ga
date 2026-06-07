@@ -314,12 +314,19 @@ var signaturePad = new SignaturePad(canvas, {
     minWidth: 1, maxWidth: 3,
 });
 
+// Menyimpan referensi gambar TTD yang di-preload
+var _preloadedImg = null;
+
 function resizeCanvas() {
     var ratio   = Math.max(window.devicePixelRatio || 1, 1);
     canvas.width  = canvas.offsetWidth  * ratio;
     canvas.height = canvas.offsetHeight * ratio;
     canvas.getContext('2d').scale(ratio, ratio);
     signaturePad.clear();
+    // Setelah resize, gambar ulang TTD tersimpan agar tidak hilang
+    if (_preloadedImg) {
+        canvas.getContext('2d').drawImage(_preloadedImg, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
+    }
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -328,20 +335,25 @@ resizeCanvas();
 var userSigUrl = '{{ $userSigUrl }}';
 var sigImg = new Image();
 sigImg.onload = function() {
-    var ctx = canvas.getContext('2d');
-    var scale = window.devicePixelRatio || 1;
-    ctx.drawImage(sigImg, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
+    _preloadedImg = sigImg;
+    canvas.getContext('2d').drawImage(sigImg, 0, 0, canvas.offsetWidth, canvas.offsetHeight);
 };
 sigImg.src = userSigUrl + '?t=' + Date.now();
 @endif
 
-$('#btnClearSig').on('click', function () { signaturePad.clear(); });
+$('#btnClearSig').on('click', function () {
+    _preloadedImg = null;
+    signaturePad.clear();
+});
 
 $('#btnApprove').on('click', function () {
-    if (signaturePad.isEmpty()) {
+    if (signaturePad.isEmpty() && !_preloadedImg) {
         Swal.fire('Tanda Tangan Kosong', 'Silakan tanda tangan terlebih dahulu.', 'warning');
         return;
     }
+    var sigDataURL = signaturePad.isEmpty()
+        ? canvas.toDataURL('image/png')   // pakai canvas (TTD preloaded)
+        : signaturePad.toDataURL('image/png');
     Swal.fire({
         title: 'Setujui Request?',
         html: '',
@@ -355,7 +367,7 @@ $('#btnApprove').on('click', function () {
         $('#btnApprove').prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-1"></i>Menyetujui...');
         $.ajax({
             url: approveUrl, type: 'POST',
-            data: { _token: csrfToken, signature: signaturePad.toDataURL('image/png') },
+            data: { _token: csrfToken, signature: sigDataURL },
             success: function (res) {
                 Swal.fire('Disetujui!', res.message, 'success').then(function () { location.reload(); });
             },
