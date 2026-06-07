@@ -65,6 +65,7 @@ class Warehouse3DController extends Controller
                     ->where('r.warehouse_id', $wid)
                     ->where('c.is_active', true)
                     ->whereNotNull('c.blok')->whereNotNull('c.grup')->whereNotNull('c.kolom')
+                    ->select('c.blok', 'c.grup', 'c.kolom')
                     ->groupBy('c.blok', 'c.grup', 'c.kolom')
                     ->havingRaw("SUM(CASE WHEN c.status = 'full' THEN 1 ELSE 0 END) = COUNT(*)")
                     ->get()->count(),
