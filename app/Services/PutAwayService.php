@@ -389,16 +389,13 @@ class PutAwayService
 
                         if ($qrBlok === $gaBlok && $qrGrup === $gaGrup && $qrKolom === $gaKolom) {
                             $cell = $gaCellCandidate;
-                        } elseif (!$isOverride) {
-                            throw new \Exception(
-                                "Kolom '{$qrCode}' tidak sesuai rekomendasi GA. " .
-                                "Menuju {$gaBlok}-{$gaGrup}-{$gaKolom} (sel {$gaCellCandidate->code})."
-                            );
                         }
+                        // If different kolom: fall through — find best cell in scanned kolom
+                        // so frontend can show "berbeda dari GA" warning instead of error toast.
                     }
                 }
 
-                if (!$cell && $isOverride) {
+                if (!$cell) {
                     $cell = Cell::where('blok', $qrBlok)
                         ->whereRaw('UPPER(grup) = ?', [$qrGrup])
                         ->where('kolom', $qrKolom)
@@ -431,16 +428,13 @@ class PutAwayService
 
                         if ($qrBlok === $gaBlok && $qrGrup === $gaGrup) {
                             $cell = $gaCellCandidate;
-                        } elseif (!$isOverride) {
-                            throw new \Exception(
-                                "Rak '{$qrCode}' tidak sesuai rekomendasi GA. " .
-                                "Menuju rak {$gaBlok}-{$gaGrup} (sel {$gaCellCandidate->code})."
-                            );
                         }
+                        // If different rak: fall through — find best cell in scanned rak
+                        // so frontend can show "berbeda dari GA" warning instead of error toast.
                     }
                 }
 
-                if (!$cell && $isOverride) {
+                if (!$cell) {
                     $cell = Cell::where('blok', $qrBlok)
                         ->whereRaw('UPPER(grup) = ?', [$qrGrup])
                         ->whereNotNull('baris')
