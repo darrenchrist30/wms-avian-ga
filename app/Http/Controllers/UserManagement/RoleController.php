@@ -101,7 +101,9 @@ class RoleController extends Controller
                 'slug'        => $request->slug,
                 'description' => $request->description,
             ]);
-            $role->permissions()->sync($request->permissions ?? []);
+            if ($request->has('permissions')) {
+                $role->permissions()->sync($request->permissions ?? []);
+            }
             DB::commit();
             return redirect()->route('roles.index')->with('success', 'Role berhasil diperbarui.');
         } catch (\Exception $e) {

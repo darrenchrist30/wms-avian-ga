@@ -66,7 +66,6 @@
                                     <th width="100">Kode Rak</th>
                                     <th width="120">Nama</th>
                                     <th>Gudang</th>
-                                    <th width="170">Kategori Dominan</th>
                                     <th width="60" class="text-center">Sel</th>
                                     <th width="80" class="text-center">Status</th>
                                 </tr>
@@ -121,7 +120,6 @@
                         render: function(data) { return data || '<span class="text-muted">-</span>'; }
                     },
                     { data: 'lokasi',   name: 'warehouse.name', orderable: false },
-                    { data: 'kategori', name: 'dominantCategory.name', orderable: false, searchable: false },
                     { data: 'cells_count',  name: 'cells_count',  className: 'text-center', orderable: false, searchable: false },
                     {
                         data: 'status_badge',

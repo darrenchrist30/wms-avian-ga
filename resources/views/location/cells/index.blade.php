@@ -569,16 +569,16 @@
 
             $('#btnBulkQr').on('click', function (e) {
                 e.preventDefault();
-                const rackId = $('#filter-rack').val();
-                if (!rackId) {
+                const blok = $('#filter-rack').val();
+                if (!blok) {
                     Swal.fire({
-                        icon: 'info', title: 'Pilih Rak Terlebih Dahulu',
-                        text: 'Gunakan filter Rak di atas, lalu klik "Cetak Label Rak" untuk mencetak semua label QR per sel.',
+                        icon: 'info', title: 'Pilih Blok Terlebih Dahulu',
+                        text: 'Gunakan filter Blok di atas, lalu klik "Cetak Label Rak" untuk mencetak semua label QR kolom.',
                         confirmButtonColor: '#28a745', confirmButtonText: 'Mengerti',
                     });
                     return;
                 }
-                window.open(BULK_QR_URL + '?rack_id=' + rackId, '_blank');
+                window.open(BULK_QR_URL + '?blok=' + blok, '_blank');
             });
 
             $(document).on('click', '.btnDel', function(e) {

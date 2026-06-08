@@ -301,28 +301,39 @@ class CellController extends Controller
     // ─── Print QR Label untuk seluruh cell dalam satu rak ───────────────────────
     public function bulkQrLabel(Request $request)
     {
+        $blok   = $request->input('blok');
         $rackId = $request->input('rack_id');
-        if (!$rackId) {
-            return back()->with('error', 'Pilih rak terlebih dahulu.');
+
+        if (!$blok && !$rackId) {
+            return back()->with('error', 'Pilih blok terlebih dahulu.');
         }
 
-        $rack  = Rack::with('warehouse')->findOrFail($rackId);
-        $cells = Cell::where('rack_id', $rackId)
-            ->where('is_active', true)
-            ->where(function ($q) {
-                // Hanya cetak cell level kolom (3 format: blok-grup-kolom, baris=null)
-                // atau cell non-MSpart (blok=null)
-                $q->whereNull('baris')
-                  ->orWhereNull('blok');
-            })
-            ->orderBy('level')
-            ->get();
+        if ($blok) {
+            $cells = Cell::with('rack.warehouse')
+                ->where('is_active', true)
+                ->where('blok', $blok)
+                ->whereNull('baris')
+                ->orderByRaw('UPPER(grup)')
+                ->orderBy('kolom')
+                ->get();
+
+            $warehouseName = $cells->first()?->rack?->warehouse?->name ?? 'Gudang Sparepart';
+            $rack = (object) ['code' => 'Blok ' . $blok, 'warehouse' => (object) ['name' => $warehouseName]];
+        } else {
+            $rack  = Rack::with('warehouse')->findOrFail($rackId);
+            $cells = Cell::where('rack_id', $rackId)
+                ->where('is_active', true)
+                ->where(function ($q) {
+                    $q->whereNull('baris')->orWhereNull('blok');
+                })
+                ->orderBy('level')
+                ->get();
+        }
 
         if ($cells->isEmpty()) {
-            return back()->with('error', 'Tidak ada cell aktif di rak ' . $rack->code . '.');
+            return back()->with('error', 'Tidak ada cell aktif di ' . $rack->code . '.');
         }
 
-        // Auto-generate qr_code jika belum ada
         $cells->each(function ($cell) {
             if (!$cell->qr_code) {
                 $cell->qr_code = $cell->code;

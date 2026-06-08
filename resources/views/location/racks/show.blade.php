@@ -54,18 +54,6 @@
                             <td><small>{{ $rack->warehouse->name ?? '—' }}</small></td>
                         </tr>
                         <tr>
-                            <td class="text-muted pl-3" style="font-size:12px;">Kategori</td>
-                            <td>
-                                @if($rack->dominantCategory)
-                                    <span class="badge" style="background:{{ $rack->dominantCategory->color_code ?? '#6c757d' }};color:#fff;">
-                                        {{ $rack->dominantCategory->name }}
-                                    </span>
-                                @else
-                                    <span class="text-muted">—</span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
                             <td class="text-muted pl-3" style="font-size:12px;">Level</td>
                             <td>{{ $rack->total_levels }} level (A–{{ chr(64 + $rack->total_levels) }})</td>
                         </tr>
@@ -136,7 +124,7 @@
                         <span class="badge badge-secondary ml-1">{{ $rack->cells_count }} sel</span>
                     </h6>
                     <small class="text-muted">
-                        Tampak depan rak — baris = level (A atas), kolom = kolom (kiri–kanan)
+                        Tampak depan rak - baris = level (A atas), kolom = kolom (kiri–kanan)
                     </small>
                 </div>
                 <div class="card-body p-2" style="overflow-x:auto;">

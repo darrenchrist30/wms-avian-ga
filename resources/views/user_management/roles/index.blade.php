@@ -27,7 +27,6 @@
                         <th>Slug</th>
                         <th>Deskripsi</th>
                         <th class="text-center">Pengguna</th>
-                        <th class="text-center">Permissions</th>
                         <th style="width:90px">Aksi</th>
                     </tr>
                 </thead>
@@ -52,7 +51,6 @@ $(function () {
             { data: 'slug_badge',     orderable: false },
             { data: 'description',    defaultContent: '<span class="text-muted">-</span>' },
             { data: 'users_count',    className: 'text-center' },
-            { data: 'permissions_count', className: 'text-center' },
             { data: 'action',         orderable: false, searchable: false },
         ],
         order: [[1, 'asc']],

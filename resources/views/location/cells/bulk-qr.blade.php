@@ -61,15 +61,15 @@ body {
 
 /* ── Grid ── */
 .grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10mm;
-    padding: 10mm 12mm;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6mm;
+    padding: 8mm;
 }
 
 /* ── Card — identik dengan #qr-label-print di qr-label.blade.php ── */
 .card {
-    width: 60mm;
+    width: auto;
     background: #fff;
     border: 1px solid #dee2e6;
     border-radius: 6px;
@@ -82,7 +82,7 @@ body {
     font-size: 9px;
     letter-spacing: 1px;
     text-transform: uppercase;
-    color: #0d8564;
+    color: #111;
     margin-bottom: 8px;
 }
 .card-qr {

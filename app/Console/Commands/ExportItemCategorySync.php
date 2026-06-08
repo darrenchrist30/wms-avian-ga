@@ -69,7 +69,7 @@ class ExportItemCategorySync extends Command
         $lines[] = '  sku VARCHAR(255) NOT NULL PRIMARY KEY,';
         $lines[] = '  erp_item_code VARCHAR(255) NULL,';
         $lines[] = '  category_code VARCHAR(255) NOT NULL';
-        $lines[] = ');';
+        $lines[] = ') CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;';
         $lines[] = '';
 
         foreach ($items->chunk(500) as $chunk) {

@@ -202,7 +202,7 @@ canvas#signatureCanvas {
     @endif
 
     {{-- ── Tanda Tangan Supervisor yang sudah approved ──────────────── --}}
-    @if($obr->isApproved() && $obr->signature_path)
+    @if(($obr->isApproved() || $obr->isCompleted()) && $obr->signature_path)
     <div class="card mb-3">
         <div class="card-header py-2">
             <strong><i class="fas fa-signature mr-1 text-success"></i> Tanda Tangan Supervisor</strong>

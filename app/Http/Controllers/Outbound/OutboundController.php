@@ -326,7 +326,7 @@ class OutboundController extends Controller
         $totalQty   = array_sum(array_column($results, 'quantity'));
 
         $lines   = [];
-        $lines[] = '*OUTBOUND — WMS AVIAN*';
+        $lines[] = '*OUTBOUND - WMS AVIAN*';
         $lines[] = "{$now}";
         $lines[] = "Operator: {$operator}";
         $lines[] = "Gudang: {$warehouseName}";

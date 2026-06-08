@@ -10,7 +10,7 @@
 
     <div class="row">
         {{-- Kolom Kiri: Info Role --}}
-        <div class="col-md-5">
+        <div class="col-md-7">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <span class="font-weight-bold">
@@ -96,50 +96,6 @@
             </div>
         </div>
 
-        {{-- Kolom Kanan: Permissions --}}
-        <div class="col-md-7">
-            <div class="card card-secondary card-outline">
-                <div class="card-header">
-                    <span class="font-weight-bold"><i class="fas fa-key mr-1"></i> Hak Akses (Permissions)</span>
-                    <small class="text-muted ml-2">Admin secara otomatis memiliki semua akses</small>
-                </div>
-                <div class="card-body" style="max-height:520px;overflow-y:auto">
-                    @if ($permissions->isEmpty())
-                        <p class="text-muted text-center py-3"><i class="fas fa-info-circle mr-1"></i>Belum ada permission yang didefinisikan.</p>
-                    @else
-                        @foreach ($permissions as $module => $perms)
-                            <div class="mb-3">
-                                <h6 class="text-uppercase text-muted font-weight-bold border-bottom pb-1" style="font-size:11px;letter-spacing:1px">
-                                    {{ $module }}
-                                </h6>
-                                <div class="row">
-                                    @foreach ($perms as $perm)
-                                        <div class="col-sm-6">
-                                            <div class="custom-control custom-checkbox mb-1">
-                                                <input type="checkbox" class="custom-control-input"
-                                                    name="permissions[]" value="{{ $perm->id }}"
-                                                    id="perm_{{ $perm->id }}"
-                                                    {{ in_array($perm->id, old('permissions', $rolePerms)) ? 'checked' : '' }}>
-                                                <label class="custom-control-label" for="perm_{{ $perm->id }}">
-                                                    {{ $perm->name }}
-                                                    <small class="text-muted d-block" style="font-size:10px">{{ $perm->slug }}</small>
-                                                </label>
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
-                    @endif
-                </div>
-                <div class="card-footer py-2">
-                    <small>
-                        <a href="#" id="checkAll" class="text-primary mr-3">Pilih Semua</a>
-                        <a href="#" id="uncheckAll" class="text-secondary">Hapus Semua</a>
-                    </small>
-                </div>
-            </div>
-        </div>
 
     </div>
 </div>
@@ -148,10 +104,6 @@
 @push('scripts')
 <script>
 $(function () {
-    $('#checkAll').on('click', e => { e.preventDefault(); $('input[name="permissions[]"]').prop('checked', true); });
-    $('#uncheckAll').on('click', e => { e.preventDefault(); $('input[name="permissions[]"]').prop('checked', false); });
-
-    // Auto-generate slug from name on create
     @if ($typeForm == 'create')
     $('input[name="name"]').on('input', function () {
         const slug = $(this).val().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');

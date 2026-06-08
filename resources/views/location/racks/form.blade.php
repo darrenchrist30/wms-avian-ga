@@ -88,27 +88,6 @@
                     </div>
                 </div>
 
-                {{-- Kategori Dominan --}}
-                <div class="form-group row mb-3">
-                    <label class="col-sm-3 col-form-label" style="font-weight:600">Kategori Dominan</label>
-                    <div class="col-sm-6">
-                        @php
-                            $selCatId   = old('dominant_category_id', $data->dominant_category_id ?? '');
-                            $selCatText = $selCatId ? (\App\Models\ItemCategory::find($selCatId)?->name ?? '') : '';
-                        @endphp
-                        <select name="dominant_category_id" id="select-dominant-category"
-                            class="form-control @error('dominant_category_id') is-invalid @enderror"
-                            style="width:100%">
-                            <option value="">-- Tidak Ditentukan --</option>
-                            @if($selCatId)
-                                <option value="{{ $selCatId }}" selected>{{ $selCatText }}</option>
-                            @endif
-                        </select>
-                        @error('dominant_category_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                        <small class="text-muted">Kategori sparepart yang diutamakan di rak ini. Dipakai GA untuk put-away optimal.</small>
-                    </div>
-                </div>
-
                 {{-- Kode Rak --}}
                 <div class="form-group row mb-3">
                     <label class="col-sm-3 col-form-label" style="font-weight:600">
@@ -311,20 +290,6 @@
 @push('scripts')
 <script src="{{ asset('adminlte/plugins/select2/js/select2.full.min.js') }}"></script>
 <script>
-    $('#select-dominant-category').select2({
-        theme: 'bootstrap4',
-        placeholder: '-- Tidak Ditentukan --',
-        allowClear: true,
-        ajax: {
-            url: '{{ route("master.categories.select2") }}',
-            dataType: 'json',
-            delay: 250,
-            data: function (params) { return { q: params.term }; },
-            processResults: function (data) { return { results: data.results }; },
-            cache: true
-        },
-        minimumInputLength: 0
-    });
 </script>
 <script>
 // ── Cell count label ─────────────────────────────────────────────────────────

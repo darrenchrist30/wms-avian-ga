@@ -343,27 +343,32 @@ class OutboundRequestController extends Controller
             return;
         }
 
-        $itemLines = $obr->items->map(fn($it) =>
-            "• {$it->item->name} ({$it->item->sku}) — {$it->quantity_requested} {$it->item->unit?->code}"
-        )->join("\n");
+        $waktu   = now()->locale('id')->isoFormat('D MMM Y, HH:mm');
+        $link    = route('outbound.requests.show', $obr->id);
+        $caption = "*[WMS Avian] Permintaan Outbound — {$obr->request_number}*\n"
+                 . "Operator : {$obr->operator->name}\n"
+                 . "Waktu    : {$waktu}\n"
+                 . "Item     : {$obr->items->count()} jenis\n\n"
+                 . "Detail terlampir. Link: {$link}";
 
-        $link = route('outbound.requests.show', $obr->id);
-        $waktu = now()->locale('id')->isoFormat('D MMM Y, HH:mm');
-
-        $message = "Kepada Supervisor,\n\n"
-            . "Terdapat permintaan outbound baru yang memerlukan persetujuan Anda:\n\n"
-            . "No. Request  : *{$obr->request_number}*\n"
-            . "Operator     : {$obr->operator->name}\n"
-            . "Gudang       : {$obr->warehouse->name}\n"
-            . "Waktu        : {$waktu}\n"
-            . ($obr->notes ? "Catatan      : {$obr->notes}\n" : '')
-            . "\n*Item yang Diminta:*\n{$itemLines}\n\n"
-            . "Mohon untuk melakukan tinjauan melalui tautan berikut:\n"
-            . "Link Permintaan: {$link}\n\n"
-            . "Terima Kasih.\n\n"
-            . "Pesan ini dikirim otomatis oleh sistem.\n"
-            . str_repeat('─', 28) . "\n"
-            . "_[WMS Avian] Permintaan Outbound Butuh Persetujuan — {$obr->request_number}_";
+        // Generate PDF
+        $pdfUrl  = null;
+        $pdfPath = null;
+        try {
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('outbound.notif-pdf', [
+                'obr'   => $obr,
+                'waktu' => $waktu,
+            ]);
+            $filename = 'obr-' . $obr->request_number . '-' . time() . '.pdf';
+            $pdfPath  = public_path('wa_pdfs/' . $filename);
+            if (!file_exists(public_path('wa_pdfs'))) {
+                mkdir(public_path('wa_pdfs'), 0755, true);
+            }
+            file_put_contents($pdfPath, $pdf->output());
+            $pdfUrl = url('wa_pdfs/' . $filename);
+        } catch (\Exception $e) {
+            Log::error('[WA OBR] Gagal generate PDF: ' . $e->getMessage());
+        }
 
         foreach ($numbers as $number) {
             $number = preg_replace('/[^0-9]/', '', $number);
@@ -371,16 +376,42 @@ class OutboundRequestController extends Controller
                 $number = '62' . substr($number, 1);
             }
             try {
-                Http::withHeaders(['Authorization' => $token])
-                    ->asForm()
-                    ->post('https://api.fonnte.com/send', [
-                        'target'  => $number,
-                        'message' => $message,
-                    ]);
+                if ($pdfUrl) {
+                    Http::withHeaders(['Authorization' => $token])
+                        ->asForm()
+                        ->post('https://api.fonnte.com/send', [
+                            'target'   => $number,
+                            'url'      => $pdfUrl,
+                            'filename' => 'Outbound-' . $obr->request_number . '.pdf',
+                            'message'  => $caption,
+                        ]);
+                } else {
+                    // Fallback ke teks biasa jika PDF gagal
+                    $itemLines = $obr->items->map(fn($it) =>
+                        "• {$it->item->name} ({$it->item->sku}) — {$it->quantity_requested} {$it->item->unit?->code}"
+                    )->join("\n");
+                    Http::withHeaders(['Authorization' => $token])
+                        ->asForm()
+                        ->post('https://api.fonnte.com/send', [
+                            'target'  => $number,
+                            'message' => $caption . "\n\n*Item:*\n" . $itemLines,
+                        ]);
+                }
                 Log::info("[WA OBR] Notif supervisor terkirim ke {$number}");
             } catch (\Exception $e) {
                 Log::error("[WA OBR] Error ke {$number}: " . $e->getMessage());
             }
+        }
+
+        // Cleanup PDF lama (> 1 jam)
+        if ($pdfPath) {
+            try {
+                foreach (glob(public_path('wa_pdfs/obr-*.pdf')) as $f) {
+                    if (filemtime($f) < time() - 3600) {
+                        @unlink($f);
+                    }
+                }
+            } catch (\Exception) {}
         }
     }
 

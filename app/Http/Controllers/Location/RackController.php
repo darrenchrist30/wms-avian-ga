@@ -76,22 +76,56 @@ class RackController extends Controller
                 'rotation_y'           => $request->rotation_y ?? 0,
                 'is_active'            => $request->boolean('is_active', true),
             ]);
-            // Generate sel per level × kolom
-            // 1 kolom → kode: R-01-A, R-01-B   (tanpa suffix angka, backward-compatible)
-            // >1 kolom → kode: R-01-A1, R-01-A2, R-01-B1, ...
+            // Parse rack code → blok + grup (e.g. "1A" → blok=1, grup=A)
+            $mspart = preg_match('/^(\d+)([A-Z]+)$/i', $rack->code, $m);
+            $blok   = $mspart ? (int) $m[1]            : null;
+            $grup   = $mspart ? strtoupper($m[2])      : null;
+
             $cols = $rack->total_columns;
             for ($level = 1; $level <= $rack->total_levels; $level++) {
                 $letter = chr(64 + $level);
                 for ($col = 1; $col <= $cols; $col++) {
-                    $cellCode = $cols === 1
-                        ? $rack->code . '-' . $letter
-                        : $rack->code . '-' . $letter . $col;
+                    if ($mspart) {
+                        // Format baru: blok-GRUP-kolom-baris
+                        $cellCode = $blok . '-' . $grup . '-' . $col . '-' . $level;
+                    } else {
+                        $cellCode = $cols === 1
+                            ? $rack->code . '-' . $letter
+                            : $rack->code . '-' . $letter . $col;
+                    }
                     Cell::create([
                         'rack_id'       => $rack->id,
                         'code'          => $cellCode,
+                        'qr_code'       => $cellCode,
                         'level'         => $level,
                         'column'        => $col,
+                        'blok'          => $blok,
+                        'grup'          => $grup,
+                        'kolom'         => $mspart ? $col   : null,
+                        'baris'         => $mspart ? $level : null,
                         'capacity_max'  => 100,
+                        'capacity_used' => 0,
+                        'status'        => 'available',
+                        'is_active'     => true,
+                    ]);
+                }
+            }
+
+            // Auto-generate sel kolom (baris=null) untuk rak MSpart
+            if ($mspart) {
+                for ($col = 1; $col <= $cols; $col++) {
+                    $columnCode = $blok . '-' . $grup . '-' . $col;
+                    Cell::create([
+                        'rack_id'       => $rack->id,
+                        'code'          => $columnCode,
+                        'qr_code'       => $columnCode,
+                        'blok'          => $blok,
+                        'grup'          => $grup,
+                        'kolom'         => $col,
+                        'baris'         => null,
+                        'level'         => 0,
+                        'column'        => $col,
+                        'capacity_max'  => 0,
                         'capacity_used' => 0,
                         'status'        => 'available',
                         'is_active'     => true,
@@ -122,7 +156,7 @@ class RackController extends Controller
             'warehouse',
             'dominantCategory',
             'cells' => fn($q) => $q->orderBy('level')->orderBy('column'),
-        ])->withCount('cells')->findOrFail($id);
+        ])->withCount(['cells' => fn($q) => $q->where('is_active', true)->whereNotNull('baris')])->findOrFail($id);
 
         // Susun grid: [level][column] => cell
         $cellGrid = [];
