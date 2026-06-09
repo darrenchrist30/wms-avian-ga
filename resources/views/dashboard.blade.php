@@ -1279,7 +1279,7 @@
                                 @if($putAwayProgressToday->isEmpty())
                                     <div class="text-center text-muted py-4" style="font-size:13px;">
                                         <i class="fas fa-check-circle text-success fa-2x mb-2 d-block"></i>
-                                        Tidak ada SJ yang sedang dalam proses put-away.
+                                        Tidak ada aktivitas put-away hari ini.
                                     </div>
                                 @else
                                     <div style="max-height:260px;overflow-y:auto;">
@@ -1443,7 +1443,7 @@
                                     <div class="mt-2 pt-2"
                                         style="border-top:1px solid #f0f0f0;font-size:11px;color:#6b7280">
                                         <i class="fas fa-chart-line mr-1"></i>
-                                        Completion rate bulan ini:
+                                        Completion rate:
                                         <strong style="color:#0d8564">{{ $completionRate }}%</strong>
                                         ({{ $completedThisMonth }}/{{ $totalThisMonth }})
                                     </div>
@@ -1504,7 +1504,7 @@
                                     <span style="font-size:12px;color:#6b7280;">Sisa slot terkecil</span>
                                 </div>
                                 <div class="panel-body">
-                                    @foreach ($criticalCells->sortBy('remaining')->take(5) as $cell)
+                                    @foreach ($leastSlotCells as $cell)
                                         @php $pct = $cell['percent']; @endphp
                                         <div class="zone-row">
                                             <div class="zone-label">
@@ -1934,11 +1934,11 @@
                                 @endif
                                 <div class="zone-row">
                                     <div class="zone-label">
-                                        <span>Order Completion (Bulan {{ now()->locale('id')->translatedFormat('F') }})</span>
-                                        <span style="color:#0d8564;font-weight:600">{{ $completionRate }}%</span>
+                                        <span>Order Completion ({{ now()->locale('id')->translatedFormat('F') }})</span>
+                                        <span style="color:#0d8564;font-weight:600">{{ $completionRateThisMonth }}%</span>
                                     </div>
                                     <div class="zone-bar">
-                                        <div class="zone-fill" style="width:{{ $completionRate }}%;background:#0d8564;"></div>
+                                        <div class="zone-fill" style="width:{{ $completionRateThisMonth }}%;background:#0d8564;"></div>
                                     </div>
                                 </div>
                                 <div class="zone-row">

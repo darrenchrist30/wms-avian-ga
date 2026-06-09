@@ -176,13 +176,16 @@ class DashboardController extends Controller
         $followGaCount  = PutAwayConfirmation::where('follow_recommendation', true)->count();
         $followGaRate   = $totalConfirms > 0 ? round($followGaCount / $totalConfirms * 100, 1) : 0;
 
-        // ── Completion Rate Bulan Ini ────────────────────────────────────────────
-        $totalThisMonth     = InboundOrder::whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)->count();
-        $completedThisMonth = InboundOrder::where('status', 'completed')
-            ->whereYear('created_at', now()->year)
-            ->whereMonth('created_at', now()->month)->count();
+        // ── Completion Rate (all time) ───────────────────────────────────────────
+        $totalThisMonth     = InboundOrder::count();
+        $completedThisMonth = InboundOrder::where('status', 'completed')->count();
         $completionRate = $totalThisMonth > 0 ? round($completedThisMonth / $totalThisMonth * 100, 1) : 0;
+
+        // ── Completion Rate bulan ini (untuk KPI) ───────────────────────────────
+        $completedThisMonthKpi = InboundOrder::where('status', 'completed')
+            ->whereYear('updated_at', now()->year)
+            ->whereMonth('updated_at', now()->month)->count();
+        $completionRateThisMonth = $totalThisMonth > 0 ? round($completedThisMonthKpi / $totalThisMonth * 100, 1) : 0;
 
         // ── Deadstock Rate & SKU Aktif Bergerak ──────────────────────────────────
         $deadstockRate  = $totalItems > 0 ? round($deadstockCount / $totalItems * 100, 1) : 0;
@@ -309,6 +312,7 @@ class DashboardController extends Controller
         $putAwayProgressToday = InboundOrder::with(['items.putAwayConfirmations', 'items.item', 'warehouse'])
             ->where('status', 'put_away')
             ->whereHas('gaRecommendations', fn($q) => $q->where('status', 'accepted'))
+            ->whereHas('items.putAwayConfirmations', fn($q) => $q->whereDate('confirmed_at', $today))
             ->orderBy('do_date', 'asc')
             ->take(8)
             ->get()
@@ -317,8 +321,13 @@ class DashboardController extends Controller
                 $total = $items->count();
                 $done  = $items->filter(fn($item) => $item->status === 'put_away')->count();
                 $pct   = $total > 0 ? round($done / $total * 100) : 0;
-                $lastActivity = $items->flatMap->putAwayConfirmations
-                    ->sortByDesc('confirmed_at')->first()?->confirmed_at?->format('H:i');
+                $lastConfirmed = $items->flatMap->putAwayConfirmations
+                    ->sortByDesc('confirmed_at')->first()?->confirmed_at;
+                $lastActivity = $lastConfirmed
+                    ? ($lastConfirmed->isToday()
+                        ? 'Hari ini ' . $lastConfirmed->format('H:i')
+                        : $lastConfirmed->translatedFormat('d M') . ' ' . $lastConfirmed->format('H:i'))
+                    : null;
                 return [
                     'id'         => $order->id,
                     'do_number'  => $order->do_number,
@@ -376,7 +385,7 @@ class DashboardController extends Controller
             ->take(8)
             ->values();
 
-        $criticalCells = Cell::with('rack')
+        $allActiveCells = Cell::with('rack')
             ->where('is_active', true)
             ->where('capacity_max', '>', 0)
             ->get()
@@ -388,10 +397,10 @@ class DashboardController extends Controller
                 'remaining' => max(0, $cell->capacity_max - $cell->capacity_used),
                 'percent'   => round($cell->capacity_used / $cell->capacity_max * 100, 1),
                 'status'    => $cell->status,
-            ])
-            ->sortByDesc('percent')
-            ->take(8)
-            ->values();
+            ]);
+
+        $criticalCells   = $allActiveCells->sortByDesc('percent')->take(8)->values();
+        $leastSlotCells  = $allActiveCells->sortBy('remaining')->take(5)->values();
 
         // ── Visual analytics: inventory risk and operator productivity ─────
         $lowStockRows = Item::where('is_active', true)
@@ -479,7 +488,7 @@ class DashboardController extends Controller
             'gaTotal', 'gaAccepted', 'gaRejected', 'gaAcceptRate', 'gaAvgFitness', 'gaAvgExecMs',
             // Rates
             'followGaRate', 'totalConfirms', 'followGaCount',
-            'completionRate', 'totalThisMonth', 'completedThisMonth',
+            'completionRate', 'totalThisMonth', 'completedThisMonth', 'completionRateThisMonth', 'completedThisMonthKpi',
             'deadstockRate', 'activeSkuCount', 'activeSkuRate',
             // Alert & jadwal
             'lowStockAlerts', 'deadstockStocks', 'recentMovements',
@@ -493,7 +502,7 @@ class DashboardController extends Controller
             'gaBestFitness', 'gaWorstFitness', 'gaAvgGen', 'gaOverrideRate',
             'gaFitnessDistribution', 'gaTrendLabels', 'gaTrendRuns', 'gaTrendFitness',
             // Capacity drill-down
-            'topRacksUtilization', 'criticalCells',
+            'topRacksUtilization', 'criticalCells', 'leastSlotCells',
             // Visual analytics
             'inventoryRiskChart', 'expiryBucketChart', 'deadstockBucketChart', 'operatorProductivity'
         ));
