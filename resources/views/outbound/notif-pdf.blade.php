@@ -48,9 +48,9 @@
             <td>{{ $i + 1 }}</td>
             <td><strong>{{ $it->item->name ?? '-' }}</strong></td>
             <td style="color:#666;font-size:10px;">{{ $it->item->sku ?? '-' }}</td>
-            <td style="font-size:10px;">{{ $it->item->category->name ?? '-' }}</td>
+            <td style="font-size:10px;">{{ $it->item->category?->name ?? '-' }}</td>
             <td style="text-align:center">{{ number_format($it->quantity_requested) }}</td>
-            <td style="text-align:center">{{ $it->item->unit->code ?? '-' }}</td>
+            <td style="text-align:center">{{ $it->item->unit?->code ?? '-' }}</td>
         </tr>
         @endforeach
         <tr>
