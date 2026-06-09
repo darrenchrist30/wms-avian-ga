@@ -33,6 +33,8 @@ use Illuminate\Support\Facades\Notification;
  */
 class PutAwayService
 {
+    public array $barisOptions = [];
+
     // ─────────────────────────────────────────────────────────────────────────
     // 1. Konfirmasi Qty Fisik di Dock
     // ─────────────────────────────────────────────────────────────────────────
@@ -394,7 +396,7 @@ class PutAwayService
                 }
 
                 if (!$cell) {
-                    $cell = Cell::where('blok', $qrBlok)
+                    $allBaris = Cell::where('blok', $qrBlok)
                         ->whereRaw('UPPER(grup) = ?', [$qrGrup])
                         ->where('kolom', $qrKolom)
                         ->whereNotNull('baris')
@@ -402,7 +404,20 @@ class PutAwayService
                         ->orderByRaw("CASE status WHEN 'available' THEN 1 WHEN 'partial' THEN 2 ELSE 3 END")
                         ->orderBy('baris')
                         ->with('rack')
-                        ->first();
+                        ->get();
+
+                    if ($allBaris->count() > 1) {
+                        $this->barisOptions = $allBaris->map(fn($c) => [
+                            'id'                 => $c->id,
+                            'code'               => $c->code,
+                            'baris'              => $c->baris,
+                            'status'             => $c->status,
+                            'capacity_remaining' => max(0, ($c->capacity_max ?? 0) - ($c->capacity_used ?? 0)),
+                            'capacity_max'       => $c->capacity_max ?? 0,
+                        ])->values()->toArray();
+                    }
+
+                    $cell = $allBaris->first();
                 }
             }
         }

@@ -1758,10 +1758,54 @@
                         source: 'scan',
                     };
 
-                    const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
-                    const capOk = cell.capacity_remaining >= capacityDemand(cell) && modalQty > 0;
+                    if (res.baris_options && res.baris_options.length > 1) {
+                        $('#scanLoading').hide();
+                        $('#modalQrInput').prop('disabled', false);
 
-                    showScanResultSwal(cell, matchesGa, capOk);
+                        const statusLabel = s => s === 'available' ? '<span style="color:#059669">Kosong</span>'
+                            : s === 'partial' ? '<span style="color:#d97706">Sebagian</span>'
+                            : '<span style="color:#dc2626">Penuh</span>';
+
+                        const rows = res.baris_options.map(o =>
+                            '<button type="button" class="btn-baris-pick btn btn-outline-secondary btn-sm w-100 mb-1 text-left px-3 py-2" data-cell-id="' + o.id + '" data-cell-code="' + o.code + '" data-remaining="' + o.capacity_remaining + '" data-max="' + o.capacity_max + '">'
+                            + '<strong>Baris ' + o.baris + '</strong>'
+                            + ' &nbsp;·&nbsp; ' + statusLabel(o.status)
+                            + ' &nbsp;·&nbsp; <small>Sisa ' + o.capacity_remaining + '/' + o.capacity_max + ' slot</small>'
+                            + '</button>'
+                        ).join('');
+
+                        Swal.fire({
+                            title: 'Pilih Baris',
+                            html: '<p class="mb-2" style="font-size:13px;color:#555;">Kolom <strong>' + c.code.split('-').slice(0,3).join('-') + '</strong> — pilih baris penempatan:</p>' + rows,
+                            showConfirmButton: false,
+                            showCancelButton: true,
+                            cancelButtonText: 'Batal',
+                            cancelButtonColor: '#6c757d',
+                            didOpen: function() {
+                                document.querySelectorAll('.btn-baris-pick').forEach(function(btn) {
+                                    btn.addEventListener('click', function() {
+                                        const picked = {
+                                            id: parseInt(btn.dataset.cellId),
+                                            code: btn.dataset.cellCode,
+                                            rack_code: c.rack_code,
+                                            capacity_remaining: parseInt(btn.dataset.remaining),
+                                            capacity_max: parseInt(btn.dataset.max),
+                                            item_stock: c.item_stock || null,
+                                            source: 'scan',
+                                        };
+                                        Swal.close();
+                                        const matchesGa = !isOverride && modalGaCell && (picked.id == modalGaCell.id);
+                                        const capOk = picked.capacity_remaining >= capacityDemand(picked) && modalQty > 0;
+                                        showScanResultSwal(picked, matchesGa, capOk);
+                                    });
+                                });
+                            }
+                        });
+                    } else {
+                        const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
+                        const capOk = cell.capacity_remaining >= capacityDemand(cell) && modalQty > 0;
+                        showScanResultSwal(cell, matchesGa, capOk);
+                    }
                 },
                 error: function(xhr) {
                     Swal.fire({

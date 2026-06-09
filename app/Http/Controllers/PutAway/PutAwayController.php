@@ -342,7 +342,7 @@ class PutAwayController extends Controller
                 }
             }
 
-            return response()->json([
+            $response = [
                 'status' => 'success',
                 'cell'   => [
                     'id'                 => $cell->id,
@@ -356,7 +356,13 @@ class PutAwayController extends Controller
                     'rack_code'          => $cell->rack->code ?? '-',
                     'item_stock'         => $itemStock,
                 ],
-            ]);
+            ];
+
+            if (!empty($this->putAwayService->barisOptions)) {
+                $response['baris_options'] = $this->putAwayService->barisOptions;
+            }
+
+            return response()->json($response);
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 404);
         }
