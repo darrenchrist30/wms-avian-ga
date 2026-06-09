@@ -348,12 +348,10 @@ class PutAwayService
                     if ($colBlok === $gaBlok && $colGrup === $gaGrup && $colKolom === $gaKolom) {
                         // Kolom yang di-scan cocok dengan rekomendasi GA → pakai GA cell.
                         $cell = $gaCellCandidate;
-                    } elseif (!$isOverride) {
-                        throw new \Exception(
-                            "Kolom '{$qrCode}' tidak sesuai rekomendasi GA. " .
-                            "Menuju {$gaBlok}-{$gaGrup}-{$gaKolom} (sel {$gaCellCandidate->code})."
-                        );
                     }
+                    // Jika berbeda, $cell tetap null → fallback 3-segmen di bawah
+                    // akan resolve baris terbaik di kolom yang di-scan,
+                    // dan frontend akan tampilkan warning "berbeda dari GA".
                 }
             }
 
