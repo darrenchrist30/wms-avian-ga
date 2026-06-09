@@ -433,7 +433,7 @@ class OutboundRequestController extends Controller
 
         if ($action === 'approved') {
             $waktu = $obr->approved_at?->locale('id')->isoFormat('D MMM Y, HH:mm');
-            $message = "Yth. {$obr->operator->name},\n\n"
+            $message = "Kepada {$obr->operator->name},\n\n"
                 . "Permintaan outbound Anda telah *disetujui* oleh supervisor:\n\n"
                 . "No. Request  : *{$obr->request_number}*\n"
                 . "Disetujui oleh: {$obr->approvedBy?->name}\n"
@@ -443,10 +443,10 @@ class OutboundRequestController extends Controller
                 . "Terima Kasih.\n\n"
                 . "Pesan ini dikirim otomatis oleh sistem.\n"
                 . str_repeat('─', 28) . "\n"
-                . "_[WMS Avian] Permintaan Outbound Disetujui — {$obr->request_number}_";
+                . "_[WMS Avian] Permintaan Outbound Disetujui - {$obr->request_number}_";
         } else {
             $waktu = $obr->rejected_at?->locale('id')->isoFormat('D MMM Y, HH:mm');
-            $message = "Yth. {$obr->operator->name},\n\n"
+            $message = "Kepada {$obr->operator->name},\n\n"
                 . "Permintaan outbound Anda *ditolak* oleh supervisor:\n\n"
                 . "No. Request  : *{$obr->request_number}*\n"
                 . "Ditolak oleh : {$obr->rejectedBy?->name}\n"
