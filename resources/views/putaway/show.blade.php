@@ -1759,37 +1759,9 @@
                     };
 
                     const matchesGa = !isOverride && modalGaCell && (cell.id == modalGaCell.id);
-                    const diffFromGa = !isOverride && modalGaCell && (cell.id != modalGaCell.id);
                     const capOk = cell.capacity_remaining >= capacityDemand(cell) && modalQty > 0;
 
-                    if (diffFromGa) {
-                        // ════ WARNING — sel berbeda dari rekomendasi GA, tapi tetap boleh lanjut ════
-                        $('#scanLoading').hide();
-                        $('#modalQrInput').prop('disabled', false);
-                        Swal.fire({
-                            icon: 'warning',
-                            title: 'Cell Berbeda dari Rekomendasi GA',
-                            html:
-                                '<p>Anda memindai <strong>' + cell.code + '</strong>, sedangkan GA merekomendasikan ' +
-                                '<strong>' + modalGaCell.code + '</strong>.</p>' +
-                                '<p class="mb-0 text-muted" style="font-size:13px">Tetap simpan di cell ini jika penempatan aktual memang berbeda.</p>',
-                            showCancelButton: true,
-                            confirmButtonText: 'Tetap Simpan di Sini',
-                            confirmButtonColor: '#f0ad4e',
-                            cancelButtonText: 'Scan Cell Lain',
-                            cancelButtonColor: '#6c757d',
-                        }).then(result => {
-                            if (result.isConfirmed) {
-                                isOverride = true;
-                                showScanResultSwal(cell, false, capOk);
-                            } else {
-                                $('#modalQrInput').val('').focus();
-                            }
-                        });
-
-                    } else {
-                        showScanResultSwal(cell, matchesGa, capOk);
-                    }
+                    showScanResultSwal(cell, matchesGa, capOk);
                 },
                 error: function(xhr) {
                     Swal.fire({
