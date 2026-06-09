@@ -345,7 +345,7 @@ class OutboundRequestController extends Controller
 
         $waktu   = now()->locale('id')->isoFormat('D MMM Y, HH:mm');
         $link    = route('outbound.requests.show', $obr->id);
-        $caption = "*[WMS Avian] Permintaan Outbound — {$obr->request_number}*\n"
+        $caption = "*[WMS Avian] Permintaan Outbound - {$obr->request_number}*\n"
                  . "Operator : {$obr->operator->name}\n"
                  . "Waktu    : {$waktu}\n"
                  . "Item     : {$obr->items->count()} jenis\n\n"
