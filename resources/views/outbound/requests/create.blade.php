@@ -494,7 +494,7 @@ $(function () {
                 var insufficient = res.items.filter(function (i) { return !i.sufficient; });
                 var tableRows = insufficient.map(function (i) {
                     var locText = i.locations.length
-                        ? i.locations.map(function (l) { return '<code style="font-size:11px;">' + escHtml(l) + '</code>'; }).join(' ')
+                        ? i.locations.map(function (l) { return '<code style="font-size:11px;margin-right:4px;">' + escHtml(l) + '</code>'; }).join('')
                         : '<span class="text-muted">–</span>';
                     return '<tr>'
                         + '<td style="text-align:left;padding:6px 8px;">'
@@ -519,24 +519,18 @@ $(function () {
                     + '</tr></thead>'
                     + '<tbody>' + tableRows + '</tbody>'
                     + '</table></div>'
-                    + '<p style="margin-top:10px;margin-bottom:0;color:#6b7280;font-size:12px;">Tetap kirim request? Supervisor akan melihat kekurangan stok ini.</p>'
                     + '</div>';
 
                 Swal.fire({
                     title: '<span style="font-size:18px;">⚠️ Stok Tidak Cukup</span>',
                     html:  html,
                     icon:  'warning',
-                    showCancelButton:   true,
-                    confirmButtonText:  '<i class="fas fa-paper-plane mr-1"></i> Tetap Kirim',
-                    cancelButtonText:   '<i class="fas fa-times mr-1"></i> Batal',
-                    confirmButtonColor: '#d97706',
-                    cancelButtonColor:  '#6b7280',
+                    showCancelButton:   false,
+                    confirmButtonText:  '<i class="fas fa-times mr-1"></i> Tutup',
+                    confirmButtonColor: '#6b7280',
                     width: 600,
-                }).then(function (result) {
-                    if (result.isConfirmed) {
-                        _forceSubmit = true;
-                        $('#formRequest').submit();
-                    }
+                }).then(function () {
+                    $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-paper-plane mr-1"></i> Kirim');
                 });
             },
             error: function () {
