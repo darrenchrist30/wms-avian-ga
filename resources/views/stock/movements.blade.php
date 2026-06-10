@@ -69,7 +69,6 @@
                     <option value="inbound">Masuk (Inbound)</option>
                     <option value="outbound">Keluar (Outbound)</option>
                     <option value="transfer">Transfer</option>
-                    <option value="adjust">Penyesuaian</option>
                 </select>
             </div>
             <div class="col-md-3 mb-2">
@@ -153,6 +152,7 @@ $(function () {
     });
 
     $('#btnFilter').on('click', () => table.ajax.reload());
+    $('#filterType, #filterWarehouse').on('change', () => table.ajax.reload());
     $('#btnReset').on('click', function () {
         $('#filterType, #filterWarehouse').val('');
         $('#filterDateFrom, #filterDateTo').val('');
