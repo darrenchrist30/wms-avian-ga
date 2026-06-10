@@ -53,7 +53,12 @@ class Warehouse3DController extends Controller
         if ($selectedWarehouse) {
             $wid = $selectedWarehouse->id;
             $totalCells = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->count();
-            $usedCells  = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))->where('is_active', true)->whereHas('stocks', fn($q) => $q->where('status', 'available')->where('quantity', '>', 0))->count();
+            $usedCells  = Cell::whereHas('rack', fn($q) => $q->where('warehouse_id', $wid))
+                ->where('is_active', true)
+                ->whereNotNull('blok')->whereNotNull('grup')->whereNotNull('kolom')
+                ->whereHas('stocks', fn($q) => $q->where('status', 'available')->where('quantity', '>', 0))
+                ->distinct()
+                ->count(DB::raw('CONCAT(blok,"-",grup,"-",kolom)'));
 
             $summary = [
                 'total_racks'   => Rack::where('warehouse_id', $wid)->where('is_active', true)->whereRaw("code NOT REGEXP '^[0-9]+[A-H]$'")->count(),
