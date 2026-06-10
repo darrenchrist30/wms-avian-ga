@@ -791,11 +791,7 @@ function doScan(code) {
     $.getJSON(batchScanUrl, { qr_code: code, override: 0, all_active: filterAllActive, start_date: filterStartDate, end_date: filterEndDate })
         .done(function(res) {
             if (res.status !== 'found' || !res.items || !res.items.length) {
-                setScanMsg(
-                    '<i class="fas fa-times-circle mr-1"></i> ' +
-                    (res.message || 'Tidak ada item aktif di cell ini.'),
-                    'text-danger'
-                );
+                doScanForce(code);
                 return;
             }
             pendingItems = res.items;
@@ -815,6 +811,27 @@ function doScan(code) {
         });
 }
 
+function doScanForce(code) {
+    $.getJSON(batchScanUrl, { qr_code: code, override: 1, force: 1, all_active: filterAllActive, start_date: filterStartDate, end_date: filterEndDate })
+        .done(function(res) {
+            if (res.status !== 'found' || !res.items || !res.items.length) {
+                setScanMsg(
+                    '<i class="fas fa-times-circle mr-1"></i> Tidak ada item pending di antrian.',
+                    'text-danger'
+                );
+                return;
+            }
+            pendingItems = res.items;
+            resetScanMsg();
+            buildConfirmModal(res);
+            $('#modalConfirm').modal('show');
+        })
+        .fail(function(xhr) {
+            var msg = xhr.responseJSON?.message || 'Gagal. Coba scan ulang.';
+            setScanMsg('<i class="fas fa-times-circle mr-1"></i> ' + msg, 'text-danger');
+        });
+}
+
 function buildConfirmModal(res) {
     var html = '<div class="px-3 pt-3 pb-1">';
     html += '<div class="alert alert-success py-2 mb-3">'
@@ -822,6 +839,12 @@ function buildConfirmModal(res) {
           + '<strong>Cell: ' + (res.display_code || '-') + '</strong>'
           + (res.display_rack !== '-' ? ' &nbsp;|&nbsp; Rak: ' + res.display_rack : '')
           + '</div>';
+
+    if (res.is_override) {
+        html += '<div class="alert alert-warning py-1 mb-2 small">'
+              + '<i class="fas fa-info-circle mr-1"></i>Tidak sesuai rekomendasi GA — dicatat sebagai override'
+              + '</div>';
+    }
 
     html += '<div class="font-weight-bold mb-2" style="font-size:14px;">'
           + res.items.length + ' item akan dikonfirmasi:</div>';

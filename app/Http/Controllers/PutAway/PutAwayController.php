@@ -553,12 +553,14 @@ class PutAwayController extends Controller
     public function batchScan(Request $request)
     {
         $request->validate([
-            'qr_code' => 'required|string',
+            'qr_code'  => 'required|string',
             'override' => 'nullable|boolean',
+            'force'    => 'nullable|boolean',
         ]);
 
-        $qrCode = $request->qr_code;
+        $qrCode     = $request->qr_code;
         $isOverride = $request->boolean('override');
+        $isForce    = $request->boolean('force');
 
         // Extract cell code from URL QR (e.g. http://host/c/1-A → 1-A)
         if (str_contains($qrCode, '/c/')) {
@@ -678,6 +680,29 @@ class PutAwayController extends Controller
                     }
                 }
             }
+        }
+
+        // Force override: tempatkan SEMUA item pending ke cell yang di-scan,
+        // tanpa peduli rekomendasi GA asalnya (follow_recommendation akan dicatat false)
+        if ($isForce) {
+            if (!$exactCell) {
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => "Cell '{$qrCode}' tidak ditemukan. Pastikan kode cell valid.",
+                ], 404);
+            }
+            $targetCell = $exactCell;
+            $isOverride = true;
+            $cellIds    = GaRecommendationDetail::whereHas('gaRecommendation', function ($q) use ($request) {
+                    $q->where('status', 'accepted')
+                      ->whereHas('inboundOrder', function ($q2) use ($request) {
+                          $q2->where('status', 'put_away');
+                          $this->applyQueueOrderFilters($q2, $request);
+                      });
+                })
+                ->whereHas('inboundOrderItem', fn($q) => $q->whereIn('status', ['pending', 'partial_put_away']))
+                ->pluck('cell_id')
+                ->unique();
         }
 
         if ($cellIds->isEmpty()) {
