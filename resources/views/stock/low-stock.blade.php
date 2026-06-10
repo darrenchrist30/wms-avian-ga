@@ -32,7 +32,7 @@
 
 {{-- Summary --}}
 <div class="row mb-3">
-    <div class="col-4 mb-2">
+    <div class="col-6 mb-2">
         <a href="{{ route('stock.low-stock', ['type' => 'empty']) }}" class="text-decoration-none">
         <div class="small-box bg-dark mb-0">
             <div class="inner"><h4>{{ number_format($summary['empty']) }} <small>SKU</small></h4><p>Stok Habis</p></div>
@@ -40,19 +40,11 @@
         </div>
         </a>
     </div>
-    <div class="col-4 mb-2">
+    <div class="col-6 mb-2">
         <a href="{{ route('stock.low-stock', ['type' => 'low']) }}" class="text-decoration-none">
         <div class="small-box bg-danger mb-0">
             <div class="inner"><h4>{{ number_format($summary['critical']) }} <small>SKU</small></h4><p>Di Bawah Minimum</p></div>
             <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
-        </div>
-        </a>
-    </div>
-    <div class="col-4 mb-2">
-        <a href="{{ route('stock.low-stock', ['type' => 'reorder']) }}" class="text-decoration-none">
-        <div class="small-box bg-warning mb-0">
-            <div class="inner"><h4>{{ number_format($summary['reorder']) }} <small>SKU</small></h4><p>Perlu Reorder</p></div>
-            <div class="icon"><i class="fas fa-exclamation-circle"></i></div>
         </div>
         </a>
     </div>
