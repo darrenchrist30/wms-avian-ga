@@ -24,7 +24,11 @@ class DashboardController extends Controller
         // ── KPI Utama ───────────────────────────────────────────────────────────
         $totalItems     = Item::where('is_active', true)->count();
         $totalCells     = Cell::where('is_active', true)->count();
-        $usedCells      = Cell::where('is_active', true)->whereIn('status', ['partial', 'full'])->count();
+        $usedCells      = Cell::where('is_active', true)
+            ->whereNotNull('blok')->whereNotNull('grup')->whereNotNull('kolom')
+            ->whereHas('stocks', fn($q) => $q->where('status', 'available')->where('quantity', '>', 0))
+            ->distinct()
+            ->count(\Illuminate\Support\Facades\DB::raw('CONCAT(blok,"-",grup,"-",kolom)'));
         $cellsFull      = Cell::where('is_active', true)->where('status', 'full')->count();
         $cellsPartial   = Cell::where('is_active', true)->where('status', 'partial')->count();
         $cellsEmpty     = Cell::where('is_active', true)->where('status', 'available')->count();
